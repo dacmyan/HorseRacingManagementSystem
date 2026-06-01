@@ -1,15 +1,17 @@
-# .NET build results
-bin/
-obj/
-out/
-publish/
-
-# Visual Studio
-.vs/
+# =========================
+# .NET / Backend
+# =========================
+**/bin/
+**/obj/
+**/out/
+**/publish/
 *.user
 *.suo
 *.userosscache
 *.sln.docstates
+
+# Visual Studio
+.vs/
 
 # Rider
 .idea/
@@ -20,23 +22,43 @@ publish/
 # Environment files
 .env
 .env.local
-appsettings.Local.json
-appsettings.Development.local.json
+**/.env
+**/.env.local
+**/appsettings.Local.json
+**/appsettings.Development.local.json
 
 # Logs
 logs/
+**/logs/
 *.log
 
+# Frontend / React
+node_modules/
+**/node_modules/
+dist/
+build/
+.vite/
+.env
+.env.local
+**/.env
+**/.env.local
+
+# =========================
 # OS files
+# =========================
 .DS_Store
 Thumbs.db
 
+# =========================
 # Test results
+# =========================
 TestResults/
 *.trx
 *.coverage
 *.coveragexml
 
+# =========================
 # NuGet
+# =========================
 *.nupkg
 packages/
