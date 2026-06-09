@@ -44,10 +44,67 @@ public class AuthService : IAuthService
                 RefreshToken = null,
                 User = new UserDto
                 {
-                    Id = user.Id,
+                    Id = user.UserId,
                     FullName = user.FullName,
                     Email = user.Email,
-                    Role = user.Role
+                    Role = user.Role?.Name ?? "Spectator"
+                }
+            }
+        };
+    }
+
+    public async Task<AuthResponse?> RegisterAsync(RegisterUserRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.FullName))
+        {
+            throw new ArgumentException("Full name is required.");
+        }
+        if (string.IsNullOrWhiteSpace(request.Email))
+        {
+            throw new ArgumentException("Email is required.");
+        }
+        if (string.IsNullOrWhiteSpace(request.Password) || request.Password.Length < 6)
+        {
+            throw new ArgumentException("Password must be at least 6 characters.");
+        }
+        if (request.Password != request.ConfirmPassword)
+        {
+            throw new ArgumentException("Confirm password does not match.");
+        }
+
+        var existingUser = await _userRepository.GetByEmailAsync(request.Email);
+        if (existingUser != null)
+        {
+            throw new ArgumentException("Email already exists.");
+        }
+
+        var newUser = new AppUser
+        {
+            Username = request.Email.Split('@')[0],
+            Email = request.Email,
+            FullName = request.FullName,
+            RoleId = 5 // Spectator role
+        };
+        newUser.PasswordHash = _passwordHasher.HashPassword(newUser, request.Password);
+
+        await _userRepository.AddAsync(newUser);
+        await _userRepository.SaveChangesAsync();
+
+        var token = _jwtTokenGenerator.GenerateToken(newUser);
+
+        return new AuthResponse
+        {
+            Message = "Register successful",
+            Result = new AuthResult
+            {
+                AccessToken = token,
+                RefreshToken = null,
+                User = new UserDto
+                {
+                    Id = newUser.UserId,
+                    FullName = newUser.FullName,
+                    Email = newUser.Email,
+                    Role = "Spectator"
                 }
             }
         };

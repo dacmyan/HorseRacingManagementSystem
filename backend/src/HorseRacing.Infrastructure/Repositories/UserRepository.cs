@@ -16,12 +16,12 @@ public class UserRepository : IUserRepository
 
     public async Task<AppUser?> GetByEmailAsync(string email)
     {
-        return await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+        return await _context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Email == email);
     }
 
     public async Task<AppUser?> GetByIdAsync(int id)
     {
-        return await _context.Users.FindAsync(id);
+        return await _context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.UserId == id);
     }
 
     public async Task AddAsync(AppUser user)
@@ -32,5 +32,30 @@ public class UserRepository : IUserRepository
     public async Task SaveChangesAsync()
     {
         await _context.SaveChangesAsync();
+    }
+
+    public async Task<Role?> GetRoleByNameAsync(string name)
+    {
+        return await _context.Roles.FirstOrDefaultAsync(r => r.Name.ToLower() == name.ToLower());
+    }
+
+    public async Task<IEnumerable<Role>> GetRolesAsync()
+    {
+        return await _context.Roles.ToListAsync();
+    }
+
+    public async Task AddJockeyProfileAsync(JockeyProfile profile)
+    {
+        await _context.JockeyProfiles.AddAsync(profile);
+    }
+
+    public async Task AddRefereeProfileAsync(RefereeProfile profile)
+    {
+        await _context.RefereeProfiles.AddAsync(profile);
+    }
+
+    public async Task AddWalletAsync(Wallet wallet)
+    {
+        await _context.Wallets.AddAsync(wallet);
     }
 }

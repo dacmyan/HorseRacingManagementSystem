@@ -8,4 +8,10 @@ public interface IUserRepository
     Task<AppUser?> GetByIdAsync(int id);
     Task AddAsync(AppUser user);
     Task SaveChangesAsync();
+
+    Task<Role?> GetRoleByNameAsync(string name);
+    Task<IEnumerable<Role>> GetRolesAsync();
+    Task AddJockeyProfileAsync(JockeyProfile profile);
+    Task AddRefereeProfileAsync(RefereeProfile profile);
+    Task AddWalletAsync(Wallet wallet);
 }

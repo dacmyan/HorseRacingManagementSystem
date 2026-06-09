@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
+#pragma warning disable CA1814 // Prefer jagged arrays over multidimensional
+
 namespace HorseRacing.Infrastructure.Migrations
 {
     /// <inheritdoc />
@@ -41,6 +43,19 @@ namespace HorseRacing.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Roles",
+                columns: table => new
+                {
+                    RoleId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Name = table.Column<string>(type: "nvarchar(max)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Roles", x => x.RoleId);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Tournaments",
                 columns: table => new
                 {
@@ -61,17 +76,25 @@ namespace HorseRacing.Infrastructure.Migrations
                 name: "Users",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
+                    UserId = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     Username = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     PasswordHash = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Email = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     FullName = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Role = table.Column<string>(type: "nvarchar(max)", nullable: false)
+                    RoleId = table.Column<int>(type: "int", nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Users", x => x.Id);
+                    table.PrimaryKey("PK_Users", x => x.UserId);
+                    table.ForeignKey(
+                        name: "FK_Users_Roles_RoleId",
+                        column: x => x.RoleId,
+                        principalTable: "Roles",
+                        principalColumn: "RoleId",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -115,7 +138,51 @@ namespace HorseRacing.Infrastructure.Migrations
                         name: "FK_Horses_Users_OwnerId",
                         column: x => x.OwnerId,
                         principalTable: "Users",
-                        principalColumn: "Id",
+                        principalColumn: "UserId",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "JockeyProfiles",
+                columns: table => new
+                {
+                    JockeyId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UserId = table.Column<int>(type: "int", nullable: false),
+                    ExperienceYears = table.Column<int>(type: "int", nullable: false),
+                    RankingPoint = table.Column<int>(type: "int", nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(max)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_JockeyProfiles", x => x.JockeyId);
+                    table.ForeignKey(
+                        name: "FK_JockeyProfiles_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "UserId",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "RefereeProfiles",
+                columns: table => new
+                {
+                    RefereeId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UserId = table.Column<int>(type: "int", nullable: false),
+                    LicenseNumber = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    ExperienceYears = table.Column<int>(type: "int", nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(max)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RefereeProfiles", x => x.RefereeId);
+                    table.ForeignKey(
+                        name: "FK_RefereeProfiles_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "UserId",
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -123,19 +190,19 @@ namespace HorseRacing.Infrastructure.Migrations
                 name: "Wallets",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
+                    WalletId = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     UserId = table.Column<int>(type: "int", nullable: false),
                     Balance = table.Column<decimal>(type: "decimal(18,2)", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Wallets", x => x.Id);
+                    table.PrimaryKey("PK_Wallets", x => x.WalletId);
                     table.ForeignKey(
                         name: "FK_Wallets_Users_UserId",
                         column: x => x.UserId,
                         principalTable: "Users",
-                        principalColumn: "Id",
+                        principalColumn: "UserId",
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -190,7 +257,7 @@ namespace HorseRacing.Infrastructure.Migrations
                         name: "FK_RaceEntries_Users_JockeyId",
                         column: x => x.JockeyId,
                         principalTable: "Users",
-                        principalColumn: "Id",
+                        principalColumn: "UserId",
                         onDelete: ReferentialAction.Restrict);
                 });
 
@@ -212,19 +279,59 @@ namespace HorseRacing.Infrastructure.Migrations
                         name: "FK_Transactions_Wallets_WalletId",
                         column: x => x.WalletId,
                         principalTable: "Wallets",
-                        principalColumn: "Id",
+                        principalColumn: "WalletId",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.InsertData(
+                table: "Roles",
+                columns: new[] { "RoleId", "Name" },
+                values: new object[,]
+                {
+                    { 1, "Admin" },
+                    { 2, "HorseOwner" },
+                    { 3, "Jockey" },
+                    { 4, "Referee" },
+                    { 5, "Spectator" }
+                });
+
+            migrationBuilder.InsertData(
                 table: "Users",
-                columns: new[] { "Id", "Email", "FullName", "PasswordHash", "Role", "Username" },
-                values: new object[] { 1, "admin@gmail.com", "Admin", "AQAAAAIAAYagAAAAEHvH3AAzNHCMJ8xZ+2tFvYcwLyCC8f/pHuJaw7v2cJ/nbr2ATwgWAbF+h5Rlr9fGRQ==", "Admin", "admin" });
+                columns: new[] { "UserId", "CreatedAt", "Email", "FullName", "PasswordHash", "RoleId", "Status", "Username" },
+                values: new object[,]
+                {
+                    { 1, new DateTime(2026, 6, 9, 0, 0, 0, 0, DateTimeKind.Utc), "admin@gmail.com", "Admin", "AQAAAAIAAYagAAAAEBHZnY+70v3ZN7pUL3rtSMWpbtyCbJEIdtaqX7t/btFc6c5ZWnNWY2TpZIPobFtCjg==", 1, "Active", "admin" },
+                    { 2, new DateTime(2026, 6, 9, 0, 0, 0, 0, DateTimeKind.Utc), "owner@gmail.com", "HorseOwner", "AQAAAAIAAYagAAAAECSVuDp0YQF9fcZ+QUrYzV2eEH+If+4JlZTibfpdFZpymN2n4nZk6mu4wxjLdrWShA==", 2, "Active", "owner" },
+                    { 3, new DateTime(2026, 6, 9, 0, 0, 0, 0, DateTimeKind.Utc), "jockey@gmail.com", "Jockey", "AQAAAAIAAYagAAAAELr6IVoiJvMKODJp6FQklyjvCjfGMFKeLmLMPpd9NbSUNBZttgbx3qxGH0A9jPa87A==", 3, "Active", "jockey" },
+                    { 4, new DateTime(2026, 6, 9, 0, 0, 0, 0, DateTimeKind.Utc), "referee@gmail.com", "Referee", "AQAAAAIAAYagAAAAEN4xH2tzD2r22z1nWMBfuUtr8fnHL+T9xpyRC+Olerw9nVEHE4CEHWAaIgvLYaxo8Q==", 4, "Active", "referee" },
+                    { 5, new DateTime(2026, 6, 9, 0, 0, 0, 0, DateTimeKind.Utc), "spectator@gmail.com", "Spectator", "AQAAAAIAAYagAAAAEJlcwSBzeiueDuCzXyYKX0O5EmlJ1gwYhh7ApgzautxHMfpNfMST9jX6Q8KOJbzoKg==", 5, "Active", "spectator" }
+                });
+
+            migrationBuilder.InsertData(
+                table: "JockeyProfiles",
+                columns: new[] { "JockeyId", "ExperienceYears", "RankingPoint", "Status", "UserId" },
+                values: new object[] { 1, 3, 100, "Active", 3 });
+
+            migrationBuilder.InsertData(
+                table: "RefereeProfiles",
+                columns: new[] { "RefereeId", "ExperienceYears", "LicenseNumber", "Status", "UserId" },
+                values: new object[] { 1, 5, "LIC-REF-001", "Active", 4 });
+
+            migrationBuilder.InsertData(
+                table: "Wallets",
+                columns: new[] { "WalletId", "Balance", "UserId" },
+                values: new object[] { 1, 0m, 5 });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Horses_OwnerId",
                 table: "Horses",
                 column: "OwnerId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_JockeyProfiles_UserId",
+                table: "JockeyProfiles",
+                column: "UserId",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_RaceEntries_HorseId",
@@ -247,9 +354,20 @@ namespace HorseRacing.Infrastructure.Migrations
                 column: "TournamentId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_RefereeProfiles_UserId",
+                table: "RefereeProfiles",
+                column: "UserId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Transactions_WalletId",
                 table: "Transactions",
                 column: "WalletId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Users_RoleId",
+                table: "Users",
+                column: "RoleId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Violations_RaceId",
@@ -259,12 +377,16 @@ namespace HorseRacing.Infrastructure.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_Wallets_UserId",
                 table: "Wallets",
-                column: "UserId");
+                column: "UserId",
+                unique: true);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropTable(
+                name: "JockeyProfiles");
+
             migrationBuilder.DropTable(
                 name: "Predictions");
 
@@ -273,6 +395,9 @@ namespace HorseRacing.Infrastructure.Migrations
 
             migrationBuilder.DropTable(
                 name: "RaceResults");
+
+            migrationBuilder.DropTable(
+                name: "RefereeProfiles");
 
             migrationBuilder.DropTable(
                 name: "Transactions");
@@ -294,6 +419,9 @@ namespace HorseRacing.Infrastructure.Migrations
 
             migrationBuilder.DropTable(
                 name: "Tournaments");
+
+            migrationBuilder.DropTable(
+                name: "Roles");
         }
     }
 }
