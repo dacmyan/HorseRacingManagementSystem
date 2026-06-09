@@ -19,6 +19,22 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+
+        modelBuilder.Entity<RaceEntry>(entity =>
+        {
+            entity.HasOne(re => re.Jockey)
+                .WithMany()
+                .HasForeignKey(re => re.JockeyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(re => re.Horse)
+                .WithMany()
+                .HasForeignKey(re => re.HorseId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.SeedData();
+
         base.OnModelCreating(modelBuilder);
     }
 }
