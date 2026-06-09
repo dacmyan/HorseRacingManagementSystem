@@ -1,0 +1,13 @@
+namespace HorseRacing.Domain.Entities;
+
+public class RaceEntry
+{
+    public int Id { get; set; }
+    public int RaceId { get; set; }
+    public Race? Race { get; set; }
+    public int HorseId { get; set; }
+    public Horse? Horse { get; set; }
+    public int JockeyId { get; set; }
+    public AppUser? Jockey { get; set; }
+    public string Status { get; set; } = string.Empty;
+}

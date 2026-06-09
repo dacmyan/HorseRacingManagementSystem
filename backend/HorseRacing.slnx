@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/HorseRacing.API/HorseRacing.API.csproj" />
+    <Project Path="src/HorseRacing.Application/HorseRacing.Application.csproj" />
+    <Project Path="src/HorseRacing.Domain/HorseRacing.Domain.csproj" />
+    <Project Path="src/HorseRacing.Infrastructure/HorseRacing.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/HorseRacing.Tests/HorseRacing.Tests.csproj" />
+  </Folder>
+</Solution>
