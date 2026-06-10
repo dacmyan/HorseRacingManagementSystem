@@ -18,6 +18,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Wallet>            Wallets      { get; set; }
     public DbSet<WalletTransaction> Transactions { get; set; }
     public DbSet<Prediction>        Predictions  { get; set; }
+    public DbSet<Bet>               Bets         { get; set; }
+    public DbSet<Payout>            Payouts      { get; set; }
+    public DbSet<Prize>             Prizes       { get; set; }
+    public DbSet<TournamentPrizePayout> TournamentPrizePayouts { get; set; }
+    public DbSet<Notification>      Notifications { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -75,6 +80,63 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .WithMany()
                 .HasForeignKey(re => re.HorseId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Bet>(entity =>
+        {
+            entity.HasKey(b => b.Id);
+            entity.HasOne(b => b.User)
+                .WithMany()
+                .HasForeignKey(b => b.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(b => b.Race)
+                .WithMany()
+                .HasForeignKey(b => b.RaceId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(b => b.Horse)
+                .WithMany()
+                .HasForeignKey(b => b.HorseId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Payout>(entity =>
+        {
+            entity.HasKey(p => p.Id);
+            entity.HasOne(p => p.Bet)
+                .WithMany()
+                .HasForeignKey(p => p.BetId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Prize>(entity =>
+        {
+            entity.HasKey(pr => pr.Id);
+            entity.HasOne(pr => pr.Tournament)
+                .WithMany()
+                .HasForeignKey(pr => pr.TournamentId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TournamentPrizePayout>(entity =>
+        {
+            entity.HasKey(tpp => tpp.Id);
+            entity.HasOne(tpp => tpp.Tournament)
+                .WithMany()
+                .HasForeignKey(tpp => tpp.TournamentId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(tpp => tpp.User)
+                .WithMany()
+                .HasForeignKey(tpp => tpp.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Notification>(entity =>
+        {
+            entity.HasKey(n => n.Id);
+            entity.HasOne(n => n.User)
+                .WithMany()
+                .HasForeignKey(n => n.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.SeedData();

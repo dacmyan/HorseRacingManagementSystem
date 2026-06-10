@@ -3,6 +3,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using HorseRacing.Infrastructure.Persistence;
 using HorseRacing.Application.Features.UserManagement.Interfaces;
+using HorseRacing.Application.Features.BettingEngine.Interfaces;
+using HorseRacing.Application.Features.FinancialRewards.Interfaces;
+using HorseRacing.Application.Features.Notifications.Interfaces;
 using HorseRacing.Application.Common.Interfaces;
 using HorseRacing.Infrastructure.Repositories;
 using HorseRacing.Infrastructure.ExternalServices;
@@ -19,6 +22,12 @@ public static class DependencyInjection
                 b => b.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName)));
 
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IBetRepository, BetRepository>();
+        services.AddScoped<IWalletRepository, WalletRepository>();
+        services.AddScoped<IWalletTransactionRepository, WalletTransactionRepository>();
+        services.AddScoped<INotificationRepository, NotificationRepository>();
+        services.AddScoped<IPayoutRepository, PayoutRepository>();
+        services.AddScoped<IPrizeRepository, PrizeRepository>();
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 
         return services;
