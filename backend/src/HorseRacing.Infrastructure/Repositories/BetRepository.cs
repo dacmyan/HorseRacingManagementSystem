@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using HorseRacing.Application.Features.BettingEngine.Interfaces;
 using HorseRacing.Domain.Entities;
+using HorseRacing.Domain.Entities.Tournaments;
 using HorseRacing.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -36,7 +37,7 @@ public class BetRepository : IBetRepository
             .ToListAsync();
     }
 
-    public async Task<IEnumerable<Bet>> GetByRaceIdAsync(int raceId)
+    public async Task<IEnumerable<Bet>> GetByRaceIdAsync(long raceId)
     {
         return await _context.Bets
             .Include(b => b.User)
@@ -55,23 +56,23 @@ public class BetRepository : IBetRepository
         await _context.SaveChangesAsync();
     }
 
-    public async Task<Race?> GetRaceByIdAsync(int raceId)
+    public async Task<Race?> GetRaceByIdAsync(long raceId)
     {
-        return await _context.Races.FirstOrDefaultAsync(r => r.Id == raceId);
+        return await _context.Races.FirstOrDefaultAsync(r => r.RaceId == raceId);
     }
 
-    public async Task<bool> IsHorseInRaceAsync(int raceId, int horseId)
+    public async Task<bool> IsHorseInRaceAsync(long raceId, int horseId)
     {
         return await _context.RaceEntries
             .AnyAsync(re => re.RaceId == raceId && re.HorseId == horseId);
     }
 
-    public async Task<RaceResult?> GetRaceResultAsync(int raceId)
+    public async Task<RaceResult?> GetRaceResultAsync(long raceId)
     {
         return await _context.RaceResults.FirstOrDefaultAsync(rr => rr.RaceId == raceId);
     }
 
-    public async Task<RaceEntry?> GetRaceEntryAsync(int raceId, int horseId)
+    public async Task<RaceEntry?> GetRaceEntryAsync(long raceId, int horseId)
     {
         return await _context.RaceEntries.FirstOrDefaultAsync(re => re.RaceId == raceId && re.HorseId == horseId);
     }
@@ -85,26 +86,26 @@ public class BetRepository : IBetRepository
         return await _context.Horses.Include(h => h.Owner).FirstOrDefaultAsync(h => h.Name.ToLower() == identifier.ToLower());
     }
 
-    public async Task<Tournament?> GetTournamentByIdAsync(int tournamentId)
+    public async Task<Tournament?> GetTournamentByIdAsync(long tournamentId)
     {
-        return await _context.Tournaments.FirstOrDefaultAsync(t => t.Id == tournamentId);
+        return await _context.Tournaments.FirstOrDefaultAsync(t => t.TournamentId == tournamentId);
     }
 
-    public async Task<Race?> GetFinalRaceInTournamentAsync(int tournamentId)
+    public async Task<Race?> GetFinalRaceInTournamentAsync(long tournamentId)
     {
         return await _context.Races
-            .Where(r => r.TournamentId == tournamentId && r.Status == "Finished")
-            .OrderByDescending(r => r.ScheduledTime)
+            .Where(r => r.Round != null && r.Round.TournamentId == tournamentId && r.Status == "Finished")
+            .OrderByDescending(r => r.RaceDate)
             .FirstOrDefaultAsync();
     }
 
-    public async Task<Prediction?> GetPredictionAsync(int raceId, int userId)
+    public async Task<Prediction?> GetPredictionAsync(long raceId, int userId)
     {
         return await _context.Predictions
             .FirstOrDefaultAsync(p => p.RaceId == raceId && p.UserId == userId);
     }
 
-    public async Task<IEnumerable<Prediction>> GetPredictionsByRaceIdAsync(int raceId)
+    public async Task<IEnumerable<Prediction>> GetPredictionsByRaceIdAsync(long raceId)
     {
         return await _context.Predictions
             .Where(p => p.RaceId == raceId)

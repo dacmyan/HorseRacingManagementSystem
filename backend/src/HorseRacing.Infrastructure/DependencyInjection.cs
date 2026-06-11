@@ -8,6 +8,7 @@ using HorseRacing.Application.Features.FinancialRewards.Interfaces;
 using HorseRacing.Application.Features.Notifications.Interfaces;
 using HorseRacing.Application.Features.HorseManagement.Interfaces;
 using HorseRacing.Application.Features.ContractAndRegistration.Interfaces;
+using HorseRacing.Application.Features.TournamentAndRacing.Interfaces;
 using HorseRacing.Application.Common.Interfaces;
 using HorseRacing.Infrastructure.Repositories;
 using HorseRacing.Infrastructure.ExternalServices;
@@ -33,6 +34,8 @@ public static class DependencyInjection
         services.AddScoped<INotificationRepository, NotificationRepository>();
         services.AddScoped<IPayoutRepository, PayoutRepository>();
         services.AddScoped<IPrizeRepository, PrizeRepository>();
+        services.AddScoped<ITournamentRepository, TournamentRepository>();
+        services.AddScoped<IRaceRepository, RaceRepository>();
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 
         return services;

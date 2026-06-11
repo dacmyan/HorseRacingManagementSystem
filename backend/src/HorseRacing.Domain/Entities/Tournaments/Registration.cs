@@ -1,5 +1,7 @@
 namespace HorseRacing.Domain.Entities;
 
+using HorseRacing.Domain.Entities.Tournaments;
+
 public class Registration
 {
     public int Id { get; set; }
