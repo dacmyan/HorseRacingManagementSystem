@@ -5,6 +5,7 @@ using HorseRacing.Application.Features.FinancialRewards.DTOs;
 using HorseRacing.Application.Features.FinancialRewards.Interfaces;
 using HorseRacing.Application.Features.Notifications.Interfaces;
 using HorseRacing.Domain.Entities;
+using HorseRacing.Domain.Entities.Tournaments;
 
 namespace HorseRacing.Application.Features.FinancialRewards.Services;
 
@@ -60,10 +61,10 @@ public class PrizePayoutService : IPrizePayoutService
             throw new InvalidOperationException($"No finished races found for tournament ID {request.TournamentId}. Cannot distribute prizes without results.");
         }
 
-        var result = await _betRepository.GetRaceResultAsync(finalRace.Id);
+        var result = await _betRepository.GetRaceResultAsync(finalRace.RaceId);
         if (result == null || string.IsNullOrWhiteSpace(result.Winner))
         {
-            throw new InvalidOperationException($"No published results or winner found for the final race (ID {finalRace.Id}) of tournament ID {request.TournamentId}.");
+            throw new InvalidOperationException($"No published results or winner found for the final race (ID {finalRace.RaceId}) of tournament ID {request.TournamentId}.");
         }
 
         var winningHorse = await _betRepository.GetHorseByIdOrNameAsync(result.Winner);
@@ -72,10 +73,10 @@ public class PrizePayoutService : IPrizePayoutService
             throw new InvalidOperationException($"Winning horse '{result.Winner}' from final race results could not be found.");
         }
 
-        var winningEntry = await _betRepository.GetRaceEntryAsync(finalRace.Id, winningHorse.Id);
+        var winningEntry = await _betRepository.GetRaceEntryAsync(finalRace.RaceId, winningHorse.Id);
         if (winningEntry == null)
         {
-            throw new InvalidOperationException($"Could not find the race entry matching horse '{winningHorse.Name}' in final race ID {finalRace.Id}.");
+            throw new InvalidOperationException($"Could not find the race entry matching horse '{winningHorse.Name}' in final race ID {finalRace.RaceId}.");
         }
 
         var firstPrize = await _prizeRepository.GetByTournamentAndRankAsync(request.TournamentId, 1);

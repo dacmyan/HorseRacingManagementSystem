@@ -5,6 +5,8 @@ using HorseRacing.Application.Features.Notifications.Interfaces;
 using HorseRacing.Application.Features.Notifications.DTOs;
 using HorseRacing.Application.Features.UserManagement.DTOs;
 using HorseRacing.Application.Features.HorseManagement.DTOs;
+using HorseRacing.Application.Features.TournamentAndRacing.DTOs;
+using HorseRacing.Application.Features.TournamentAndRacing.Services;
 using HorseRacing.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -19,11 +21,13 @@ public class PublicController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly INotificationService _notificationService;
+    private readonly IRaceService _raceService;
 
-    public PublicController(AppDbContext context, INotificationService notificationService)
+    public PublicController(AppDbContext context, INotificationService notificationService, IRaceService raceService)
     {
         _context = context;
         _notificationService = notificationService;
+        _raceService = raceService;
     }
 
     private int GetCurrentUserId()
@@ -141,6 +145,21 @@ public class PublicController : ControllerBase
         catch (Exception ex)
         {
             return StatusCode(500, new { message = "An error occurred updating notification", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("races/schedule")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetPublicRaceSchedule()
+    {
+        try
+        {
+            var schedule = await _raceService.GetPublicRaceScheduleAsync();
+            return Ok(new { message = "Public race schedule retrieved successfully", result = schedule });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving public race schedule", detail = ex.Message });
         }
     }
 }

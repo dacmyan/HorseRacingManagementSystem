@@ -5,6 +5,7 @@ using HorseRacing.Application.Features.BettingEngine.Interfaces;
 using HorseRacing.Application.Features.FinancialRewards.Interfaces;
 using HorseRacing.Application.Features.Notifications.Interfaces;
 using HorseRacing.Domain.Entities;
+using HorseRacing.Domain.Entities.Tournaments;
 
 namespace HorseRacing.Application.Features.FinancialRewards.Services;
 
@@ -30,7 +31,7 @@ public class BetPayoutService : IBetPayoutService
         _notificationRepository = notificationRepository;
     }
 
-    public async Task ProcessPayoutAsync(int raceId)
+    public async Task ProcessPayoutAsync(long raceId)
     {
         var race = await _betRepository.GetRaceByIdAsync(raceId);
         if (race == null)

@@ -8,6 +8,7 @@ using HorseRacing.Application.Features.FinancialRewards.Interfaces;
 using HorseRacing.Application.Features.FinancialRewards.Services;
 using HorseRacing.Application.Features.Notifications.Interfaces;
 using HorseRacing.Application.Features.Notifications.Services;
+using HorseRacing.Application.Features.TournamentAndRacing.Services;
 
 namespace HorseRacing.API.Extensions;
 
@@ -26,6 +27,8 @@ public static class ServiceExtensions
         services.AddScoped<IBetPayoutService, BetPayoutService>();
         services.AddScoped<IPrizePayoutService, PrizePayoutService>();
         services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<ITournamentService, TournamentService>();
+        services.AddScoped<IRaceService, RaceService>();
 
         return services;
     }

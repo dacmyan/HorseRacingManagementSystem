@@ -29,7 +29,7 @@ public class BettingService : IBettingService
         _notificationRepository = notificationRepository;
     }
 
-    public async Task<decimal> CalculateCurrentOddsAsync(int raceId, int horseId)
+    public async Task<decimal> CalculateCurrentOddsAsync(long raceId, int horseId)
     {
         var bets = await _betRepository.GetByRaceIdAsync(raceId);
         var activeBets = bets.Where(b => b.Status != "Refunded").ToList();

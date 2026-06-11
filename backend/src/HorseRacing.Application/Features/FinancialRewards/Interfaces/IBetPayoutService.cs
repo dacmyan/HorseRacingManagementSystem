@@ -4,5 +4,5 @@ namespace HorseRacing.Application.Features.FinancialRewards.Interfaces;
 
 public interface IBetPayoutService
 {
-    Task ProcessPayoutAsync(int raceId);
+    Task ProcessPayoutAsync(long raceId);
 }
