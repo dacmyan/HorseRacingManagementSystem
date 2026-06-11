@@ -132,9 +132,9 @@ public class AdminController : ControllerBase
         {
             return BadRequest(new { message = ex.Message });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new { message = "An error occurred during tournament creation", detail = ex.Message });
+            return StatusCode(500, new { message = "An error occurred during tournament creation" });
         }
     }
 
@@ -151,9 +151,9 @@ public class AdminController : ControllerBase
         {
             return BadRequest(new { message = ex.Message });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new { message = "An error occurred during race scheduling", detail = ex.Message });
+            return StatusCode(500, new { message = "An error occurred during race scheduling" });
         }
     }
 }

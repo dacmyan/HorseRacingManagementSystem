@@ -9,4 +9,6 @@ public interface IRaceRepository
     Task AddAsync(Race race);
     Task SaveChangesAsync();
     Task<List<Race>> GetPublicRaceScheduleAsync();
+    Task<Round?> GetRoundByIdAsync(long roundId);
+    Task<Race?> GetByIdWithDetailsAsync(long raceId);
 }

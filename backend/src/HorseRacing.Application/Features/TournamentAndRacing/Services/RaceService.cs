@@ -29,9 +29,33 @@ public class RaceService : IRaceService
             throw new ArgumentException("Race name cannot be empty.", nameof(request.Name));
         }
 
+        var round = await _raceRepository.GetRoundByIdAsync(request.RoundId);
+        if (round == null)
+        {
+            throw new ArgumentException("Round does not exist.", nameof(request.RoundId));
+        }
+
         if (request.DistanceMeter <= 0)
         {
             throw new ArgumentException("Distance must be greater than zero.", nameof(request.DistanceMeter));
+        }
+
+        if (request.MaxLanes <= 0)
+        {
+            throw new ArgumentException("Max lanes must be greater than zero.", nameof(request.MaxLanes));
+        }
+
+        if (request.RaceDate == default)
+        {
+            throw new ArgumentException("Race date is invalid.", nameof(request.RaceDate));
+        }
+
+        if (round.StartDate.HasValue && round.EndDate.HasValue)
+        {
+            if (request.RaceDate < round.StartDate.Value || request.RaceDate > round.EndDate.Value)
+            {
+                throw new ArgumentException($"Race date must be between {round.StartDate.Value:yyyy-MM-dd} and {round.EndDate.Value:yyyy-MM-dd}.", nameof(request.RaceDate));
+            }
         }
 
         var race = new Race
@@ -40,27 +64,30 @@ public class RaceService : IRaceService
             Name = request.Name,
             RaceDate = request.RaceDate,
             DistanceMeter = request.DistanceMeter,
-            MaxLanes = request.MaxLanes > 0 ? request.MaxLanes : 10,
+            MaxLanes = request.MaxLanes,
             Status = "Scheduled"
         };
 
         await _raceRepository.AddAsync(race);
         await _raceRepository.SaveChangesAsync();
 
-        var schedule = await _raceRepository.GetPublicRaceScheduleAsync();
-        var savedRace = schedule.FirstOrDefault(r => r.RaceId == race.RaceId);
+        var savedRace = await _raceRepository.GetByIdWithDetailsAsync(race.RaceId);
+        if (savedRace == null)
+        {
+            throw new InvalidOperationException("Failed to retrieve the created race.");
+        }
 
         return new RaceScheduleResponse
         {
-            RaceId = race.RaceId,
-            RoundId = race.RoundId,
-            Name = race.Name,
-            RaceDate = race.RaceDate,
-            DistanceMeter = race.DistanceMeter,
-            MaxLanes = race.MaxLanes,
-            Status = race.Status,
-            RoundName = savedRace?.Round?.Name ?? string.Empty,
-            TournamentName = savedRace?.Round?.Tournament?.Name ?? string.Empty
+            RaceId = savedRace.RaceId,
+            RoundId = savedRace.RoundId,
+            Name = savedRace.Name ?? string.Empty,
+            RaceDate = savedRace.RaceDate,
+            DistanceMeter = savedRace.DistanceMeter,
+            MaxLanes = savedRace.MaxLanes,
+            Status = savedRace.Status,
+            RoundName = savedRace.Round?.Name ?? string.Empty,
+            TournamentName = savedRace.Round?.Tournament?.Name ?? string.Empty
         };
     }
 

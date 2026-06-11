@@ -157,9 +157,9 @@ public class PublicController : ControllerBase
             var schedule = await _raceService.GetPublicRaceScheduleAsync();
             return Ok(new { message = "Public race schedule retrieved successfully", result = schedule });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new { message = "An error occurred retrieving public race schedule", detail = ex.Message });
+            return StatusCode(500, new { message = "An error occurred retrieving public race schedule" });
         }
     }
 }
