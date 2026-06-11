@@ -1,11 +1,12 @@
 using System;
+using HorseRacing.Domain.Entities.Tournaments;
 
 namespace HorseRacing.Domain.Entities;
 
 public class TournamentPrizePayout
 {
     public int Id { get; set; }
-    public int TournamentId { get; set; }
+    public long TournamentId { get; set; }
     public Tournament? Tournament { get; set; }
     public int UserId { get; set; }
     public AppUser? User { get; set; }

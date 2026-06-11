@@ -8,5 +8,5 @@ public interface IBettingService
 {
     Task<BetTicketResponse> PlaceBetAsync(int userId, PlaceBetRequest request);
     Task<IEnumerable<BetTicketResponse>> GetMyBetsAsync(int userId);
-    Task<decimal> CalculateCurrentOddsAsync(int raceId, int horseId);
+    Task<decimal> CalculateCurrentOddsAsync(long raceId, int horseId);
 }

@@ -1,4 +1,5 @@
 using HorseRacing.Domain.Entities;
+using HorseRacing.Domain.Entities.Tournaments;
 using Microsoft.EntityFrameworkCore;
 
 namespace HorseRacing.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<RefereeProfile>    RefereeProfiles { get; set; }
     public DbSet<Horse>             Horses       { get; set; }
     public DbSet<Tournament>        Tournaments  { get; set; }
+    public DbSet<Round>             Rounds       { get; set; }
     public DbSet<Race>              Races        { get; set; }
     public DbSet<RaceEntry>         RaceEntries  { get; set; }
     public DbSet<RaceResult>        RaceResults  { get; set; }
+    public DbSet<RaceRefereeAssignment> RaceRefereeAssignments { get; set; }
     public DbSet<RaceViolation>     Violations   { get; set; }
     public DbSet<Wallet>            Wallets      { get; set; }
     public DbSet<WalletTransaction> Transactions { get; set; }
@@ -137,6 +140,19 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .WithMany()
                 .HasForeignKey(n => n.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<RaceRefereeAssignment>(entity =>
+        {
+            entity.HasKey(rra => rra.AssignmentId);
+            entity.HasOne(rra => rra.Race)
+                .WithMany(r => r.RaceRefereeAssignments)
+                .HasForeignKey(rra => rra.RaceId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(rra => rra.RefereeProfile)
+                .WithMany()
+                .HasForeignKey(rra => rra.RefereeId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.SeedData();

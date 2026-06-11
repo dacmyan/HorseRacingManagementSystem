@@ -1,4 +1,5 @@
 using System;
+using HorseRacing.Domain.Entities.Tournaments;
 
 namespace HorseRacing.Domain.Entities;
 
@@ -7,7 +8,7 @@ public class Bet
     public int Id { get; set; }
     public int UserId { get; set; }
     public AppUser? User { get; set; }
-    public int RaceId { get; set; }
+    public long RaceId { get; set; }
     public Race? Race { get; set; }
     public int HorseId { get; set; }
     public Horse? Horse { get; set; }
