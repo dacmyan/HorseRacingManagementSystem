@@ -126,34 +126,34 @@ public class AdminController : ControllerBase
         try
         {
             var response = await _tournamentService.CreateTournamentAsync(request);
-            return Ok(response);
+            return StatusCode(StatusCodes.Status201Created, response);
         }
         catch (ArgumentException ex)
         {
             return BadRequest(new { message = ex.Message });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new { message = "An error occurred during tournament creation", detail = ex.Message });
+            return StatusCode(500, new { message = "An error occurred during tournament creation" });
         }
     }
 
     [HttpPost("races")]
-    
+
     public async Task<IActionResult> CreateRace([FromBody] CreateRaceRequest request)
     {
         try
         {
             var response = await _raceService.CreateRaceAsync(request);
-            return Ok(response);
+            return StatusCode(StatusCodes.Status201Created, response);
         }
         catch (ArgumentException ex)
         {
             return BadRequest(new { message = ex.Message });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new { message = "An error occurred during race scheduling", detail = ex.Message });
+            return StatusCode(500, new { message = "An error occurred during race scheduling" });
         }
     }
 }
