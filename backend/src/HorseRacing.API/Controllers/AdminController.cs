@@ -126,7 +126,7 @@ public class AdminController : ControllerBase
         try
         {
             var response = await _tournamentService.CreateTournamentAsync(request);
-            return Ok(response);
+            return StatusCode(StatusCodes.Status201Created, response);
         }
         catch (ArgumentException ex)
         {
@@ -139,13 +139,13 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("races")]
-    
+
     public async Task<IActionResult> CreateRace([FromBody] CreateRaceRequest request)
     {
         try
         {
             var response = await _raceService.CreateRaceAsync(request);
-            return Ok(response);
+            return StatusCode(StatusCodes.Status201Created, response);
         }
         catch (ArgumentException ex)
         {
