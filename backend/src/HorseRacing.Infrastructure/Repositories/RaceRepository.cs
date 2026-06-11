@@ -26,11 +26,11 @@ public class RaceRepository : IRaceRepository
         await _context.SaveChangesAsync();
     }
 
-    public async Task<List<Race>> GetPublicRaceScheduleAsync()
-    {
-        return await _context.Races
-            .Include(r => r.Round)
-                .ThenInclude(round => round.Tournament)
-            .ToListAsync();
-    }
+   public async Task<List<Race>> GetPublicRaceScheduleAsync()
+{
+    return await _context.Races
+        .Include(r => r.Round)
+            .ThenInclude(round => round!.Tournament)
+        .ToListAsync();
+}
 }
