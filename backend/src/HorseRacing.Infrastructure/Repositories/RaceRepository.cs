@@ -30,7 +30,7 @@ public class RaceRepository : IRaceRepository
     {
         return await _context.Races
             .Include(r => r.Round)
-            .ThenInclude(r => r != null ? r.Tournament : null)
+                .ThenInclude(round => round!.Tournament)
             .ToListAsync();
     }
 }

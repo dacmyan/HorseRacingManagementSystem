@@ -120,16 +120,13 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("tournaments")]
+    
     public async Task<IActionResult> CreateTournament([FromBody] CreateTournamentRequest request)
     {
         try
         {
             var response = await _tournamentService.CreateTournamentAsync(request);
-            return CreatedAtAction(nameof(TestAdminAuthorization), new { id = response.TournamentId }, new
-            {
-                message = "Tournament created successfully",
-                result = response
-            });
+            return Ok(response);
         }
         catch (ArgumentException ex)
         {
@@ -142,16 +139,13 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("races")]
+    
     public async Task<IActionResult> CreateRace([FromBody] CreateRaceRequest request)
     {
         try
         {
             var response = await _raceService.CreateRaceAsync(request);
-            return CreatedAtAction(nameof(TestAdminAuthorization), new { id = response.RaceId }, new
-            {
-                message = "Race created and scheduled successfully",
-                result = response
-            });
+            return Ok(response);
         }
         catch (ArgumentException ex)
         {
