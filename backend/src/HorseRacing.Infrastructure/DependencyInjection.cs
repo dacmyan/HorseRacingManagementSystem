@@ -6,6 +6,8 @@ using HorseRacing.Application.Features.UserManagement.Interfaces;
 using HorseRacing.Application.Features.BettingEngine.Interfaces;
 using HorseRacing.Application.Features.FinancialRewards.Interfaces;
 using HorseRacing.Application.Features.Notifications.Interfaces;
+using HorseRacing.Application.Features.HorseManagement.Interfaces;
+using HorseRacing.Application.Features.ContractAndRegistration.Interfaces;
 using HorseRacing.Application.Common.Interfaces;
 using HorseRacing.Infrastructure.Repositories;
 using HorseRacing.Infrastructure.ExternalServices;
@@ -22,6 +24,9 @@ public static class DependencyInjection
                 b => b.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName)));
 
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IHorseRepository, HorseRepository>();
+        services.AddScoped<IJockeyContractRepository, JockeyContractRepository>();
+        services.AddScoped<IRegistrationRepository, RegistrationRepository>();
         services.AddScoped<IBetRepository, BetRepository>();
         services.AddScoped<IWalletRepository, WalletRepository>();
         services.AddScoped<IWalletTransactionRepository, WalletTransactionRepository>();

@@ -127,7 +127,7 @@ graph TD
     Controller -.->|10. Trả Response JSON| Client
 
     subgraph API Layer
-        Controller
+        Controller 
     end
     subgraph Application Layer
         Service

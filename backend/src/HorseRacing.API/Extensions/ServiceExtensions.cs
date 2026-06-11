@@ -8,6 +8,10 @@ using HorseRacing.Application.Features.FinancialRewards.Interfaces;
 using HorseRacing.Application.Features.FinancialRewards.Services;
 using HorseRacing.Application.Features.Notifications.Interfaces;
 using HorseRacing.Application.Features.Notifications.Services;
+using HorseRacing.Application.Features.HorseManagement.Interfaces;
+using HorseRacing.Application.Features.HorseManagement.Services;
+using HorseRacing.Application.Features.ContractAndRegistration.Interfaces;
+using HorseRacing.Application.Features.ContractAndRegistration.Services;
 
 namespace HorseRacing.API.Extensions;
 
@@ -20,6 +24,10 @@ public static class ServiceExtensions
 
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IAdminService, AdminService>();
+        services.AddScoped<IHorseService, HorseService>();
+        services.AddScoped<IHorseDocumentService, HorseDocumentService>();
+        services.AddScoped<IJockeyContractService, JockeyContractService>();
+        services.AddScoped<IRegistrationService, RegistrationService>();
         services.AddScoped<IBettingService, BettingService>();
         services.AddScoped<IPredictionService, PredictionService>();
         services.AddScoped<IWalletService, WalletService>();

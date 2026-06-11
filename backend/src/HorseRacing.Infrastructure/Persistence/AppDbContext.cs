@@ -13,6 +13,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Tournament>        Tournaments  { get; set; }
     public DbSet<Race>              Races        { get; set; }
     public DbSet<RaceEntry>         RaceEntries  { get; set; }
+    public DbSet<Registration>      Registrations { get; set; }
+    public DbSet<JockeyContract>    JockeyContracts { get; set; }
     public DbSet<RaceResult>        RaceResults  { get; set; }
     public DbSet<RaceViolation>     Violations   { get; set; }
     public DbSet<Wallet>            Wallets      { get; set; }
@@ -23,6 +25,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Prize>             Prizes       { get; set; }
     public DbSet<TournamentPrizePayout> TournamentPrizePayouts { get; set; }
     public DbSet<Notification>      Notifications { get; set; }
+    public DbSet<HorseDocument>     HorseDocuments { get; set; }
+    public DbSet<HorseStatistic>    HorseStatistics { get; set; }
+    
+
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -69,6 +75,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+
         modelBuilder.Entity<RaceEntry>(entity =>
         {
             entity.HasOne(re => re.Jockey)
@@ -79,6 +86,41 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.HasOne(re => re.Horse)
                 .WithMany()
                 .HasForeignKey(re => re.HorseId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<JockeyContract>(entity =>
+        {
+            entity.HasKey(c => c.Id);
+
+            entity.HasOne(c => c.Horse)
+                .WithMany()
+                .HasForeignKey(c => c.HorseId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(c => c.Owner)
+                .WithMany()
+                .HasForeignKey(c => c.OwnerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(c => c.Jockey)
+                .WithMany()
+                .HasForeignKey(c => c.JockeyId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Registration>(entity =>
+        {
+            entity.HasKey(r => r.Id);
+
+            entity.HasOne(r => r.Tournament)
+                .WithMany()
+                .HasForeignKey(r => r.TournamentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(r => r.Horse)
+                .WithMany(h => h.Registrations)
+                .HasForeignKey(r => r.HorseId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -136,6 +178,24 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.HasOne(n => n.User)
                 .WithMany()
                 .HasForeignKey(n => n.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<HorseDocument>(entity =>
+        {
+            entity.HasKey(hd => hd.Id);
+            entity.HasOne(hd => hd.Horse)
+                .WithMany(h => h.Documents)
+                .HasForeignKey(hd => hd.HorseId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<HorseStatistic>(entity =>
+        {
+            entity.HasKey(hs => hs.Id);
+            entity.HasOne(hs => hs.Horse)
+                .WithOne(h => h.Statistic)
+                .HasForeignKey<HorseStatistic>(hs => hs.HorseId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

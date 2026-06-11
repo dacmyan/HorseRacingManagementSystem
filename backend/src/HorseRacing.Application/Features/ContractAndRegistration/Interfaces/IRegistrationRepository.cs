@@ -1,0 +1,14 @@
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using HorseRacing.Domain.Entities;
+
+namespace HorseRacing.Application.Features.ContractAndRegistration.Interfaces;
+
+public interface IRegistrationRepository
+{
+    Task<Registration?> GetByIdAsync(int id);
+    Task<Registration?> GetByHorseIdAndTournamentIdAsync(int horseId, int tournamentId);
+    Task<IEnumerable<Registration>> GetByOwnerIdAsync(int ownerUserId);
+    Task AddAsync(Registration registration);
+    Task SaveChangesAsync();
+}
