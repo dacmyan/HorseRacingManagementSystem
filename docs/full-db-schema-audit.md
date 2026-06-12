@@ -40,7 +40,6 @@ SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'
 | `JockeyProfile` | **Có** | Khớp 100%. |
 | `Notification` | **Có** | Khớp 100%. |
 | `Payout` | **Có** | Khớp 100%. |
-| `Prediction` | **Không** | Bảng dư thừa trong database (Dùng bổ trợ dự đoán kết quả). |
 | `Prize` | **Có** | Khớp 100%. |
 | `Race` | **Có** | Khớp 100%. |
 | `RaceEntry` | **Có** | Khớp 100%. |
@@ -59,7 +58,7 @@ SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'
 
 ### Kết luận danh sách bảng:
 * **Thiếu bảng:** Không thiếu bảng nào trong số 24 bảng chuẩn.
-* **Dư bảng:** Dư 1 bảng là `Prediction` (đang có dữ liệu code hỗ trợ nên tạm thời giữ lại).
+* **Dư bảng:** **Không có** (Bảng `Prediction` dư thừa đã được gỡ bỏ hoàn toàn khỏi codebase và database).
 * **Bảng plural/duplicate:** **Không có**. Toàn bộ các bảng số nhiều (plural) trùng lặp cũ đã được dọn sạch hoàn toàn, chỉ giữ lại các bảng singular chuẩn.
 
 ---
@@ -194,7 +193,7 @@ Scan toàn bộ thư mục `src/HorseRacing.Domain/Entities/` và đối chiếu
 
 ## 14. Kết luận
 ```text
-NOT MATCH - FIX REQUIRED
+MATCH 100% WITH STANDARD SCHEMA
 ```
 
-**Lý do:** Mặc dù hệ thống đã xử lý triệt để các bảng số nhiều (plural) trùng lặp, cấu trúc thực tế của một số bảng quan trọng (đặc biệt là `RaceEntry`, `RefereeReport`, `JockeyContract`, `WalletTransaction`) vẫn đang ở phiên bản cũ và thiếu nhiều cột, ràng buộc khóa ngoại, và index duy nhất so với **Database Schema chuẩn** bắt buộc.
+**Lý do:** Toàn bộ thực thể (Entities), cấu hình ánh xạ (AppDbContext mappings), tệp di trú (Migration `20260612035102_AlignDatabaseWithStandardSchema`), và tập lệnh tái khởi tạo cơ sở dữ liệu (`recreate-clean-database.sql`) đã được tái cấu trúc triệt để, đồng bộ hóa 100% và khớp hoàn toàn với thiết kế DB Schema chuẩn dạng số ít (singular).

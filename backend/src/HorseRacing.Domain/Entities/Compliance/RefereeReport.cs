@@ -5,18 +5,15 @@ namespace HorseRacing.Domain.Entities;
 
 public class RefereeReport
 {
-    public int Id { get; set; }
+    public long ReportId { get; set; }
     
-    public long RaceId { get; set; }
-    public Race? Race { get; set; }
-    
-    public int RefereeId { get; set; }
-    public RefereeProfile? RefereeProfile { get; set; }
+    public long AssignmentId { get; set; }
+    public RaceRefereeAssignment? Assignment { get; set; }
     
     public string Content { get; set; } = string.Empty;
+    public string? ViolationNote { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    // Các cột báo cáo vi phạm tùy chọn
     public int? ReportedUserId { get; set; }
     public AppUser? ReportedUser { get; set; }
 
