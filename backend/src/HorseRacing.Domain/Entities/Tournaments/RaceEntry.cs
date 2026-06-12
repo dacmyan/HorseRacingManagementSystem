@@ -4,12 +4,15 @@ namespace HorseRacing.Domain.Entities;
 
 public class RaceEntry
 {
-    public int Id { get; set; }
+    public long RaceEntryId { get; set; }
     public long RaceId { get; set; }
     public Race? Race { get; set; }
-    public int HorseId { get; set; }
-    public Horse? Horse { get; set; }
-    public int JockeyId { get; set; }
-    public AppUser? Jockey { get; set; }
-    public string Status { get; set; } = string.Empty;
+    public long RegistrationId { get; set; }
+    public Registration? Registration { get; set; }
+    public long? JockeyId { get; set; }
+    public JockeyProfile? Jockey { get; set; }
+    public decimal? WinningProbability { get; set; }
+    public decimal? CurrentOdds { get; set; }
+    public int LaneNo { get; set; }
+    public string Status { get; set; } = "Ready";
 }

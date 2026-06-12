@@ -87,15 +87,34 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<RaceEntry>(entity =>
         {
             entity.ToTable("RaceEntry");
+            entity.HasKey(re => re.RaceEntryId);
+
+            entity.HasOne(re => re.Race)
+                .WithMany()
+                .HasForeignKey(re => re.RaceId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(re => re.Registration)
+                .WithMany()
+                .HasForeignKey(re => re.RegistrationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             entity.HasOne(re => re.Jockey)
                 .WithMany()
                 .HasForeignKey(re => re.JockeyId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            entity.HasOne(re => re.Horse)
-                .WithMany()
-                .HasForeignKey(re => re.HorseId)
-                .OnDelete(DeleteBehavior.Restrict);
+            entity.Property(re => re.WinningProbability)
+                .HasPrecision(5, 2);
+
+            entity.Property(re => re.CurrentOdds)
+                .HasPrecision(10, 2);
+
+            entity.HasIndex(re => new { re.RaceId, re.LaneNo })
+                .IsUnique();
+
+            entity.HasIndex(re => new { re.RaceId, re.RegistrationId })
+                .IsUnique();
         });
 
         modelBuilder.Entity<JockeyContract>(entity =>

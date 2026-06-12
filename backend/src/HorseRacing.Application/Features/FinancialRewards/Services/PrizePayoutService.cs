@@ -133,7 +133,15 @@ public class PrizePayoutService : IPrizePayoutService
         };
         await _notificationRepository.AddAsync(ownerNotification);
 
-        var jockeyWallet = await GetOrCreateWalletAsync(winningEntry.JockeyId);
+        if (winningEntry.Jockey == null)
+        {
+            throw new InvalidOperationException(
+                $"Jockey profile was not loaded for race entry {winningEntry.RaceEntryId}.");
+        }
+
+        var jockeyUserId = winningEntry.Jockey.UserId;
+
+        var jockeyWallet = await GetOrCreateWalletAsync(jockeyUserId);
         jockeyWallet.Balance += jockeyAmount;
 
         var jockeyTransaction = new WalletTransaction
@@ -148,7 +156,7 @@ public class PrizePayoutService : IPrizePayoutService
         var jockeyPayoutRecord = new TournamentPrizePayout
         {
             TournamentId = request.TournamentId,
-            UserId = winningEntry.JockeyId,
+            UserId = jockeyUserId,
             Amount = jockeyAmount,
             Role = "Jockey",
             CreatedAt = DateTime.UtcNow
@@ -157,7 +165,7 @@ public class PrizePayoutService : IPrizePayoutService
 
         var jockeyNotification = new Notification
         {
-            UserId = winningEntry.JockeyId,
+            UserId = jockeyUserId,
             Message = $"Congratulations! You won the tournament '{tournament.Name}' riding '{winningHorse.Name}'. You have been awarded the Jockey's Prize share of {jockeyAmount:N2}. New balance: {jockeyWallet.Balance:N2}.",
             IsRead = false,
             CreatedAt = DateTime.UtcNow

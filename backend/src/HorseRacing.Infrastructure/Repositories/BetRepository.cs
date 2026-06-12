@@ -64,7 +64,7 @@ public class BetRepository : IBetRepository
     public async Task<bool> IsHorseInRaceAsync(long raceId, int horseId)
     {
         return await _context.RaceEntries
-            .AnyAsync(re => re.RaceId == raceId && re.HorseId == horseId);
+            .AnyAsync(re => re.RaceId == raceId && re.Registration != null && re.Registration.HorseId == horseId);
     }
 
     public async Task<RaceResult?> GetRaceResultAsync(long raceId)
@@ -74,7 +74,10 @@ public class BetRepository : IBetRepository
 
     public async Task<RaceEntry?> GetRaceEntryAsync(long raceId, int horseId)
     {
-        return await _context.RaceEntries.FirstOrDefaultAsync(re => re.RaceId == raceId && re.HorseId == horseId);
+        return await _context.RaceEntries
+            .Include(re => re.Registration)
+            .Include(re => re.Jockey)
+            .FirstOrDefaultAsync(re => re.RaceId == raceId && re.Registration != null && re.Registration.HorseId == horseId);
     }
 
     public async Task<Horse?> GetHorseByIdOrNameAsync(string identifier)
