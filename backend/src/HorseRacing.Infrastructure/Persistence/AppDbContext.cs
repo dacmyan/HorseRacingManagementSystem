@@ -122,7 +122,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<Registration>(entity =>
         {
             entity.ToTable("Registration");
-            entity.HasKey(r => r.Id);
+            entity.HasKey(r => r.RegistrationId);
 
             entity.HasOne(r => r.Tournament)
                 .WithMany()
@@ -133,6 +133,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .WithMany(h => h.Registrations)
                 .HasForeignKey(r => r.HorseId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(r => new { r.TournamentId, r.HorseId })
+                .IsUnique();
         });
 
         modelBuilder.Entity<Bet>(entity =>

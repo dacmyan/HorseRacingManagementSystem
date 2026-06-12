@@ -30,13 +30,13 @@ public class RegistrationService : IRegistrationService
     {
         return new RegistrationResponse
         {
-            Id = reg.Id,
+            RegistrationId = reg.RegistrationId,
             TournamentId = reg.TournamentId,
             TournamentName = reg.Tournament?.Name ?? "Unknown Tournament",
             HorseId = reg.HorseId,
             HorseName = reg.Horse?.Name ?? "Unknown Horse",
             Status = reg.Status,
-            CreatedAt = reg.CreatedAt
+            RegisteredAt = reg.RegisteredAt
         };
     }
 
@@ -73,13 +73,13 @@ public class RegistrationService : IRegistrationService
             TournamentId = request.TournamentId,
             HorseId = request.HorseId,
             Status = "Pending",
-            CreatedAt = DateTime.UtcNow
+            RegisteredAt = DateTime.UtcNow
         };
 
         await _registrationRepository.AddAsync(registration);
         await _registrationRepository.SaveChangesAsync();
 
-        var populated = await _registrationRepository.GetByIdAsync(registration.Id);
+        var populated = await _registrationRepository.GetByIdAsync(registration.RegistrationId);
         return MapToResponse(populated ?? registration);
     }
 
