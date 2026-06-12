@@ -15,6 +15,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Round>             Rounds       { get; set; }
     public DbSet<Race>              Races        { get; set; }
     public DbSet<RaceEntry>         RaceEntries  { get; set; }
+    public DbSet<Registration>      Registrations { get; set; }
+    public DbSet<JockeyContract>    JockeyContracts { get; set; }
     public DbSet<RaceResult>        RaceResults  { get; set; }
     public DbSet<RaceRefereeAssignment> RaceRefereeAssignments { get; set; }
     public DbSet<RaceViolation>     Violations   { get; set; }
@@ -26,6 +28,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Prize>             Prizes       { get; set; }
     public DbSet<TournamentPrizePayout> TournamentPrizePayouts { get; set; }
     public DbSet<Notification>      Notifications { get; set; }
+    public DbSet<HorseDocument>     HorseDocuments { get; set; }
+    public DbSet<HorseStatistic>    HorseStatistics { get; set; }
+    public DbSet<RefereeReport>     RefereeReports { get; set; }
+
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -33,6 +39,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<AppUser>(entity =>
         {
+            entity.ToTable("AppUser");
             entity.HasKey(u => u.UserId);
             entity.HasOne(u => u.Role)
                 .WithMany()
@@ -42,11 +49,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<Role>(entity =>
         {
+            entity.ToTable("Role");
             entity.HasKey(r => r.RoleId);
         });
 
         modelBuilder.Entity<JockeyProfile>(entity =>
         {
+            entity.ToTable("JockeyProfile");
             entity.HasKey(jp => jp.JockeyId);
             entity.HasOne(jp => jp.User)
                 .WithOne()
@@ -56,6 +65,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<RefereeProfile>(entity =>
         {
+            entity.ToTable("RefereeProfile");
             entity.HasKey(rp => rp.RefereeId);
             entity.HasOne(rp => rp.User)
                 .WithOne()
@@ -65,6 +75,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<Wallet>(entity =>
         {
+            entity.ToTable("Wallet");
             entity.HasKey(w => w.WalletId);
             entity.HasOne(w => w.User)
                 .WithOne()
@@ -72,8 +83,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+
         modelBuilder.Entity<RaceEntry>(entity =>
         {
+            entity.ToTable("RaceEntry");
             entity.HasOne(re => re.Jockey)
                 .WithMany()
                 .HasForeignKey(re => re.JockeyId)
@@ -85,8 +98,46 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
+        modelBuilder.Entity<JockeyContract>(entity =>
+        {
+            entity.ToTable("JockeyContract");
+            entity.HasKey(c => c.Id);
+
+            entity.HasOne(c => c.Horse)
+                .WithMany()
+                .HasForeignKey(c => c.HorseId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(c => c.Owner)
+                .WithMany()
+                .HasForeignKey(c => c.OwnerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(c => c.Jockey)
+                .WithMany()
+                .HasForeignKey(c => c.JockeyId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Registration>(entity =>
+        {
+            entity.ToTable("Registration");
+            entity.HasKey(r => r.Id);
+
+            entity.HasOne(r => r.Tournament)
+                .WithMany()
+                .HasForeignKey(r => r.TournamentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(r => r.Horse)
+                .WithMany(h => h.Registrations)
+                .HasForeignKey(r => r.HorseId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
         modelBuilder.Entity<Bet>(entity =>
         {
+            entity.ToTable("Bet");
             entity.HasKey(b => b.Id);
             entity.HasOne(b => b.User)
                 .WithMany()
@@ -104,6 +155,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<Payout>(entity =>
         {
+            entity.ToTable("Payout");
             entity.HasKey(p => p.Id);
             entity.HasOne(p => p.Bet)
                 .WithMany()
@@ -113,6 +165,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<Prize>(entity =>
         {
+            entity.ToTable("Prize");
             entity.HasKey(pr => pr.Id);
             entity.HasOne(pr => pr.Tournament)
                 .WithMany()
@@ -122,6 +175,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<TournamentPrizePayout>(entity =>
         {
+            entity.ToTable("TournamentPrizePayout");
             entity.HasKey(tpp => tpp.Id);
             entity.HasOne(tpp => tpp.Tournament)
                 .WithMany()
@@ -135,6 +189,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<Notification>(entity =>
         {
+            entity.ToTable("Notification");
             entity.HasKey(n => n.Id);
             entity.HasOne(n => n.User)
                 .WithMany()
@@ -142,8 +197,29 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        modelBuilder.Entity<HorseDocument>(entity =>
+        {
+            entity.ToTable("HorseDocument");
+            entity.HasKey(hd => hd.Id);
+            entity.HasOne(hd => hd.Horse)
+                .WithMany(h => h.Documents)
+                .HasForeignKey(hd => hd.HorseId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<HorseStatistic>(entity =>
+        {
+            entity.ToTable("HorseStatistic");
+            entity.HasKey(hs => hs.Id);
+            entity.HasOne(hs => hs.Horse)
+                .WithOne(h => h.Statistic)
+                .HasForeignKey<HorseStatistic>(hs => hs.HorseId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         modelBuilder.Entity<RaceRefereeAssignment>(entity =>
         {
+            entity.ToTable("RaceRefereeAssignment");
             entity.HasKey(rra => rra.AssignmentId);
             entity.HasOne(rra => rra.Race)
                 .WithMany(r => r.RaceRefereeAssignments)
@@ -152,6 +228,41 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.HasOne(rra => rra.RefereeProfile)
                 .WithMany()
                 .HasForeignKey(rra => rra.RefereeId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Horse>().ToTable("Horse");
+        modelBuilder.Entity<Round>().ToTable("Round");
+        modelBuilder.Entity<Race>().ToTable("Race");
+        modelBuilder.Entity<RaceResult>().ToTable("RaceResult");
+        modelBuilder.Entity<Tournament>().ToTable("Tournament");
+        modelBuilder.Entity<Prediction>().ToTable("Prediction");
+        modelBuilder.Entity<WalletTransaction>().ToTable("WalletTransaction");
+        modelBuilder.Entity<RaceViolation>().ToTable("RaceViolation");
+
+        modelBuilder.Entity<RefereeReport>(entity =>
+        {
+            entity.ToTable("RefereeReport");
+            entity.HasKey(r => r.Id);
+
+            entity.HasOne(r => r.Race)
+                .WithMany()
+                .HasForeignKey(r => r.RaceId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(r => r.RefereeProfile)
+                .WithMany()
+                .HasForeignKey(r => r.RefereeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(r => r.ReportedUser)
+                .WithMany()
+                .HasForeignKey(r => r.ReportedUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(r => r.ReportedHorse)
+                .WithMany()
+                .HasForeignKey(r => r.ReportedHorseId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
