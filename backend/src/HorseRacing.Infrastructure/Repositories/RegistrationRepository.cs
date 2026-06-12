@@ -25,7 +25,7 @@ public class RegistrationRepository : IRegistrationRepository
             .FirstOrDefaultAsync(r => r.Id == id);
     }
 
-    public async Task<Registration?> GetByHorseIdAndTournamentIdAsync(int horseId, int tournamentId)
+    public async Task<Registration?> GetByHorseIdAndTournamentIdAsync(int horseId, long tournamentId)
     {
         return await _context.Registrations
             .FirstOrDefaultAsync(r => r.HorseId == horseId && r.TournamentId == tournamentId);

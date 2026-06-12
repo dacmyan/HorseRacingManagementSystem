@@ -6,7 +6,7 @@ public class Registration
 {
     public int Id { get; set; }
 
-    public int TournamentId { get; set; }
+    public long TournamentId { get; set; }
 
     public Tournament? Tournament { get; set; }
 

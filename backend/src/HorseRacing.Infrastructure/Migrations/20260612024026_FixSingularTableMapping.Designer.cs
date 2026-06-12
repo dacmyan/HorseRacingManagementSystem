@@ -4,6 +4,7 @@ using HorseRacing.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HorseRacing.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260612024026_FixSingularTableMapping")]
+    partial class FixSingularTableMapping
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -69,7 +72,7 @@ namespace HorseRacing.Infrastructure.Migrations
                             CreatedAt = new DateTime(2026, 6, 9, 0, 0, 0, 0, DateTimeKind.Utc),
                             Email = "admin@gmail.com",
                             FullName = "Admin",
-                            PasswordHash = "AQAAAAIAAYagAAAAEL3MNWtRhvfQxwwwIqhshbFLU07YLYFvXEUG66I7640i3DJ4x1GfHVWHTyt5JhDkvg==",
+                            PasswordHash = "AQAAAAIAAYagAAAAEDQl5GtU6lXMcfTRWSHnVz0AYO/DcesuZdc26L/lMBXERd4y/Ry6KFBnnz3OcVLaiA==",
                             RoleId = 1,
                             Status = "Active",
                             Username = "admin"
@@ -80,7 +83,7 @@ namespace HorseRacing.Infrastructure.Migrations
                             CreatedAt = new DateTime(2026, 6, 9, 0, 0, 0, 0, DateTimeKind.Utc),
                             Email = "owner@gmail.com",
                             FullName = "HorseOwner",
-                            PasswordHash = "AQAAAAIAAYagAAAAEGyQeVxp9OVePd4lUW2yUnlaIslc2Hb1UqZouwu1xjOlZgLmdErHbODNrBy9QAk7Fg==",
+                            PasswordHash = "AQAAAAIAAYagAAAAEIU26C1yHTr+reVJwGZJlfXXlzLjVh3ejJo2RFDSgGRU3CQn2cp7nJJIfJ/m6XAm8Q==",
                             RoleId = 2,
                             Status = "Active",
                             Username = "owner"
@@ -91,7 +94,7 @@ namespace HorseRacing.Infrastructure.Migrations
                             CreatedAt = new DateTime(2026, 6, 9, 0, 0, 0, 0, DateTimeKind.Utc),
                             Email = "jockey@gmail.com",
                             FullName = "Jockey",
-                            PasswordHash = "AQAAAAIAAYagAAAAEG7QrTR2HaVVSpLEoFY6nOXiEX/NozyjPG00YA6FAebngMyKqLiQ72/SXsHxSwGLmA==",
+                            PasswordHash = "AQAAAAIAAYagAAAAEETNsom+QeZLwGVXPatXiCXnefira62DVHwdLXgHMsgdrwu7Xy3znwO8r72lMU5Mog==",
                             RoleId = 3,
                             Status = "Active",
                             Username = "jockey"
@@ -102,7 +105,7 @@ namespace HorseRacing.Infrastructure.Migrations
                             CreatedAt = new DateTime(2026, 6, 9, 0, 0, 0, 0, DateTimeKind.Utc),
                             Email = "referee@gmail.com",
                             FullName = "Referee",
-                            PasswordHash = "AQAAAAIAAYagAAAAEAdQI0nKh2I0WQ5tIG7x7PcS/FtpxA2nTEzJmsOIfzFlBOZM0COQr0/xSZll9vhcwQ==",
+                            PasswordHash = "AQAAAAIAAYagAAAAEN/0ABNONq8lx6xDeeREIStGpg1ENtlTUY2BLUaNLzyO6hnHvqnoA4Qd+WqRgJadgg==",
                             RoleId = 4,
                             Status = "Active",
                             Username = "referee"
@@ -113,7 +116,7 @@ namespace HorseRacing.Infrastructure.Migrations
                             CreatedAt = new DateTime(2026, 6, 9, 0, 0, 0, 0, DateTimeKind.Utc),
                             Email = "spectator@gmail.com",
                             FullName = "Spectator",
-                            PasswordHash = "AQAAAAIAAYagAAAAELF89zW+xZNN798lwcDM2PkiAZJVpjK8/S+59Yst+SzV3QlCb5IuBvLXib+/BFmcqA==",
+                            PasswordHash = "AQAAAAIAAYagAAAAEJKV8UzjVkRV+m8NEvHJi0leRC9j/XUkH19a15TyFSoRWPiDhJfEqjAl28C89Ikcbg==",
                             RoleId = 5,
                             Status = "Active",
                             Username = "spectator"
@@ -575,46 +578,6 @@ namespace HorseRacing.Infrastructure.Migrations
                             Status = "Active",
                             UserId = 4
                         });
-                });
-
-            modelBuilder.Entity("HorseRacing.Domain.Entities.RefereeReport", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Content")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<long>("RaceId")
-                        .HasColumnType("bigint");
-
-                    b.Property<int>("RefereeId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("ReportedHorseId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("ReportedUserId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RaceId");
-
-                    b.HasIndex("RefereeId");
-
-                    b.HasIndex("ReportedHorseId");
-
-                    b.HasIndex("ReportedUserId");
-
-                    b.ToTable("RefereeReport", (string)null);
                 });
 
             modelBuilder.Entity("HorseRacing.Domain.Entities.Registration", b =>
@@ -1104,39 +1067,6 @@ namespace HorseRacing.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("HorseRacing.Domain.Entities.RefereeReport", b =>
-                {
-                    b.HasOne("HorseRacing.Domain.Entities.Tournaments.Race", "Race")
-                        .WithMany()
-                        .HasForeignKey("RaceId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("HorseRacing.Domain.Entities.RefereeProfile", "RefereeProfile")
-                        .WithMany()
-                        .HasForeignKey("RefereeId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("HorseRacing.Domain.Entities.Horse", "ReportedHorse")
-                        .WithMany()
-                        .HasForeignKey("ReportedHorseId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("HorseRacing.Domain.Entities.AppUser", "ReportedUser")
-                        .WithMany()
-                        .HasForeignKey("ReportedUserId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("Race");
-
-                    b.Navigation("RefereeProfile");
-
-                    b.Navigation("ReportedHorse");
-
-                    b.Navigation("ReportedUser");
                 });
 
             modelBuilder.Entity("HorseRacing.Domain.Entities.Registration", b =>
