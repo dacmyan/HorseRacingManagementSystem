@@ -231,11 +231,34 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
+        modelBuilder.Entity<Tournament>(entity =>
+        {
+            entity.ToTable("Tournament");
+            entity.HasKey(t => t.TournamentId);
+        });
+
+        modelBuilder.Entity<Round>(entity =>
+        {
+            entity.ToTable("Round");
+            entity.HasKey(r => r.RoundId);
+            entity.HasOne(r => r.Tournament)
+                .WithMany(t => t.Rounds)
+                .HasForeignKey(r => r.TournamentId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Race>(entity =>
+        {
+            entity.ToTable("Race");
+            entity.HasKey(r => r.RaceId);
+            entity.HasOne(r => r.Round)
+                .WithMany(round => round.Races)
+                .HasForeignKey(r => r.RoundId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         modelBuilder.Entity<Horse>().ToTable("Horse");
-        modelBuilder.Entity<Round>().ToTable("Round");
-        modelBuilder.Entity<Race>().ToTable("Race");
         modelBuilder.Entity<RaceResult>().ToTable("RaceResult");
-        modelBuilder.Entity<Tournament>().ToTable("Tournament");
         modelBuilder.Entity<Prediction>().ToTable("Prediction");
         modelBuilder.Entity<WalletTransaction>().ToTable("WalletTransaction");
         modelBuilder.Entity<RaceViolation>().ToTable("RaceViolation");
