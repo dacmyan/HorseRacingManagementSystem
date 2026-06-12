@@ -1,0 +1,232 @@
+[
+  {
+    "id": "BE-AUTH-01",
+    "title": "[BE-AUTH-01] Cải tiến Login & Register Validation",
+    "url": "https://github.com/dacmyan/HorseRacingManagementSystem/issues/14",
+    "number": 14,
+    "owner": "Triều",
+    "phase": "phase-1",
+    "priority": "P0",
+    "status": "Todo"
+  },
+  {
+    "id": "BE-USER-01",
+    "title": "[BE-USER-01] Admin tạo tài khoản nghiệp vụ",
+    "url": "https://github.com/dacmyan/HorseRacingManagementSystem/issues/18",
+    "number": 18,
+    "owner": "Triều",
+    "phase": "phase-1",
+    "priority": "P0",
+    "status": "Todo"
+  },
+  {
+    "id": "BE-WALLET-01",
+    "title": "[BE-WALLET-01] Giao dịch ví điện tử (Nạp/Rút)",
+    "url": "https://github.com/dacmyan/HorseRacingManagementSystem/issues/19",
+    "number": 19,
+    "owner": "Đắc",
+    "phase": "phase-1",
+    "priority": "P0",
+    "status": "Todo"
+  },
+  {
+    "id": "BE-NOTI-01",
+    "title": "[BE-NOTI-01] Tạo và gửi thông báo hệ thống",
+    "url": "https://github.com/dacmyan/HorseRacingManagementSystem/issues/20",
+    "number": 20,
+    "owner": "Đắc",
+    "phase": "phase-1",
+    "priority": "P1",
+    "status": "Todo"
+  },
+  {
+    "id": "BE-USER-02",
+    "title": "[BE-USER-02] Xem và cập nhật Profile cá nhân",
+    "url": "https://github.com/dacmyan/HorseRacingManagementSystem/issues/21",
+    "number": 21,
+    "owner": "Triều",
+    "phase": "phase-1",
+    "priority": "P2",
+    "status": "Backlog"
+  },
+  {
+    "id": "BE-USER-03",
+    "title": "[BE-USER-03] Admin quản lý danh sách Users",
+    "url": "https://github.com/dacmyan/HorseRacingManagementSystem/issues/22",
+    "number": 22,
+    "owner": "Triều",
+    "phase": "phase-1",
+    "priority": "P2",
+    "status": "Backlog"
+  },
+  {
+    "id": "BE-HORSE-01",
+    "title": "[BE-HORSE-01] Quản lý Ngựa đua (CRUD Horses)",
+    "url": "https://github.com/dacmyan/HorseRacingManagementSystem/issues/23",
+    "number": 23,
+    "owner": "Khang",
+    "phase": "phase-2",
+    "priority": "P0",
+    "status": "Todo"
+  },
+  {
+    "id": "BE-RACE-01",
+    "title": "[BE-RACE-01] Quản lý Giải đấu (Tournaments)",
+    "url": "https://github.com/dacmyan/HorseRacingManagementSystem/issues/24",
+    "number": 24,
+    "owner": "Hàn",
+    "phase": "phase-2",
+    "priority": "P0",
+    "status": "Todo"
+  },
+  {
+    "id": "BE-RACE-02",
+    "title": "[BE-RACE-02] Lên lịch thi đấu (Scheduling Races)",
+    "url": "https://github.com/dacmyan/HorseRacingManagementSystem/issues/25",
+    "number": 25,
+    "owner": "Hàn",
+    "phase": "phase-2",
+    "priority": "P1",
+    "status": "Backlog"
+  },
+  {
+    "id": "BE-HORSE-02",
+    "title": "[BE-HORSE-02] Quản lý tài liệu và chỉ số ngựa",
+    "url": "https://github.com/dacmyan/HorseRacingManagementSystem/issues/26",
+    "number": 26,
+    "owner": "Khang",
+    "phase": "phase-2",
+    "priority": "P3",
+    "status": "Backlog"
+  },
+  {
+    "id": "BE-CONTRACT-01",
+    "title": "[BE-CONTRACT-01] Gửi hợp đồng thuê nài ngựa",
+    "url": "https://github.com/dacmyan/HorseRacingManagementSystem/issues/27",
+    "number": 27,
+    "owner": "Khang",
+    "phase": "phase-3",
+    "priority": "P1",
+    "status": "Backlog"
+  },
+  {
+    "id": "BE-CONTRACT-02",
+    "title": "[BE-CONTRACT-02] Phản hồi hợp đồng (Jockey Action)",
+    "url": "https://github.com/dacmyan/HorseRacingManagementSystem/issues/28",
+    "number": 28,
+    "owner": "Khang",
+    "phase": "phase-3",
+    "priority": "P1",
+    "status": "Backlog"
+  },
+  {
+    "id": "BE-REG-01",
+    "title": "[BE-REG-01] Đăng ký ngựa tham gia Giải đấu",
+    "url": "https://github.com/dacmyan/HorseRacingManagementSystem/issues/29",
+    "number": 29,
+    "owner": "Khang",
+    "phase": "phase-3",
+    "priority": "P1",
+    "status": "Backlog"
+  },
+  {
+    "id": "BE-RACE-04",
+    "title": "[BE-RACE-04] Gán trọng tài điều hành cuộc đua",
+    "url": "https://github.com/dacmyan/HorseRacingManagementSystem/issues/30",
+    "number": 30,
+    "owner": "Hàn",
+    "phase": "phase-3",
+    "priority": "P2",
+    "status": "Backlog"
+  },
+  {
+    "id": "BE-RACE-03",
+    "title": "[BE-RACE-03] Ghép cặp trận đấu (Lane Assignment)",
+    "url": "https://github.com/dacmyan/HorseRacingManagementSystem/issues/31",
+    "number": 31,
+    "owner": "Hàn",
+    "phase": "phase-3",
+    "priority": "P0",
+    "status": "Backlog"
+  },
+  {
+    "id": "BE-REF-01",
+    "title": "[BE-REF-01] Trọng tài giám sát & vi phạm",
+    "url": "https://github.com/dacmyan/HorseRacingManagementSystem/issues/32",
+    "number": 32,
+    "owner": "Hàn",
+    "phase": "phase-4",
+    "priority": "P1",
+    "status": "Backlog"
+  },
+  {
+    "id": "BE-RESULT-01",
+    "title": "[BE-RESULT-01] Ghi nhận & Công bố kết quả đua",
+    "url": "https://github.com/dacmyan/HorseRacingManagementSystem/issues/33",
+    "number": 33,
+    "owner": "Hàn",
+    "phase": "phase-4",
+    "priority": "P0",
+    "status": "Backlog"
+  },
+  {
+    "id": "BE-REF-02",
+    "title": "[BE-REF-02] Trọng tài lập biên bản & Báo cáo",
+    "url": "https://github.com/dacmyan/HorseRacingManagementSystem/issues/34",
+    "number": 34,
+    "owner": "Hàn",
+    "phase": "phase-4",
+    "priority": "P3",
+    "status": "Backlog"
+  },
+  {
+    "id": "BE-BET-01",
+    "title": "[BE-BET-01] Khán giả đặt cược (Place Bets)",
+    "url": "https://github.com/dacmyan/HorseRacingManagementSystem/issues/35",
+    "number": 35,
+    "owner": "Đắc",
+    "phase": "phase-5",
+    "priority": "P0",
+    "status": "Backlog"
+  },
+  {
+    "id": "BE-BET-02",
+    "title": "[BE-BET-02] Quản lý dự đoán (Predictions)",
+    "url": "https://github.com/dacmyan/HorseRacingManagementSystem/issues/36",
+    "number": 36,
+    "owner": "Đắc",
+    "phase": "phase-5",
+    "priority": "P2",
+    "status": "Backlog"
+  },
+  {
+    "id": "BE-PAY-01",
+    "title": "[BE-PAY-01] Tự động trả thưởng đặt cược",
+    "url": "https://github.com/dacmyan/HorseRacingManagementSystem/issues/37",
+    "number": 37,
+    "owner": "Đắc",
+    "phase": "phase-5",
+    "priority": "P0",
+    "status": "Backlog"
+  },
+  {
+    "id": "BE-PAY-02",
+    "title": "[BE-PAY-02] Trả thưởng giải đấu cho HorseOwner/Jockey",
+    "url": "https://github.com/dacmyan/HorseRacingManagementSystem/issues/38",
+    "number": 38,
+    "owner": "Đắc",
+    "phase": "phase-5",
+    "priority": "P1",
+    "status": "Backlog"
+  },
+  {
+    "id": "Integration",
+    "title": "[Integration] Tích hợp thông báo toàn hệ thống",
+    "url": "https://github.com/dacmyan/HorseRacingManagementSystem/issues/39",
+    "number": 39,
+    "owner": "Đắc",
+    "phase": "phase-5",
+    "priority": "P1",
+    "status": "Backlog"
+  }
+]
