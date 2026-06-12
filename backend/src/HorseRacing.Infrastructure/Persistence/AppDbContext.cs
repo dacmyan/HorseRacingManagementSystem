@@ -87,13 +87,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<RaceEntry>(entity =>
         {
             entity.ToTable("RaceEntry");
+
+            entity.HasIndex(x => new { x.RaceId, x.LaneNo })
+                .IsUnique();
+
             entity.HasOne(re => re.Jockey)
                 .WithMany()
                 .HasForeignKey(re => re.JockeyId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(re => re.Horse)
-                .WithMany()
+                .WithMany(h => h.RaceEntries)
                 .HasForeignKey(re => re.HorseId)
                 .OnDelete(DeleteBehavior.Restrict);
         });

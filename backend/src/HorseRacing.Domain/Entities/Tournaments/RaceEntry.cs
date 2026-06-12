@@ -11,5 +11,7 @@ public class RaceEntry
     public Horse? Horse { get; set; }
     public int JockeyId { get; set; }
     public AppUser? Jockey { get; set; }
+    public int LaneNo { get; set; }
     public string Status { get; set; } = string.Empty;
 }
+
