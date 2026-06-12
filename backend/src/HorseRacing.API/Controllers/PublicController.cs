@@ -22,12 +22,18 @@ public class PublicController : ControllerBase
     private readonly AppDbContext _context;
     private readonly INotificationService _notificationService;
     private readonly IRaceService _raceService;
+    private readonly IRoundService _roundService;
 
-    public PublicController(AppDbContext context, INotificationService notificationService, IRaceService raceService)
+    public PublicController(
+        AppDbContext context,
+        INotificationService notificationService,
+        IRaceService raceService,
+        IRoundService roundService)
     {
         _context = context;
         _notificationService = notificationService;
         _raceService = raceService;
+        _roundService = roundService;
     }
 
     private int GetCurrentUserId()
@@ -161,5 +167,31 @@ public class PublicController : ControllerBase
         {
             return StatusCode(500, new { message = "An error occurred retrieving public race schedule" });
         }
+    }
+
+    [HttpGet("tournaments/{tournamentId}/rounds")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetRoundsByTournament(long tournamentId)
+    {
+        var rounds = await _roundService.GetRoundsByTournamentIdAsync(tournamentId);
+        if (rounds == null)
+        {
+            return NotFound(new { message = $"Tournament with ID {tournamentId} was not found." });
+        }
+
+        return Ok(new { message = "Rounds retrieved successfully", result = rounds });
+    }
+
+    [HttpGet("rounds/{roundId}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetRoundDetail(long roundId)
+    {
+        var round = await _roundService.GetRoundByIdAsync(roundId);
+        if (round == null)
+        {
+            return NotFound(new { message = $"Round with ID {roundId} was not found." });
+        }
+
+        return Ok(new { message = "Round details retrieved successfully", result = round });
     }
 }

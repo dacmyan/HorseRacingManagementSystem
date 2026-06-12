@@ -7,4 +7,5 @@ public interface ITournamentRepository
 {
     Task AddAsync(Tournament tournament);
     Task SaveChangesAsync();
+    Task<bool> ExistsAsync(long tournamentId);
 }
