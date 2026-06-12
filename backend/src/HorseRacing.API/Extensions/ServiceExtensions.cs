@@ -29,6 +29,7 @@ public static class ServiceExtensions
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<ITournamentService, TournamentService>();
         services.AddScoped<IRaceService, RaceService>();
+        services.AddScoped<IRaceEntryService, RaceEntryService>();
 
         return services;
     }

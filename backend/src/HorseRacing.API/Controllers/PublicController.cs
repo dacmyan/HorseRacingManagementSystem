@@ -22,12 +22,18 @@ public class PublicController : ControllerBase
     private readonly AppDbContext _context;
     private readonly INotificationService _notificationService;
     private readonly IRaceService _raceService;
+    private readonly IRaceEntryService _raceEntryService;
 
-    public PublicController(AppDbContext context, INotificationService notificationService, IRaceService raceService)
+    public PublicController(
+        AppDbContext context,
+        INotificationService notificationService,
+        IRaceService raceService,
+        IRaceEntryService raceEntryService)
     {
         _context = context;
         _notificationService = notificationService;
         _raceService = raceService;
+        _raceEntryService = raceEntryService;
     }
 
     private int GetCurrentUserId()
@@ -161,5 +167,18 @@ public class PublicController : ControllerBase
         {
             return StatusCode(500, new { message = "An error occurred retrieving public race schedule" });
         }
+    }
+
+    [HttpGet("races/{raceId}/entries")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetRaceEntries(long raceId)
+    {
+        var entries = await _raceEntryService.GetEntriesByRaceIdAsync(raceId);
+        if (entries == null)
+        {
+            return NotFound(new { message = $"Race with ID {raceId} was not found." });
+        }
+
+        return Ok(new { message = "Race entries retrieved successfully", result = entries });
     }
 }
