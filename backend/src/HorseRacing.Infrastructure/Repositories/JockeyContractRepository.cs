@@ -21,16 +21,14 @@ public class JockeyContractRepository : IJockeyContractRepository
     {
         return await _context.JockeyContracts
             .Include(jc => jc.Horse)
-            .Include(jc => jc.Owner)
             .Include(jc => jc.Jockey)
-            .FirstOrDefaultAsync(jc => jc.Id == id);
+            .FirstOrDefaultAsync(jc => jc.ContractId == id);
     }
 
     public async Task<IEnumerable<JockeyContract>> GetByJockeyIdAsync(int jockeyUserId)
     {
         return await _context.JockeyContracts
             .Include(jc => jc.Horse)
-            .Include(jc => jc.Owner)
             .Where(jc => jc.JockeyId == jockeyUserId)
             .ToListAsync();
     }
@@ -40,7 +38,7 @@ public class JockeyContractRepository : IJockeyContractRepository
         return await _context.JockeyContracts
             .Include(jc => jc.Horse)
             .Include(jc => jc.Jockey)
-            .Where(jc => jc.OwnerId == ownerUserId)
+            .Where(jc => jc.Horse != null && jc.Horse.OwnerId == ownerUserId)
             .ToListAsync();
     }
 

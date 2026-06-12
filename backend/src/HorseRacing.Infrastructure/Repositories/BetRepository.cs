@@ -64,7 +64,7 @@ public class BetRepository : IBetRepository
     public async Task<bool> IsHorseInRaceAsync(long raceId, int horseId)
     {
         return await _context.RaceEntries
-            .AnyAsync(re => re.RaceId == raceId && re.HorseId == horseId);
+            .AnyAsync(re => re.RaceId == raceId && re.Registration != null && re.Registration.HorseId == horseId);
     }
 
     public async Task<RaceResult?> GetRaceResultAsync(long raceId)
@@ -74,7 +74,9 @@ public class BetRepository : IBetRepository
 
     public async Task<RaceEntry?> GetRaceEntryAsync(long raceId, int horseId)
     {
-        return await _context.RaceEntries.FirstOrDefaultAsync(re => re.RaceId == raceId && re.HorseId == horseId);
+        return await _context.RaceEntries
+            .Include(re => re.JockeyProfile)
+            .FirstOrDefaultAsync(re => re.RaceId == raceId && re.Registration != null && re.Registration.HorseId == horseId);
     }
 
     public async Task<Horse?> GetHorseByIdOrNameAsync(string identifier)
@@ -99,23 +101,7 @@ public class BetRepository : IBetRepository
             .FirstOrDefaultAsync();
     }
 
-    public async Task<Prediction?> GetPredictionAsync(long raceId, int userId)
-    {
-        return await _context.Predictions
-            .FirstOrDefaultAsync(p => p.RaceId == raceId && p.UserId == userId);
-    }
 
-    public async Task<IEnumerable<Prediction>> GetPredictionsByRaceIdAsync(long raceId)
-    {
-        return await _context.Predictions
-            .Where(p => p.RaceId == raceId)
-            .ToListAsync();
-    }
-
-    public async Task AddPredictionAsync(Prediction prediction)
-    {
-        await _context.Predictions.AddAsync(prediction);
-    }
 
     public async Task<IEnumerable<JockeyProfile>> GetJockeyRankingsAsync()
     {

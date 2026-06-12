@@ -34,11 +34,12 @@ public class JockeyContractService : IJockeyContractService
     {
         return new JockeyContractResponse
         {
-            Id = contract.Id,
+            Id = contract.ContractId,
             HorseId = contract.HorseId,
             HorseName = contract.Horse?.Name ?? "Unknown Horse",
-            OwnerId = contract.OwnerId,
-            OwnerName = contract.Owner?.FullName ?? "Unknown Owner",
+            TournamentId = contract.TournamentId,
+            OwnerId = contract.Horse?.OwnerId ?? 0,
+            OwnerName = contract.Horse?.Owner?.FullName ?? "Unknown Owner",
             JockeyId = contract.JockeyId,
             JockeyName = contract.Jockey?.FullName ?? "Unknown Jockey",
             StartDate = contract.StartDate,
@@ -85,8 +86,8 @@ public class JockeyContractService : IJockeyContractService
         // 4. Create JockeyContract
         var contract = new JockeyContract
         {
+            TournamentId = request.TournamentId,
             HorseId = request.HorseId,
-            OwnerId = ownerUserId,
             JockeyId = request.JockeyId,
             StartDate = request.StartDate,
             EndDate = request.EndDate,
@@ -109,7 +110,7 @@ public class JockeyContractService : IJockeyContractService
         await _notificationRepository.SaveChangesAsync();
 
         // Fetch populated contract for mapped response
-        var populated = await _contractRepository.GetByIdAsync(contract.Id);
+        var populated = await _contractRepository.GetByIdAsync(contract.ContractId);
         return MapToResponse(populated ?? contract);
     }
 
@@ -158,8 +159,8 @@ public class JockeyContractService : IJockeyContractService
         // Notify Owner of response
         var notification = new Notification
         {
-            UserId = contract.OwnerId,
-            Message = $"Jockey '{contract.Jockey?.FullName ?? "Jockey"}' responded '{request.Status}' to contract ID {contract.Id} for horse '{contract.Horse?.Name ?? "Horse"}'.",
+            UserId = contract.Horse?.OwnerId ?? 0,
+            Message = $"Jockey '{contract.Jockey?.FullName ?? "Jockey"}' responded '{request.Status}' to contract ID {contract.ContractId} for horse '{contract.Horse?.Name ?? "Horse"}'.",
             IsRead = false,
             CreatedAt = DateTime.UtcNow
         };

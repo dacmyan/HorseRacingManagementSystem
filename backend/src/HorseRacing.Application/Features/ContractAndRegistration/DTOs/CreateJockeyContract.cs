@@ -9,6 +9,9 @@ public class CreateJockeyContract
     public int HorseId { get; set; }
 
     [Required]
+    public long TournamentId { get; set; }
+
+    [Required]
     public int JockeyId { get; set; }
 
     [Required]

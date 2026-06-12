@@ -17,16 +17,13 @@ public class SpectatorController : ControllerBase
 {
     private readonly IWalletService _walletService;
     private readonly IBettingService _bettingService;
-    private readonly IPredictionService _predictionService;
 
     public SpectatorController(
         IWalletService walletService,
-        IBettingService bettingService,
-        IPredictionService predictionService)
+        IBettingService bettingService)
     {
         _walletService = walletService;
         _bettingService = bettingService;
-        _predictionService = predictionService;
     }
 
     private int GetCurrentUserId()
@@ -149,44 +146,5 @@ public class SpectatorController : ControllerBase
         }
     }
 
-    [HttpPost("predictions")]
-    public async Task<IActionResult> PlacePrediction([FromBody] PredictionManagementRequest request)
-    {
-        try
-        {
-            var userId = GetCurrentUserId();
-            var response = await _predictionService.PlacePredictionAsync(userId, request);
-            return Ok(new { message = "Prediction placed successfully", result = response });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { message = "An error occurred placing prediction", detail = ex.Message });
-        }
-    }
 
-    [HttpGet("predictions/stats/{raceId}")]
-    public async Task<IActionResult> GetPredictionStats(int raceId)
-    {
-        try
-        {
-            var response = await _predictionService.GetPredictionStatsAsync(raceId);
-            return Ok(new { message = "Prediction statistics retrieved successfully", result = response });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { message = "An error occurred retrieving prediction stats", detail = ex.Message });
-        }
-    }
 }

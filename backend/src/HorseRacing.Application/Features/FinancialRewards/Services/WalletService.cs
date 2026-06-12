@@ -148,7 +148,7 @@ public class WalletService : IWalletService
 
         return transactions.Select(t => new TransactionHistoryResponse
         {
-            Id = t.Id,
+            Id = t.TransactionId,
             WalletId = t.WalletId,
             Amount = t.Amount,
             Type = t.Type,

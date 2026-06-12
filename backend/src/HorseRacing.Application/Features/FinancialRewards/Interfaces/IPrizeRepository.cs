@@ -1,5 +1,5 @@
-using System.Threading.Tasks;
 using HorseRacing.Domain.Entities;
+using HorseRacing.Domain.Entities.Financials;
 
 namespace HorseRacing.Application.Features.FinancialRewards.Interfaces;
 

@@ -1,14 +1,14 @@
 using HorseRacing.Domain.Entities.Tournaments;
 
-namespace HorseRacing.Domain.Entities;
+namespace HorseRacing.Domain.Entities.Financials;
 
 public class Prize
 {
     public int Id { get; set; }
     public long TournamentId { get; set; }
     public Tournament? Tournament { get; set; }
-    public int Rank { get; set; } // 1, 2, 3
+    public int RankPosition { get; set; }
     public decimal Amount { get; set; }
-    public decimal OwnerPercentage { get; set; } // e.g. 70 (%)
-    public decimal JockeyPercentage { get; set; } // e.g. 30 (%)
+    public decimal OwnerPercentage { get; set; }
+    public decimal JockeyPercentage { get; set; }
 }
