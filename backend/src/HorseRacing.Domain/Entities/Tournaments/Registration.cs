@@ -18,7 +18,4 @@ public class Registration
 
     public DateTime CreatedAt { get; set; }
         = DateTime.UtcNow;
-
-    public ICollection<Horse> Horses { get; set; }
-    = new List<Horse>(); 
 }
