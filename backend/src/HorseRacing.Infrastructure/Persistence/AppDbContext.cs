@@ -145,6 +145,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             entity.ToTable("Registration");
             entity.HasKey(r => r.RegistrationId);
+            entity.Property(r => r.RegistrationId)
+                .HasColumnName("Id")
+                .HasConversion<int>();
+
+            entity.Property(r => r.HorseId)
+                .HasColumnName("HorseId")
+                .HasConversion<int>();
+
+            entity.Property(r => r.RegisteredAt)
+                .HasColumnName("CreatedAt");
 
             entity.HasIndex(x => new { x.TournamentId, x.HorseId })
                 .IsUnique();
@@ -158,9 +168,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .WithMany(h => h.Registrations)
                 .HasForeignKey(r => r.HorseId)
                 .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasIndex(r => new { r.TournamentId, r.HorseId })
-                .IsUnique();
         });
 
         modelBuilder.Entity<Bet>(entity =>
@@ -325,6 +332,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             entity.ToTable("Horse");
             entity.HasKey(h => h.HorseId);
+            entity.Property(h => h.HorseId)
+                .HasColumnName("Id")
+                .HasConversion<int>();
         });
         modelBuilder.Entity<Race>().ToTable("Race");
         modelBuilder.Entity<RaceResult>().ToTable("RaceResult");
