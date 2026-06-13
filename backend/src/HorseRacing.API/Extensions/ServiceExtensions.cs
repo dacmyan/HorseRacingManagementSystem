@@ -36,6 +36,7 @@ public static class ServiceExtensions
         services.AddScoped<IPrizePayoutService, PrizePayoutService>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<ITournamentService, TournamentService>();
+        services.AddScoped<IRoundService, RoundService>();
         services.AddScoped<IRaceService, RaceService>();
 
         return services;

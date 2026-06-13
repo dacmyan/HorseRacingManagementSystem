@@ -35,6 +35,7 @@ public static class DependencyInjection
         services.AddScoped<IPayoutRepository, PayoutRepository>();
         services.AddScoped<IPrizeRepository, PrizeRepository>();
         services.AddScoped<ITournamentRepository, TournamentRepository>();
+        services.AddScoped<IRoundRepository, RoundRepository>();
         services.AddScoped<IRaceRepository, RaceRepository>();
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
         services.AddScoped<DatabaseSeeder>();

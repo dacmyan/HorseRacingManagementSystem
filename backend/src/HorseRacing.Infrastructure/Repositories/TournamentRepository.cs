@@ -2,6 +2,7 @@ using System.Threading.Tasks;
 using HorseRacing.Application.Features.TournamentAndRacing.Interfaces;
 using HorseRacing.Domain.Entities.Tournaments;
 using HorseRacing.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 
 namespace HorseRacing.Infrastructure.Repositories;
 
@@ -22,5 +23,12 @@ public class TournamentRepository : ITournamentRepository
     public async Task SaveChangesAsync()
     {
         await _context.SaveChangesAsync();
+    }
+
+    public async Task<bool> ExistsAsync(long tournamentId)
+    {
+        return await _context.Tournaments
+            .AsNoTracking()
+            .AnyAsync(t => t.TournamentId == tournamentId);
     }
 }
