@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -127,7 +127,7 @@ namespace HorseRacing.Infrastructure.Migrations
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
-                    TournamentId = table.Column<int>(type: "int", nullable: false),
+                    TournamentId = table.Column<long>(type: "bigint", nullable: false),
                     HorseId = table.Column<int>(type: "int", nullable: false),
                     Status = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
@@ -145,7 +145,7 @@ namespace HorseRacing.Infrastructure.Migrations
                         name: "FK_Registrations_Tournaments_TournamentId",
                         column: x => x.TournamentId,
                         principalTable: "Tournaments",
-                        principalColumn: "Id",
+                        principalColumn: "TournamentId",
                         onDelete: ReferentialAction.Restrict);
                 });
 
