@@ -1,0 +1,12 @@
+using System;
+
+namespace HorseRacing.Application.Features.TournamentAndRacing.DTOs;
+
+public class UpdateTournamentRequest
+{
+    public string Name { get; set; } = string.Empty;
+    public DateTime StartDate { get; set; }
+    public DateTime EndDate { get; set; }
+    public int NumberOfRounds { get; set; }
+    public string Status { get; set; } = string.Empty;
+}

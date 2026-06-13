@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using HorseRacing.Application.Features.TournamentAndRacing.Interfaces;
 using HorseRacing.Domain.Entities.Tournaments;
@@ -20,6 +22,11 @@ public class TournamentRepository : ITournamentRepository
         await _context.Tournaments.AddAsync(tournament);
     }
 
+    public void Update(Tournament tournament)
+    {
+        _context.Tournaments.Update(tournament);
+    }
+
     public async Task SaveChangesAsync()
     {
         await _context.SaveChangesAsync();
@@ -30,5 +37,27 @@ public class TournamentRepository : ITournamentRepository
         return await _context.Tournaments
             .AsNoTracking()
             .AnyAsync(t => t.TournamentId == tournamentId);
+    }
+
+    public async Task<Tournament?> GetByIdAsync(long tournamentId)
+    {
+        return await _context.Tournaments
+            .FirstOrDefaultAsync(t => t.TournamentId == tournamentId);
+    }
+
+    public async Task<Tournament?> GetByIdWithRoundsAsync(long tournamentId)
+    {
+        return await _context.Tournaments
+            .Include(t => t.Rounds)
+            .FirstOrDefaultAsync(t => t.TournamentId == tournamentId);
+    }
+
+    public async Task<List<Tournament>> GetAllAsync()
+    {
+        return await _context.Tournaments
+            .AsNoTracking()
+            .Include(t => t.Rounds)
+            .OrderByDescending(t => t.StartDate)
+            .ToListAsync();
     }
 }

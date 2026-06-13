@@ -23,17 +23,20 @@ public class PublicController : ControllerBase
     private readonly INotificationService _notificationService;
     private readonly IRaceService _raceService;
     private readonly IRoundService _roundService;
+    private readonly ITournamentService _tournamentService;
 
     public PublicController(
         AppDbContext context,
         INotificationService notificationService,
         IRaceService raceService,
-        IRoundService roundService)
+        IRoundService roundService,
+        ITournamentService tournamentService)
     {
         _context = context;
         _notificationService = notificationService;
         _raceService = raceService;
         _roundService = roundService;
+        _tournamentService = tournamentService;
     }
 
     private int GetCurrentUserId()
@@ -193,5 +196,39 @@ public class PublicController : ControllerBase
         }
 
         return Ok(new { message = "Round details retrieved successfully", result = round });
+    }
+
+    [HttpGet("tournaments")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetTournaments()
+    {
+        try
+        {
+            var tournaments = await _tournamentService.GetAllTournamentsAsync();
+            return Ok(new { message = "Tournaments retrieved successfully", result = tournaments });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving tournaments", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("tournaments/{id}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetTournamentDetail(long id)
+    {
+        try
+        {
+            var tournament = await _tournamentService.GetTournamentByIdAsync(id);
+            if (tournament == null)
+            {
+                return NotFound(new { message = $"Tournament with ID {id} was not found." });
+            }
+            return Ok(new { message = "Tournament details retrieved successfully", result = tournament });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving tournament details", detail = ex.Message });
+        }
     }
 }

@@ -162,6 +162,32 @@ public class AdminController : ControllerBase
         }
     }
 
+    [HttpPut("tournaments/{id}")]
+    public async Task<IActionResult> UpdateTournament([FromRoute] long id, [FromBody] UpdateTournamentRequest request)
+    {
+        try
+        {
+            var response = await _tournamentService.UpdateTournamentAsync(id, request);
+            if (response == null)
+            {
+                return NotFound(new { message = $"Tournament with ID {id} was not found." });
+            }
+            return Ok(new { message = "Tournament updated successfully", result = response });
+        }
+        catch (ArgumentNullException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred during tournament update", detail = ex.Message });
+        }
+    }
+
     [HttpPost("races")]
 
     public async Task<IActionResult> CreateRace([FromBody] CreateRaceRequest request)
