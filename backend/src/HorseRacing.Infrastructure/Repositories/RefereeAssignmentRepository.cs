@@ -47,6 +47,7 @@ public class RefereeAssignmentRepository : IRefereeAssignmentRepository
             .Include(rra => rra.RefereeProfile)
                 .ThenInclude(rp => rp!.User)
             .Where(rra => rra.RaceId == raceId)
+            .OrderBy(rra => rra.AssignedAt)
             .ToListAsync();
     }
 
