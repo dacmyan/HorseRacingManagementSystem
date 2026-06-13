@@ -6,6 +6,7 @@ using HorseRacing.Application.Features.FinancialRewards.Interfaces;
 using HorseRacing.Application.Features.Notifications.Interfaces;
 using HorseRacing.Domain.Entities;
 using HorseRacing.Domain.Entities.Tournaments;
+using HorseRacing.Domain.Entities.Financials;
 
 namespace HorseRacing.Application.Features.FinancialRewards.Services;
 
@@ -85,7 +86,7 @@ public class PrizePayoutService : IPrizePayoutService
             firstPrize = new Prize
             {
                 TournamentId = request.TournamentId,
-                Rank = 1,
+                RankPosition = 1,
                 Amount = request.FirstPlacePrize > 0 ? request.FirstPlacePrize : 10000m,
                 OwnerPercentage = 70m,
                 JockeyPercentage = 30m
@@ -133,14 +134,15 @@ public class PrizePayoutService : IPrizePayoutService
         };
         await _notificationRepository.AddAsync(ownerNotification);
 
-        if (winningEntry.Jockey == null)
+        int jockeyUserId = 0;
+        if (winningEntry.JockeyId.HasValue)
         {
-            throw new InvalidOperationException(
-                $"Jockey profile was not loaded for race entry {winningEntry.RaceEntryId}.");
+            if (winningEntry.JockeyProfile == null)
+            {
+                throw new InvalidOperationException($"Jockey Profile with ID {winningEntry.JockeyId.Value} is not loaded.");
+            }
+            jockeyUserId = winningEntry.JockeyProfile.UserId;
         }
-
-        var jockeyUserId = winningEntry.Jockey.UserId;
-
         var jockeyWallet = await GetOrCreateWalletAsync(jockeyUserId);
         jockeyWallet.Balance += jockeyAmount;
 

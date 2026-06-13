@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace HorseRacing.Domain.Entities;
 
 public class Horse
@@ -18,14 +20,9 @@ public class Horse
 
     public AppUser? Owner { get; set; }
 
-    public ICollection<Registration> Registrations { get; set; }
-        = new List<Registration>();
+    public ICollection<Registration> Registrations { get; set; } = new List<Registration>();
 
-    public ICollection<RaceEntry> RaceEntries { get; set; }
-        = new List<RaceEntry>();
-
-    public ICollection<HorseDocument> Documents { get; set; }
-        = new List<HorseDocument>();
+    public ICollection<HorseDocument> Documents { get; set; } = new List<HorseDocument>();
 
     public HorseStatistic? Statistic { get; set; }
 }

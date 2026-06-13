@@ -107,7 +107,6 @@ CREATE TABLE [Horse] (
     [OwnerId] int NOT NULL,
     [Gender] nvarchar(max) NOT NULL DEFAULT N'',
     [HealthStatus] nvarchar(max) NOT NULL DEFAULT N'',
-    [RegistrationId] int NULL,
     CONSTRAINT [PK_Horse] PRIMARY KEY ([Id])
 );
 
@@ -136,15 +135,15 @@ CREATE TABLE [HorseStatistic] (
 
 -- Bảng JockeyContract
 CREATE TABLE [JockeyContract] (
-    [Id] int NOT NULL IDENTITY(1,1),
+    [ContractId] int NOT NULL IDENTITY(1,1),
+    [TournamentId] bigint NOT NULL,
     [HorseId] int NOT NULL,
-    [OwnerId] int NOT NULL,
     [JockeyId] int NOT NULL,
     [StartDate] datetime2 NOT NULL,
     [EndDate] datetime2 NOT NULL,
     [Status] nvarchar(max) NOT NULL,
     [CreatedAt] datetime2 NOT NULL,
-    CONSTRAINT [PK_JockeyContract] PRIMARY KEY ([Id])
+    CONSTRAINT [PK_JockeyContract] PRIMARY KEY ([ContractId])
 );
 
 -- Bảng Race
@@ -161,13 +160,15 @@ CREATE TABLE [Race] (
 
 -- Bảng RaceEntry
 CREATE TABLE [RaceEntry] (
-    [Id] int NOT NULL IDENTITY(1,1),
+    [RaceEntryId] bigint NOT NULL IDENTITY(1,1),
     [RaceId] bigint NOT NULL,
-    [HorseId] int NOT NULL,
-    [JockeyId] int NOT NULL,
+    [RegistrationId] int NOT NULL,
+    [JockeyId] int NULL,
+    [WinningProbability] decimal(18,2) NULL,
+    [CurrentOdds] decimal(18,2) NULL,
+    [LaneNo] int NOT NULL,
     [Status] nvarchar(max) NOT NULL,
-    [HorseId1] int NULL,
-    CONSTRAINT [PK_RaceEntry] PRIMARY KEY ([Id])
+    CONSTRAINT [PK_RaceEntry] PRIMARY KEY ([RaceEntryId])
 );
 
 -- Bảng RaceResult
@@ -182,7 +183,7 @@ CREATE TABLE [RaceResult] (
 CREATE TABLE [Prize] (
     [Id] int NOT NULL IDENTITY(1,1),
     [TournamentId] bigint NOT NULL,
-    [Rank] int NOT NULL,
+    [RankPosition] int NOT NULL,
     [Amount] decimal(18,2) NOT NULL,
     [OwnerPercentage] decimal(18,2) NOT NULL,
     [JockeyPercentage] decimal(18,2) NOT NULL,
@@ -218,16 +219,16 @@ CREATE TABLE [RaceRefereeAssignment] (
     CONSTRAINT [PK_RaceRefereeAssignment] PRIMARY KEY ([AssignmentId])
 );
 
--- Bảng RefereeReport (Bản mới có bổ sung ReportedUserId và ReportedHorseId)
+-- Bảng RefereeReport
 CREATE TABLE [RefereeReport] (
-    [Id] int NOT NULL IDENTITY(1,1),
-    [RaceId] bigint NOT NULL,
-    [RefereeId] int NOT NULL,
+    [ReportId] bigint NOT NULL IDENTITY(1,1),
+    [AssignmentId] bigint NOT NULL,
     [Content] nvarchar(max) NOT NULL,
+    [ViolationNote] nvarchar(max) NULL,
     [CreatedAt] datetime2 NOT NULL,
     [ReportedUserId] int NULL,
     [ReportedHorseId] int NULL,
-    CONSTRAINT [PK_RefereeReport] PRIMARY KEY ([Id])
+    CONSTRAINT [PK_RefereeReport] PRIMARY KEY ([ReportId])
 );
 
 -- Bảng RaceViolation
@@ -263,12 +264,19 @@ CREATE TABLE [Payout] (
 
 -- Bảng WalletTransaction
 CREATE TABLE [WalletTransaction] (
-    [Id] int NOT NULL IDENTITY(1,1),
+    [TransactionId] int NOT NULL IDENTITY(1,1),
     [WalletId] int NOT NULL,
+    [BetId] int NULL,
+    [PayoutId] int NULL,
+    [PrizePayoutId] int NULL,
     [Amount] decimal(18,2) NOT NULL,
     [Type] nvarchar(max) NOT NULL,
+    [Status] nvarchar(max) NULL,
+    [PaymentMethod] nvarchar(max) NULL,
+    [GatewayTransactionId] nvarchar(max) NULL,
+    [Description] nvarchar(max) NULL,
     [CreatedAt] datetime2 NOT NULL,
-    CONSTRAINT [PK_WalletTransaction] PRIMARY KEY ([Id])
+    CONSTRAINT [PK_WalletTransaction] PRIMARY KEY ([TransactionId])
 );
 
 -- Bảng Notification
@@ -281,14 +289,6 @@ CREATE TABLE [Notification] (
     CONSTRAINT [PK_Notification] PRIMARY KEY ([Id])
 );
 
--- Bảng Prediction (Bổ trợ)
-CREATE TABLE [Prediction] (
-    [Id] int NOT NULL IDENTITY(1,1),
-    [RaceId] bigint NOT NULL,
-    [UserId] int NOT NULL,
-    [PredictedWinner] nvarchar(max) NOT NULL,
-    CONSTRAINT [PK_Prediction] PRIMARY KEY ([Id])
-);
 GO
 
 -- 5. THIẾT LẬP RÀNG BUỘC KHÓA NGOẠI (FOREIGN KEYS)
@@ -322,8 +322,6 @@ ALTER TABLE [Registration] ADD CONSTRAINT [FK_Registration_Horse_HorseId]
 -- Bảng Horse
 ALTER TABLE [Horse] ADD CONSTRAINT [FK_Horse_AppUser_OwnerId] 
     FOREIGN KEY ([OwnerId]) REFERENCES [AppUser] ([UserId]) ON DELETE CASCADE;
-ALTER TABLE [Horse] ADD CONSTRAINT [FK_Horse_Registration_RegistrationId] 
-    FOREIGN KEY ([RegistrationId]) REFERENCES [Registration] ([Id]);
 
 -- Bảng HorseDocument
 ALTER TABLE [HorseDocument] ADD CONSTRAINT [FK_HorseDocument_Horse_HorseId] 
@@ -334,10 +332,10 @@ ALTER TABLE [HorseStatistic] ADD CONSTRAINT [FK_HorseStatistic_Horse_HorseId]
     FOREIGN KEY ([HorseId]) REFERENCES [Horse] ([Id]) ON DELETE CASCADE;
 
 -- Bảng JockeyContract
+ALTER TABLE [JockeyContract] ADD CONSTRAINT [FK_JockeyContract_Tournament_TournamentId] 
+    FOREIGN KEY ([TournamentId]) REFERENCES [Tournament] ([TournamentId]) ON DELETE NO ACTION;
 ALTER TABLE [JockeyContract] ADD CONSTRAINT [FK_JockeyContract_Horse_HorseId] 
     FOREIGN KEY ([HorseId]) REFERENCES [Horse] ([Id]) ON DELETE NO ACTION;
-ALTER TABLE [JockeyContract] ADD CONSTRAINT [FK_JockeyContract_AppUser_OwnerId] 
-    FOREIGN KEY ([OwnerId]) REFERENCES [AppUser] ([UserId]) ON DELETE NO ACTION;
 ALTER TABLE [JockeyContract] ADD CONSTRAINT [FK_JockeyContract_AppUser_JockeyId] 
     FOREIGN KEY ([JockeyId]) REFERENCES [AppUser] ([UserId]) ON DELETE NO ACTION;
 
@@ -348,12 +346,10 @@ ALTER TABLE [Race] ADD CONSTRAINT [FK_Race_Round_RoundId]
 -- Bảng RaceEntry
 ALTER TABLE [RaceEntry] ADD CONSTRAINT [FK_RaceEntry_Race_RaceId] 
     FOREIGN KEY ([RaceId]) REFERENCES [Race] ([RaceId]) ON DELETE CASCADE;
-ALTER TABLE [RaceEntry] ADD CONSTRAINT [FK_RaceEntry_Horse_HorseId] 
-    FOREIGN KEY ([HorseId]) REFERENCES [Horse] ([Id]) ON DELETE NO ACTION;
-ALTER TABLE [RaceEntry] ADD CONSTRAINT [FK_RaceEntry_AppUser_JockeyId] 
-    FOREIGN KEY ([JockeyId]) REFERENCES [AppUser] ([UserId]) ON DELETE NO ACTION;
-ALTER TABLE [RaceEntry] ADD CONSTRAINT [FK_RaceEntry_Horse_HorseId1] 
-    FOREIGN KEY ([HorseId1]) REFERENCES [Horse] ([Id]);
+ALTER TABLE [RaceEntry] ADD CONSTRAINT [FK_RaceEntry_Registration_RegistrationId] 
+    FOREIGN KEY ([RegistrationId]) REFERENCES [Registration] ([Id]) ON DELETE NO ACTION;
+ALTER TABLE [RaceEntry] ADD CONSTRAINT [FK_RaceEntry_JockeyProfile_JockeyId] 
+    FOREIGN KEY ([JockeyId]) REFERENCES [JockeyProfile] ([JockeyId]) ON DELETE NO ACTION;
 
 -- Bảng RaceResult
 ALTER TABLE [RaceResult] ADD CONSTRAINT [FK_RaceResult_Race_RaceId] 
@@ -376,10 +372,8 @@ ALTER TABLE [RaceRefereeAssignment] ADD CONSTRAINT [FK_RaceRefereeAssignment_Ref
     FOREIGN KEY ([RefereeId]) REFERENCES [RefereeProfile] ([RefereeId]) ON DELETE NO ACTION;
 
 -- Bảng RefereeReport
-ALTER TABLE [RefereeReport] ADD CONSTRAINT [FK_RefereeReport_Race_RaceId] 
-    FOREIGN KEY ([RaceId]) REFERENCES [Race] ([RaceId]) ON DELETE CASCADE;
-ALTER TABLE [RefereeReport] ADD CONSTRAINT [FK_RefereeReport_RefereeProfile_RefereeId] 
-    FOREIGN KEY ([RefereeId]) REFERENCES [RefereeProfile] ([RefereeId]) ON DELETE NO ACTION;
+ALTER TABLE [RefereeReport] ADD CONSTRAINT [FK_RefereeReport_RaceRefereeAssignment_AssignmentId] 
+    FOREIGN KEY ([AssignmentId]) REFERENCES [RaceRefereeAssignment] ([AssignmentId]) ON DELETE CASCADE;
 ALTER TABLE [RefereeReport] ADD CONSTRAINT [FK_RefereeReport_AppUser] 
     FOREIGN KEY ([ReportedUserId]) REFERENCES [AppUser] ([UserId]) ON DELETE NO ACTION;
 ALTER TABLE [RefereeReport] ADD CONSTRAINT [FK_RefereeReport_Horse] 
@@ -404,6 +398,12 @@ ALTER TABLE [Payout] ADD CONSTRAINT [FK_Payout_Bet_BetId]
 -- Bảng WalletTransaction
 ALTER TABLE [WalletTransaction] ADD CONSTRAINT [FK_WalletTransaction_Wallet_WalletId] 
     FOREIGN KEY ([WalletId]) REFERENCES [Wallet] ([WalletId]) ON DELETE CASCADE;
+ALTER TABLE [WalletTransaction] ADD CONSTRAINT [FK_WalletTransaction_Bet_BetId] 
+    FOREIGN KEY ([BetId]) REFERENCES [Bet] ([Id]) ON DELETE NO ACTION;
+ALTER TABLE [WalletTransaction] ADD CONSTRAINT [FK_WalletTransaction_Payout_PayoutId] 
+    FOREIGN KEY ([PayoutId]) REFERENCES [Payout] ([Id]) ON DELETE NO ACTION;
+ALTER TABLE [WalletTransaction] ADD CONSTRAINT [FK_WalletTransaction_TournamentPrizePayout_PrizePayoutId] 
+    FOREIGN KEY ([PrizePayoutId]) REFERENCES [TournamentPrizePayout] ([Id]) ON DELETE NO ACTION;
 
 -- Bảng Notification
 ALTER TABLE [Notification] ADD CONSTRAINT [FK_Notification_AppUser_UserId] 
@@ -412,16 +412,18 @@ GO
 
 -- 6. TẠO CHỈ MỤC (INDEXES)
 
-CREATE INDEX [IX_Horse_RegistrationId] ON [Horse] ([RegistrationId]);
 CREATE INDEX [IX_Horse_OwnerId] ON [Horse] ([OwnerId]);
 CREATE UNIQUE INDEX [IX_JockeyProfile_UserId] ON [JockeyProfile] ([UserId]);
-CREATE INDEX [IX_RaceEntry_HorseId] ON [RaceEntry] ([HorseId]);
 CREATE INDEX [IX_RaceEntry_JockeyId] ON [RaceEntry] ([JockeyId]);
 CREATE INDEX [IX_RaceEntry_RaceId] ON [RaceEntry] ([RaceId]);
-CREATE INDEX [IX_RaceEntry_HorseId1] ON [RaceEntry] ([HorseId1]);
+CREATE UNIQUE INDEX [IX_RaceEntry_RaceId_LaneNo] ON [RaceEntry] ([RaceId], [LaneNo]);
+CREATE UNIQUE INDEX [IX_RaceEntry_RaceId_RegistrationId] ON [RaceEntry] ([RaceId], [RegistrationId]);
 CREATE INDEX [IX_Race_RoundId] ON [Race] ([RoundId]);
 CREATE UNIQUE INDEX [IX_RefereeProfile_UserId] ON [RefereeProfile] ([UserId]);
 CREATE INDEX [IX_WalletTransaction_WalletId] ON [WalletTransaction] ([WalletId]);
+CREATE INDEX [IX_WalletTransaction_BetId] ON [WalletTransaction] ([BetId]);
+CREATE INDEX [IX_WalletTransaction_PayoutId] ON [WalletTransaction] ([PayoutId]);
+CREATE INDEX [IX_WalletTransaction_PrizePayoutId] ON [WalletTransaction] ([PrizePayoutId]);
 CREATE INDEX [IX_AppUser_RoleId] ON [AppUser] ([RoleId]);
 CREATE INDEX [IX_RaceViolation_RaceId] ON [RaceViolation] ([RaceId]);
 CREATE UNIQUE INDEX [IX_Wallet_UserId] ON [Wallet] ([UserId]);
@@ -430,21 +432,20 @@ CREATE INDEX [IX_Bet_RaceId] ON [Bet] ([RaceId]);
 CREATE INDEX [IX_Bet_UserId] ON [Bet] ([UserId]);
 CREATE INDEX [IX_Notification_UserId] ON [Notification] ([UserId]);
 CREATE INDEX [IX_Payout_BetId] ON [Payout] ([BetId]);
-CREATE INDEX [IX_Prize_TournamentId] ON [Prize] ([TournamentId]);
+CREATE UNIQUE INDEX [IX_Prize_TournamentId_RankPosition] ON [Prize] ([TournamentId], [RankPosition]);
 CREATE INDEX [IX_TournamentPrizePayout_TournamentId] ON [TournamentPrizePayout] ([TournamentId]);
 CREATE INDEX [IX_TournamentPrizePayout_UserId] ON [TournamentPrizePayout] ([UserId]);
-CREATE INDEX [IX_RaceRefereeAssignment_RaceId] ON [RaceRefereeAssignment] ([RaceId]);
 CREATE INDEX [IX_RaceRefereeAssignment_RefereeId] ON [RaceRefereeAssignment] ([RefereeId]);
-CREATE INDEX [IX_Round_TournamentId] ON [Round] ([TournamentId]);
+CREATE UNIQUE INDEX [IX_RaceRefereeAssignment_RaceId_RefereeId] ON [RaceRefereeAssignment] ([RaceId], [RefereeId]);
+CREATE UNIQUE INDEX [IX_Round_TournamentId_RoundNumber] ON [Round] ([TournamentId], [RoundNumber]);
 CREATE INDEX [IX_HorseDocument_HorseId] ON [HorseDocument] ([HorseId]);
 CREATE UNIQUE INDEX [IX_HorseStatistic_HorseId] ON [HorseStatistic] ([HorseId]);
 CREATE INDEX [IX_JockeyContract_HorseId] ON [JockeyContract] ([HorseId]);
 CREATE INDEX [IX_JockeyContract_JockeyId] ON [JockeyContract] ([JockeyId]);
-CREATE INDEX [IX_JockeyContract_OwnerId] ON [JockeyContract] ([OwnerId]);
+CREATE UNIQUE INDEX [IX_JockeyContract_TournamentId_HorseId_JockeyId] ON [JockeyContract] ([TournamentId], [HorseId], [JockeyId]);
 CREATE INDEX [IX_Registration_HorseId] ON [Registration] ([HorseId]);
-CREATE INDEX [IX_Registration_TournamentId] ON [Registration] ([TournamentId]);
-CREATE INDEX [IX_RefereeReport_RaceId] ON [RefereeReport] ([RaceId]);
-CREATE INDEX [IX_RefereeReport_RefereeId] ON [RefereeReport] ([RefereeId]);
+CREATE UNIQUE INDEX [IX_Registration_TournamentId_HorseId] ON [Registration] ([TournamentId], [HorseId]);
+CREATE INDEX [IX_RefereeReport_AssignmentId] ON [RefereeReport] ([AssignmentId]);
 GO
 
 -- 7. SEED DỮ LIỆU BAN ĐẦU (ROLES, USERS, PROFILES, WALLETS)
@@ -497,7 +498,11 @@ VALUES
 (N'20260610083404_AddBetPayoutPrizeNotification', N'10.0.9'),
 (N'20260611024654_UpdateTournamentRacingEntities', N'10.0.9'),
 (N'20260611035623_AddHorseDocsAndStats', N'10.0.9'),
-(N'20260612024026_FixSingularTableMapping', N'10.0.9');
+(N'20260612024026_FixSingularTableMapping', N'10.0.9'),
+(N'20260612025302_AddRefereeReport', N'10.0.9'),
+(N'20260612030624_FixRuntimeUserSeeding', N'10.0.9'),
+(N'20260612033801_AddLaneNoToRaceEntry', N'10.0.9'),
+(N'20260612035556_AlignDatabaseWithStandardSchema', N'10.0.9');
 GO
 
 PRINT 'DATABASE HorseRacingManagementSystem HAS BEEN SUCCESSFULLY RECREATED WITH CLEAN SINGULAR SCHEMA!';

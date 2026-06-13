@@ -23,10 +23,7 @@ public interface IBetRepository
     Task<Tournament?> GetTournamentByIdAsync(long tournamentId);
     Task<Race?> GetFinalRaceInTournamentAsync(long tournamentId);
 
-    // Prediction queries
-    Task<Prediction?> GetPredictionAsync(long raceId, int userId);
-    Task<IEnumerable<Prediction>> GetPredictionsByRaceIdAsync(long raceId);
-    Task AddPredictionAsync(Prediction prediction);
+
 
     // Rankings queries
     Task<IEnumerable<JockeyProfile>> GetJockeyRankingsAsync();

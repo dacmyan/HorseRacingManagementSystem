@@ -1,6 +1,7 @@
 using System.Threading.Tasks;
 using HorseRacing.Application.Features.FinancialRewards.Interfaces;
 using HorseRacing.Domain.Entities;
+using HorseRacing.Domain.Entities.Financials;
 using HorseRacing.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,7 +19,7 @@ public class PrizeRepository : IPrizeRepository
     public async Task<Prize?> GetByTournamentAndRankAsync(int tournamentId, int rank)
     {
         return await _context.Prizes
-            .FirstOrDefaultAsync(p => p.TournamentId == tournamentId && p.Rank == rank);
+            .FirstOrDefaultAsync(p => p.TournamentId == tournamentId && p.RankPosition == rank);
     }
 
     public async Task AddAsync(Prize prize)

@@ -68,7 +68,7 @@ public class RaceRepository : IRaceRepository
             .AsNoTracking()
             .Include(re => re.Registration)
                 .ThenInclude(r => r!.Horse)
-            .Include(re => re.Jockey)
+            .Include(re => re.JockeyProfile)
                 .ThenInclude(j => j!.User)
             .Where(re => re.RaceId == raceId)
             .ToListAsync();

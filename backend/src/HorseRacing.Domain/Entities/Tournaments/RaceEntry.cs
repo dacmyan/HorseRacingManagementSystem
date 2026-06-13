@@ -10,7 +10,7 @@ public class RaceEntry
     public long RegistrationId { get; set; }
     public Registration? Registration { get; set; }
     public long? JockeyId { get; set; }
-    public JockeyProfile? Jockey { get; set; }
+    public JockeyProfile? JockeyProfile { get; set; }
     public decimal? WinningProbability { get; set; }
     public decimal? CurrentOdds { get; set; }
     public int LaneNo { get; set; }

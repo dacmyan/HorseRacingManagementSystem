@@ -30,7 +30,7 @@ public static class ServiceExtensions
         services.AddScoped<IJockeyContractService, JockeyContractService>();
         services.AddScoped<IRegistrationService, RegistrationService>();
         services.AddScoped<IBettingService, BettingService>();
-        services.AddScoped<IPredictionService, PredictionService>();
+
         services.AddScoped<IWalletService, WalletService>();
         services.AddScoped<IBetPayoutService, BetPayoutService>();
         services.AddScoped<IPrizePayoutService, PrizePayoutService>();

@@ -76,7 +76,7 @@ public class BetRepository : IBetRepository
     {
         return await _context.RaceEntries
             .Include(re => re.Registration)
-            .Include(re => re.Jockey)
+            .Include(re => re.JockeyProfile)
             .FirstOrDefaultAsync(re => re.RaceId == raceId && re.Registration != null && re.Registration.HorseId == horseId);
     }
 
@@ -102,23 +102,7 @@ public class BetRepository : IBetRepository
             .FirstOrDefaultAsync();
     }
 
-    public async Task<Prediction?> GetPredictionAsync(long raceId, int userId)
-    {
-        return await _context.Predictions
-            .FirstOrDefaultAsync(p => p.RaceId == raceId && p.UserId == userId);
-    }
 
-    public async Task<IEnumerable<Prediction>> GetPredictionsByRaceIdAsync(long raceId)
-    {
-        return await _context.Predictions
-            .Where(p => p.RaceId == raceId)
-            .ToListAsync();
-    }
-
-    public async Task AddPredictionAsync(Prediction prediction)
-    {
-        await _context.Predictions.AddAsync(prediction);
-    }
 
     public async Task<IEnumerable<JockeyProfile>> GetJockeyRankingsAsync()
     {

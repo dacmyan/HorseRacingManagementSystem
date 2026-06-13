@@ -203,11 +203,11 @@ public class RaceService : IRaceService
         await _raceRepository.AddRaceEntryAsync(raceEntry);
         await _raceRepository.SaveChangesAsync();
 
-        var jockeyName = existingEntries.FirstOrDefault(e => e.JockeyId == request.JockeyId)?.Jockey?.User?.FullName;
+        var jockeyName = existingEntries.FirstOrDefault(e => e.JockeyId == request.JockeyId)?.JockeyProfile?.User?.FullName;
         if (string.IsNullOrEmpty(jockeyName) && request.JockeyId.HasValue)
         {
             var savedEntries = await _raceRepository.GetRaceEntriesAsync(raceId);
-            jockeyName = savedEntries.FirstOrDefault(e => e.JockeyId == request.JockeyId)?.Jockey?.User?.FullName;
+            jockeyName = savedEntries.FirstOrDefault(e => e.JockeyId == request.JockeyId)?.JockeyProfile?.User?.FullName;
         }
 
         return new RaceEntryResponse
