@@ -7,6 +7,7 @@ using HorseRacing.Application.Features.TournamentAndRacing.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace HorseRacing.API.Controllers;
@@ -154,6 +155,36 @@ public class AdminController : ControllerBase
         catch (Exception)
         {
             return StatusCode(500, new { message = "An error occurred during race scheduling" });
+        }
+    }
+
+    [HttpPost("races/{raceId}/entries")]
+    public async Task<IActionResult> CreateRaceEntry([FromRoute] long raceId, [FromBody] CreateRaceEntryRequest request)
+    {
+        try
+        {
+            var response = await _raceService.CreateRaceEntryAsync(raceId, request);
+            return StatusCode(StatusCodes.Status201Created, response);
+        }
+        catch (ArgumentNullException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred during race entry creation", detail = ex.Message });
         }
     }
 }

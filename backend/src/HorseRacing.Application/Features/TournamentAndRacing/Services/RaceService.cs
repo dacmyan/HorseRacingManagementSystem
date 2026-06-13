@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using HorseRacing.Application.Features.TournamentAndRacing.DTOs;
 using HorseRacing.Application.Features.TournamentAndRacing.Interfaces;
+using HorseRacing.Domain.Entities;
 using HorseRacing.Domain.Entities.Tournaments;
 
 namespace HorseRacing.Application.Features.TournamentAndRacing.Services;
@@ -106,5 +107,122 @@ public class RaceService : IRaceService
             RoundName = r.Round?.Name ?? string.Empty,
             TournamentName = r.Round?.Tournament?.Name ?? string.Empty
         }).ToList();
+    }
+
+    public async Task<RaceEntryResponse> CreateRaceEntryAsync(long raceId, CreateRaceEntryRequest request)
+    {
+        if (request == null)
+        {
+            throw new ArgumentNullException(nameof(request));
+        }
+
+        if (raceId <= 0)
+        {
+            throw new ArgumentException("Race ID must be greater than zero.", nameof(raceId));
+        }
+
+        var race = await _raceRepository.GetByIdWithDetailsAsync(raceId);
+        if (race == null)
+        {
+            throw new KeyNotFoundException($"Race with ID {raceId} not found.");
+        }
+
+        var registration = await _raceRepository.GetRegistrationWithHorseAsync(request.RegistrationId);
+        if (registration == null)
+        {
+            throw new KeyNotFoundException($"Registration with ID {request.RegistrationId} not found.");
+        }
+
+        if (race.Round == null)
+        {
+            throw new InvalidOperationException("Race is not assigned to a round.");
+        }
+
+        if (registration.TournamentId != race.Round.TournamentId)
+        {
+            throw new InvalidOperationException("Registration tournament does not match the race tournament.");
+        }
+
+        if (request.LaneNo <= 0)
+        {
+            throw new ArgumentException("Lane number must be greater than zero.", nameof(request.LaneNo));
+        }
+
+        if (request.LaneNo > race.MaxLanes)
+        {
+            throw new InvalidOperationException($"Lane number cannot exceed the maximum of {race.MaxLanes} for this race.");
+        }
+
+        var existingEntries = await _raceRepository.GetRaceEntriesAsync(raceId);
+
+        if (existingEntries.Any(e => e.LaneNo == request.LaneNo))
+        {
+            throw new InvalidOperationException($"Lane {request.LaneNo} is already occupied in this race.");
+        }
+
+        if (existingEntries.Any(e => e.RegistrationId == request.RegistrationId))
+        {
+            throw new InvalidOperationException("This horse registration is already entered in this race.");
+        }
+
+        if (existingEntries.Any(e => e.Registration?.HorseId == registration.HorseId))
+        {
+            throw new InvalidOperationException("This horse is already entered in this race.");
+        }
+
+        if (request.JockeyId.HasValue)
+        {
+            if (existingEntries.Any(e => e.JockeyId == request.JockeyId.Value))
+            {
+                throw new InvalidOperationException("This jockey is already assigned to a lane in this race.");
+            }
+
+            var hasActiveContract = await _raceRepository.HasActiveJockeyContractAsync(
+                race.Round.TournamentId,
+                registration.HorseId,
+                request.JockeyId.Value
+            );
+
+            if (!hasActiveContract)
+            {
+                throw new InvalidOperationException("The jockey does not have an active contract for this horse.");
+            }
+        }
+
+        var raceEntry = new RaceEntry
+        {
+            RaceId = raceId,
+            RegistrationId = request.RegistrationId,
+            JockeyId = request.JockeyId,
+            LaneNo = request.LaneNo,
+            WinningProbability = request.WinningProbability,
+            CurrentOdds = request.CurrentOdds,
+            Status = "Ready"
+        };
+
+        await _raceRepository.AddRaceEntryAsync(raceEntry);
+        await _raceRepository.SaveChangesAsync();
+
+        var jockeyName = existingEntries.FirstOrDefault(e => e.JockeyId == request.JockeyId)?.Jockey?.User?.FullName;
+        if (string.IsNullOrEmpty(jockeyName) && request.JockeyId.HasValue)
+        {
+            var savedEntries = await _raceRepository.GetRaceEntriesAsync(raceId);
+            jockeyName = savedEntries.FirstOrDefault(e => e.JockeyId == request.JockeyId)?.Jockey?.User?.FullName;
+        }
+
+        return new RaceEntryResponse
+        {
+            RaceEntryId = raceEntry.RaceEntryId,
+            RaceId = raceEntry.RaceId,
+            RegistrationId = raceEntry.RegistrationId,
+            HorseId = registration.HorseId,
+            HorseName = registration.Horse?.Name ?? string.Empty,
+            JockeyId = raceEntry.JockeyId,
+            JockeyName = jockeyName,
+            LaneNo = raceEntry.LaneNo,
+            Status = raceEntry.Status,
+            WinningProbability = raceEntry.WinningProbability,
+            CurrentOdds = raceEntry.CurrentOdds
+        };
     }
 }
