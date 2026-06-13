@@ -10,4 +10,5 @@ public interface IRaceService
     Task<List<RaceScheduleResponse>> GetPublicRaceScheduleAsync();
     Task<RaceEntryResponse> CreateRaceEntryAsync(long raceId, CreateRaceEntryRequest request);
     Task<RaceScheduleResponse?> GetRaceByIdAsync(long raceId);
+    Task<List<RaceEntryResponse>?> GetRaceEntriesByRaceIdAsync(long raceId);
 }

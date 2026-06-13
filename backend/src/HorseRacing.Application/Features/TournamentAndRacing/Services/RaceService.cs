@@ -253,4 +253,31 @@ public class RaceService : IRaceService
             CurrentOdds = raceEntry.CurrentOdds
         };
     }
+
+    public async Task<List<RaceEntryResponse>?> GetRaceEntriesByRaceIdAsync(long raceId)
+    {
+        var raceExists = await _raceRepository.GetByIdWithDetailsAsync(raceId);
+        if (raceExists == null)
+        {
+            return null;
+        }
+
+        var entries = await _raceRepository.GetRaceEntriesAsync(raceId);
+        return entries
+            .OrderBy(e => e.LaneNo)
+            .Select(e => new RaceEntryResponse
+            {
+                RaceEntryId = e.RaceEntryId,
+                RaceId = e.RaceId,
+                RegistrationId = e.RegistrationId,
+                HorseId = e.Registration?.HorseId ?? 0,
+                HorseName = e.Registration?.Horse?.Name ?? string.Empty,
+                JockeyId = e.JockeyId,
+                JockeyName = e.JockeyProfile?.User?.FullName ?? string.Empty,
+                LaneNo = e.LaneNo,
+                Status = e.Status,
+                WinningProbability = e.WinningProbability,
+                CurrentOdds = e.CurrentOdds
+            }).ToList();
+    }
 }

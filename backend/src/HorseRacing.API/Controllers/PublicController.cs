@@ -213,4 +213,23 @@ public class PublicController : ControllerBase
             return StatusCode(500, new { message = "An error occurred retrieving race details", detail = ex.Message });
         }
     }
+
+    [HttpGet("races/{raceId}/entries")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetRaceEntries(long raceId)
+    {
+        try
+        {
+            var entries = await _raceService.GetRaceEntriesByRaceIdAsync(raceId);
+            if (entries == null)
+            {
+                return NotFound(new { message = $"Race with ID {raceId} was not found." });
+            }
+            return Ok(new { message = "Race entries retrieved successfully", result = entries });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving race entries", detail = ex.Message });
+        }
+    }
 }
