@@ -68,4 +68,52 @@ public class RefereeController : ControllerBase
             return StatusCode(StatusCodes.Status500InternalServerError, new { message = "An error occurred retrieving race violations", detail = ex.Message });
         }
     }
+
+    [HttpPost("reports")]
+    public async Task<IActionResult> SubmitReport([FromBody] CreateRefereeReportRequest request)
+    {
+        try
+        {
+            var response = await _refereeService.SubmitReportAsync(request);
+            return StatusCode(StatusCodes.Status201Created, response);
+        }
+        catch (ArgumentNullException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = "An error occurred submitting the report", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("races/{raceId}/reports")]
+    public async Task<IActionResult> GetRaceReports([FromRoute] long raceId)
+    {
+        try
+        {
+            var response = await _refereeService.GetReportsByRaceIdAsync(raceId);
+            if (response == null)
+            {
+                return NotFound(new { message = $"Race with ID {raceId} was not found." });
+            }
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = "An error occurred retrieving race reports", detail = ex.Message });
+        }
+    }
 }

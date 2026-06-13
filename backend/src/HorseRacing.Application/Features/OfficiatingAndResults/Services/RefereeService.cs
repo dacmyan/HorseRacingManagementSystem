@@ -5,16 +5,19 @@ using System.Threading.Tasks;
 using HorseRacing.Application.Features.OfficiatingAndResults.DTOs;
 using HorseRacing.Application.Features.OfficiatingAndResults.Interfaces;
 using HorseRacing.Domain.Entities;
+using HorseRacing.Domain.Entities.Tournaments;
 
 namespace HorseRacing.Application.Features.OfficiatingAndResults.Services;
 
 public class RefereeService : IRefereeService
 {
     private readonly IViolationRepository _repository;
+    private readonly IRefereeReportRepository _reportRepository;
 
-    public RefereeService(IViolationRepository repository)
+    public RefereeService(IViolationRepository repository, IRefereeReportRepository reportRepository)
     {
         _repository = repository;
+        _reportRepository = reportRepository;
     }
 
     public async Task<ViolationResponse> LogViolationAsync(LogViolationRequest request)
@@ -95,6 +98,128 @@ public class RefereeService : IRefereeService
             RaceName = v.Race?.Name ?? string.Empty,
             Description = v.Description,
             Penalty = v.Penalty
+        }).ToList();
+    }
+
+    public async Task<RefereeReportResponse> SubmitReportAsync(CreateRefereeReportRequest request)
+    {
+        if (request == null)
+        {
+            throw new ArgumentNullException(nameof(request));
+        }
+
+        // 1. Validate assignment existence (either via AssignmentId or RaceId + RefereeId)
+        RaceRefereeAssignment? assignment = null;
+        if (request.AssignmentId.HasValue && request.AssignmentId.Value > 0)
+        {
+            assignment = await _reportRepository.GetAssignmentByIdAsync(request.AssignmentId.Value);
+            if (assignment == null)
+            {
+                throw new KeyNotFoundException($"Race referee assignment with ID {request.AssignmentId.Value} was not found.");
+            }
+        }
+        else if (request.RaceId.HasValue && request.RefereeId.HasValue)
+        {
+            assignment = await _reportRepository.GetAssignmentByRaceAndRefereeAsync(request.RaceId.Value, request.RefereeId.Value);
+            if (assignment == null)
+            {
+                throw new KeyNotFoundException($"Race referee assignment for Race ID {request.RaceId.Value} and Referee ID {request.RefereeId.Value} was not found.");
+            }
+        }
+        else
+        {
+            throw new ArgumentException("Either AssignmentId or both RaceId and RefereeId must be provided.");
+        }
+
+        // 2. Validate referee user role
+        if (assignment.RefereeProfile == null)
+        {
+            throw new InvalidOperationException("Assignment does not have an associated referee profile.");
+        }
+
+        if (assignment.RefereeProfile.User == null || assignment.RefereeProfile.User.Role == null || !string.Equals(assignment.RefereeProfile.User.Role.Name, "Referee", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException("The assigned referee profile is not associated with a valid Referee user role.");
+        }
+
+        // 3. Validate content presence
+        if (string.IsNullOrWhiteSpace(request.Content))
+        {
+            throw new ArgumentException("Report content cannot be empty.", nameof(request.Content));
+        }
+
+        // 4. Validate ReportedUserId if provided
+        if (request.ReportedUserId.HasValue)
+        {
+            var userExists = await _reportRepository.UserExistsAsync(request.ReportedUserId.Value);
+            if (!userExists)
+            {
+                throw new KeyNotFoundException($"Reported user with ID {request.ReportedUserId.Value} was not found.");
+            }
+        }
+
+        // 5. Validate ReportedHorseId if provided
+        if (request.ReportedHorseId.HasValue)
+        {
+            var horseExists = await _reportRepository.HorseExistsAsync(request.ReportedHorseId.Value);
+            if (!horseExists)
+            {
+                throw new KeyNotFoundException($"Reported horse with ID {request.ReportedHorseId.Value} was not found.");
+            }
+        }
+
+        // 6. Create report
+        var report = new RefereeReport
+        {
+            AssignmentId = assignment.AssignmentId,
+            Content = request.Content,
+            ViolationNote = request.ViolationNote,
+            ReportedUserId = request.ReportedUserId,
+            ReportedHorseId = request.ReportedHorseId,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _reportRepository.AddReportAsync(report);
+        await _reportRepository.SaveChangesAsync();
+
+        return new RefereeReportResponse
+        {
+            ReportId = report.ReportId,
+            AssignmentId = report.AssignmentId,
+            RaceId = assignment.RaceId,
+            RaceName = assignment.Race?.Name ?? string.Empty,
+            RefereeId = assignment.RefereeId,
+            RefereeName = assignment.RefereeProfile?.User?.FullName ?? "Unknown Referee",
+            Content = report.Content,
+            ViolationNote = report.ViolationNote,
+            ReportedUserId = report.ReportedUserId,
+            ReportedHorseId = report.ReportedHorseId,
+            CreatedAt = report.CreatedAt
+        };
+    }
+
+    public async Task<List<RefereeReportResponse>?> GetReportsByRaceIdAsync(long raceId)
+    {
+        var raceExists = await _reportRepository.RaceExistsAsync(raceId);
+        if (!raceExists)
+        {
+            return null;
+        }
+
+        var reports = await _reportRepository.GetReportsByRaceIdAsync(raceId);
+        return reports.Select(r => new RefereeReportResponse
+        {
+            ReportId = r.ReportId,
+            AssignmentId = r.AssignmentId,
+            RaceId = r.Assignment?.RaceId ?? 0,
+            RaceName = r.Assignment?.Race?.Name ?? string.Empty,
+            RefereeId = r.Assignment?.RefereeId ?? 0,
+            RefereeName = r.Assignment?.RefereeProfile?.User?.FullName ?? "Unknown Referee",
+            Content = r.Content,
+            ViolationNote = r.ViolationNote,
+            ReportedUserId = r.ReportedUserId,
+            ReportedHorseId = r.ReportedHorseId,
+            CreatedAt = r.CreatedAt
         }).ToList();
     }
 }
