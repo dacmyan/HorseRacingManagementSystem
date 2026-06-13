@@ -15,10 +15,12 @@ namespace HorseRacing.API.Controllers;
 public class RefereeController : ControllerBase
 {
     private readonly IRefereeService _refereeService;
+    private readonly IRaceResultService _resultService;
 
-    public RefereeController(IRefereeService refereeService)
+    public RefereeController(IRefereeService refereeService, IRaceResultService resultService)
     {
         _refereeService = refereeService;
+        _resultService = resultService;
     }
 
     [HttpPost("violations")]
@@ -114,6 +116,54 @@ public class RefereeController : ControllerBase
         catch (Exception ex)
         {
             return StatusCode(StatusCodes.Status500InternalServerError, new { message = "An error occurred retrieving race reports", detail = ex.Message });
+        }
+    }
+
+    [HttpPost("results")]
+    public async Task<IActionResult> SubmitResult([FromBody] SubmitRaceResultRequest request)
+    {
+        try
+        {
+            var response = await _resultService.SubmitResultAsync(request);
+            return StatusCode(StatusCodes.Status201Created, response);
+        }
+        catch (ArgumentNullException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = "An error occurred submitting the race result", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("races/{raceId}/results")]
+    public async Task<IActionResult> GetRaceResults([FromRoute] long raceId)
+    {
+        try
+        {
+            var response = await _resultService.GetResultsByRaceIdAsync(raceId);
+            if (response == null)
+            {
+                return NotFound(new { message = $"Race with ID {raceId} was not found." });
+            }
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = "An error occurred retrieving race results", detail = ex.Message });
         }
     }
 }

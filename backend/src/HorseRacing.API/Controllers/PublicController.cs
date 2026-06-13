@@ -12,6 +12,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
+using HorseRacing.Application.Features.OfficiatingAndResults.Interfaces;
+using HorseRacing.Application.Features.OfficiatingAndResults.DTOs;
 
 namespace HorseRacing.API.Controllers;
 
@@ -23,17 +25,20 @@ public class PublicController : ControllerBase
     private readonly INotificationService _notificationService;
     private readonly IRaceService _raceService;
     private readonly IRoundService _roundService;
+    private readonly IRaceResultService _resultService;
 
     public PublicController(
         AppDbContext context,
         INotificationService notificationService,
         IRaceService raceService,
-        IRoundService roundService)
+        IRoundService roundService,
+        IRaceResultService resultService)
     {
         _context = context;
         _notificationService = notificationService;
         _raceService = raceService;
         _roundService = roundService;
+        _resultService = resultService;
     }
 
     private int GetCurrentUserId()
@@ -230,6 +235,25 @@ public class PublicController : ControllerBase
         catch (Exception ex)
         {
             return StatusCode(500, new { message = "An error occurred retrieving race entries", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("races/{raceId}/results")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetRaceResults(long raceId)
+    {
+        try
+        {
+            var response = await _resultService.GetPublicResultsByRaceIdAsync(raceId);
+            if (response == null)
+            {
+                return NotFound(new { message = $"Race with ID {raceId} was not found." });
+            }
+            return Ok(new { message = "Race results retrieved successfully", result = response });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving race results", detail = ex.Message });
         }
     }
 }

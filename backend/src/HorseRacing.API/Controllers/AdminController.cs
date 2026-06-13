@@ -25,6 +25,7 @@ public class AdminController : ControllerBase
     private readonly ITournamentService _tournamentService;
     private readonly IRaceService _raceService;
     private readonly IRefereeAssignmentService _refereeAssignmentService;
+    private readonly IRaceResultService _resultService;
 
     public AdminController(
         IAdminService adminService,
@@ -32,7 +33,8 @@ public class AdminController : ControllerBase
         IBetPayoutService betPayoutService,
         ITournamentService tournamentService,
         IRaceService raceService,
-        IRefereeAssignmentService refereeAssignmentService)
+        IRefereeAssignmentService refereeAssignmentService,
+        IRaceResultService resultService)
     {
         _adminService = adminService;
         _prizePayoutService = prizePayoutService;
@@ -40,6 +42,7 @@ public class AdminController : ControllerBase
         _tournamentService = tournamentService;
         _raceService = raceService;
         _refereeAssignmentService = refereeAssignmentService;
+        _resultService = resultService;
     }
 
     [HttpGet("test")]
@@ -270,6 +273,50 @@ public class AdminController : ControllerBase
         catch (Exception ex)
         {
             return StatusCode(500, new { message = "An error occurred removing referee assignment", detail = ex.Message });
+        }
+    }
+
+    [HttpPost("races/{raceId}/publish")]
+    public async Task<IActionResult> PublishResult([FromRoute] long raceId)
+    {
+        try
+        {
+            var response = await _resultService.PublishResultAsync(raceId);
+            return Ok(new { message = "Race result published successfully", result = response });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred publishing the race result", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("races/{raceId}/results")]
+    public async Task<IActionResult> GetRaceResults([FromRoute] long raceId)
+    {
+        try
+        {
+            var response = await _resultService.GetResultsByRaceIdAsync(raceId);
+            if (response == null)
+            {
+                return NotFound(new { message = $"Race with ID {raceId} was not found." });
+            }
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving race results", detail = ex.Message });
         }
     }
 }
