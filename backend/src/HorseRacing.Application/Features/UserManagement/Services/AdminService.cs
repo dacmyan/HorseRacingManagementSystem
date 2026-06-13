@@ -114,4 +114,18 @@ public class AdminService : IAdminService
             Name = r.Name
         });
     }
+
+    public async Task<IEnumerable<AccountResponseDto>> GetAccountsAsync()
+    {
+        var users = await _userRepository.GetAllUsersAsync();
+        return users.Select(u => new AccountResponseDto
+        {
+            UserId = u.UserId,
+            FullName = u.FullName,
+            Email = u.Email,
+            RoleName = u.Role?.Name ?? "Unknown",
+            Status = u.Status,
+            CreatedAt = u.CreatedAt
+        });
+    }
 }

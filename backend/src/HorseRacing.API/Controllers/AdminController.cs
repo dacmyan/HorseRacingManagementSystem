@@ -75,6 +75,24 @@ public class AdminController : ControllerBase
         }
     }
 
+    [HttpGet("accounts")]
+    public async Task<IActionResult> GetAccounts()
+    {
+        try
+        {
+            var accounts = await _adminService.GetAccountsAsync();
+            return Ok(new
+            {
+                message = "Accounts retrieved successfully",
+                result = accounts
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred during retrieving accounts", detail = ex.Message });
+        }
+    }
+
     [HttpPost("payouts/prizes")]
     public async Task<IActionResult> DistributeTournamentPrizes([FromBody] PrizePayoutRequest request)
     {

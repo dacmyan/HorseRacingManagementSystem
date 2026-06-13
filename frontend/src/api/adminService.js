@@ -2,6 +2,8 @@ import { api } from '../services/api';
 
 export const getRoles = () => api.get('/admin/roles');
 
+export const getAccounts = () => api.get('/admin/accounts');
+
 export const createAccount = (data) => api.post('/admin/accounts', data);
 
 export const createTournament = (data) => api.post('/admin/tournaments', data);
