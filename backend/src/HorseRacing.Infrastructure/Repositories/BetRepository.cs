@@ -75,6 +75,7 @@ public class BetRepository : IBetRepository
     public async Task<RaceEntry?> GetRaceEntryAsync(long raceId, int horseId)
     {
         return await _context.RaceEntries
+            .Include(re => re.Registration)
             .Include(re => re.JockeyProfile)
             .FirstOrDefaultAsync(re => re.RaceId == raceId && re.Registration != null && re.Registration.HorseId == horseId);
     }
@@ -83,7 +84,7 @@ public class BetRepository : IBetRepository
     {
         if (int.TryParse(identifier, out int id))
         {
-            return await _context.Horses.Include(h => h.Owner).FirstOrDefaultAsync(h => h.Id == id);
+            return await _context.Horses.Include(h => h.Owner).FirstOrDefaultAsync(h => h.HorseId == id);
         }
         return await _context.Horses.Include(h => h.Owner).FirstOrDefaultAsync(h => h.Name.ToLower() == identifier.ToLower());
     }

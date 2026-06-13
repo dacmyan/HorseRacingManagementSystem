@@ -6,8 +6,8 @@ namespace HorseRacing.Application.Features.ContractAndRegistration.Interfaces;
 
 public interface IRegistrationRepository
 {
-    Task<Registration?> GetByIdAsync(int id);
-    Task<Registration?> GetByHorseIdAndTournamentIdAsync(int horseId, long tournamentId);
+    Task<Registration?> GetByIdAsync(long id);
+    Task<Registration?> GetByHorseIdAndTournamentIdAsync(long horseId, long tournamentId);
     Task<IEnumerable<Registration>> GetByOwnerIdAsync(int ownerUserId);
     Task AddAsync(Registration registration);
     Task SaveChangesAsync();

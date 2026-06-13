@@ -58,7 +58,7 @@ public class HorseDocumentService : IHorseDocumentService
         return new HorseStatisticResponse
         {
             Id = stat.Id,
-            HorseId = stat.HorseId,
+            HorseId = (int)stat.HorseId,
             TotalRaces = stat.TotalRaces,
             TotalWins = stat.TotalWins,
             TotalSecondPlaces = stat.TotalSecondPlaces,

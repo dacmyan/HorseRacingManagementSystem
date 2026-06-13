@@ -21,7 +21,7 @@ public class HorseService : IHorseService
     {
         return new HorseDetailResponse
         {
-            Id = horse.Id,
+            Id = (int)horse.HorseId,
             Name = horse.Name,
             Age = horse.Age,
             Gender = horse.Gender,
@@ -39,7 +39,7 @@ public class HorseService : IHorseService
             Statistic = horse.Statistic != null ? new HorseStatisticResponse
             {
                 Id = horse.Statistic.Id,
-                HorseId = horse.Statistic.HorseId,
+                HorseId = (int)horse.Statistic.HorseId,
                 TotalRaces = horse.Statistic.TotalRaces,
                 TotalWins = horse.Statistic.TotalWins,
                 TotalSecondPlaces = horse.Statistic.TotalSecondPlaces,
@@ -84,7 +84,7 @@ public class HorseService : IHorseService
         // Automatically initialize empty statistics for the new horse
         var stats = new HorseStatistic
         {
-            HorseId = horse.Id,
+            HorseId = (int)horse.HorseId,
             TotalRaces = 0,
             TotalWins = 0,
             TotalSecondPlaces = 0,
@@ -96,7 +96,7 @@ public class HorseService : IHorseService
         await _horseRepository.SaveChangesAsync();
 
         // Fetch again to include populated relations
-        var createdHorse = await _horseRepository.GetByIdAsync(horse.Id);
+        var createdHorse = await _horseRepository.GetByIdAsync((int)horse.HorseId);
         return MapToDetailResponse(createdHorse ?? horse);
     }
 
