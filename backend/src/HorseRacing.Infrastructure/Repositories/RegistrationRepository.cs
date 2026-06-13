@@ -17,15 +17,15 @@ public class RegistrationRepository : IRegistrationRepository
         _context = context;
     }
 
-    public async Task<Registration?> GetByIdAsync(int id)
+    public async Task<Registration?> GetByIdAsync(long id)
     {
         return await _context.Registrations
             .Include(r => r.Horse)
             .Include(r => r.Tournament)
-            .FirstOrDefaultAsync(r => r.Id == id);
+            .FirstOrDefaultAsync(r => r.RegistrationId == id);
     }
 
-    public async Task<Registration?> GetByHorseIdAndTournamentIdAsync(int horseId, long tournamentId)
+    public async Task<Registration?> GetByHorseIdAndTournamentIdAsync(long horseId, long tournamentId)
     {
         return await _context.Registrations
             .FirstOrDefaultAsync(r => r.HorseId == horseId && r.TournamentId == tournamentId);

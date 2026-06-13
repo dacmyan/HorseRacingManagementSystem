@@ -10,7 +10,7 @@ public class Bet
     public AppUser? User { get; set; }
     public long RaceId { get; set; }
     public Race? Race { get; set; }
-    public int HorseId { get; set; }
+    public long HorseId { get; set; }
     public Horse? Horse { get; set; }
     public decimal Amount { get; set; }
     public decimal Odds { get; set; }

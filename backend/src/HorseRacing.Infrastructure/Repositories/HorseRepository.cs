@@ -23,7 +23,7 @@ public class HorseRepository : IHorseRepository
             .Include(h => h.Owner)
             .Include(h => h.Documents)
             .Include(h => h.Statistic)
-            .FirstOrDefaultAsync(h => h.Id == id);
+            .FirstOrDefaultAsync(h => h.HorseId == id);
     }
 
     public async Task<IEnumerable<Horse>> GetByOwnerIdAsync(int ownerId)

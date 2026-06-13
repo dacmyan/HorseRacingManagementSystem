@@ -4,7 +4,7 @@ namespace HorseRacing.Domain.Entities;
 
 public class Horse
 {
-    public int Id { get; set; }
+    public long HorseId { get; set; }
 
     public string Name { get; set; } = string.Empty;
 

@@ -4,9 +4,12 @@ using HorseRacing.Application.Features.FinancialRewards.DTOs;
 using HorseRacing.Application.Features.FinancialRewards.Interfaces;
 using HorseRacing.Application.Features.TournamentAndRacing.DTOs;
 using HorseRacing.Application.Features.TournamentAndRacing.Services;
+using HorseRacing.Application.Features.OfficiatingAndResults.Interfaces;
+using HorseRacing.Application.Features.OfficiatingAndResults.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace HorseRacing.API.Controllers;
@@ -21,19 +24,22 @@ public class AdminController : ControllerBase
     private readonly IBetPayoutService _betPayoutService;
     private readonly ITournamentService _tournamentService;
     private readonly IRaceService _raceService;
+    private readonly IRefereeAssignmentService _refereeAssignmentService;
 
     public AdminController(
         IAdminService adminService,
         IPrizePayoutService prizePayoutService,
         IBetPayoutService betPayoutService,
         ITournamentService tournamentService,
-        IRaceService raceService)
+        IRaceService raceService,
+        IRefereeAssignmentService refereeAssignmentService)
     {
         _adminService = adminService;
         _prizePayoutService = prizePayoutService;
         _betPayoutService = betPayoutService;
         _tournamentService = tournamentService;
         _raceService = raceService;
+        _refereeAssignmentService = refereeAssignmentService;
     }
 
     [HttpGet("test")]
@@ -172,6 +178,98 @@ public class AdminController : ControllerBase
         catch (Exception)
         {
             return StatusCode(500, new { message = "An error occurred during race scheduling" });
+        }
+    }
+
+    [HttpPost("races/{raceId}/entries")]
+    public async Task<IActionResult> CreateRaceEntry([FromRoute] long raceId, [FromBody] CreateRaceEntryRequest request)
+    {
+        try
+        {
+            var response = await _raceService.CreateRaceEntryAsync(raceId, request);
+            return StatusCode(StatusCodes.Status201Created, response);
+        }
+        catch (ArgumentNullException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred during race entry creation", detail = ex.Message });
+        }
+    }
+
+    [HttpPost("races/{raceId}/referees")]
+    public async Task<IActionResult> AssignReferee([FromRoute] long raceId, [FromBody] AssignRefereeRequest request)
+    {
+        try
+        {
+            var response = await _refereeAssignmentService.AssignRefereeAsync(raceId, request);
+            return StatusCode(StatusCodes.Status201Created, response);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred during referee assignment", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("races/{raceId}/referees")]
+    public async Task<IActionResult> GetAssignedReferees([FromRoute] long raceId)
+    {
+        try
+        {
+            var response = await _refereeAssignmentService.GetAssignedRefereesAsync(raceId);
+            return Ok(response);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving assigned referees", detail = ex.Message });
+        }
+    }
+
+    [HttpDelete("races/{raceId}/referees/{refereeId}")]
+    public async Task<IActionResult> RemoveRefereeAssignment([FromRoute] long raceId, [FromRoute] int refereeId)
+    {
+        try
+        {
+            await _refereeAssignmentService.RemoveRefereeAssignmentAsync(raceId, refereeId);
+            return Ok(new { message = "Referee assignment removed successfully" });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred removing referee assignment", detail = ex.Message });
         }
     }
 }

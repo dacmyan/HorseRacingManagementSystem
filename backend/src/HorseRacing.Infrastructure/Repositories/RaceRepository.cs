@@ -1,6 +1,8 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using HorseRacing.Application.Features.TournamentAndRacing.Interfaces;
+using HorseRacing.Domain.Entities;
 using HorseRacing.Domain.Entities.Tournaments;
 using HorseRacing.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -50,5 +52,55 @@ public class RaceRepository : IRaceRepository
             .Include(r => r.Round)
                 .ThenInclude(round => round!.Tournament)
             .FirstOrDefaultAsync(r => r.RaceId == raceId);
+    }
+
+    public async Task<Registration?> GetRegistrationWithHorseAsync(long registrationId)
+    {
+        return await _context.Registrations
+            .AsNoTracking()
+            .Include(r => r.Horse)
+            .FirstOrDefaultAsync(r => r.RegistrationId == registrationId);
+    }
+
+    public async Task<List<RaceEntry>> GetRaceEntriesAsync(long raceId)
+    {
+        return await _context.RaceEntries
+            .AsNoTracking()
+            .Include(re => re.Registration)
+                .ThenInclude(r => r!.Horse)
+            .Include(re => re.JockeyProfile)
+                .ThenInclude(j => j!.User)
+            .Where(re => re.RaceId == raceId)
+            .ToListAsync();
+    }
+
+    public async Task<bool> HasActiveJockeyContractAsync(long tournamentId, long horseId, int jockeyId)
+    {
+        if (horseId < int.MinValue || horseId > int.MaxValue)
+        {
+            return false;
+        }
+
+        var intHorseId = (int)horseId;
+
+        var jockeyProfile = await _context.JockeyProfiles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(jp => jp.JockeyId == jockeyId);
+
+        if (jockeyProfile == null)
+        {
+            return false;
+        }
+
+        return await _context.JockeyContracts
+            .AsNoTracking()
+            .AnyAsync(jc => jc.HorseId == intHorseId 
+                && jc.JockeyId == jockeyProfile.UserId 
+                && jc.Status == "Active");
+    }
+
+    public async Task AddRaceEntryAsync(RaceEntry raceEntry)
+    {
+        await _context.RaceEntries.AddAsync(raceEntry);
     }
 }

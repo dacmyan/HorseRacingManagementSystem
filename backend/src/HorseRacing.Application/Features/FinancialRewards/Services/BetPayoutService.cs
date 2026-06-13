@@ -62,7 +62,7 @@ public class BetPayoutService : IBetPayoutService
 
         foreach (var bet in betList)
         {
-            if (bet.HorseId == winningHorse.Id)
+            if (bet.HorseId == winningHorse.HorseId)
             {
                 decimal payoutAmount = Math.Round(bet.Amount * bet.Odds, 2);
                 bet.Status = "Won";
