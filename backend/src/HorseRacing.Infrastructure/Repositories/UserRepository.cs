@@ -44,6 +44,11 @@ public class UserRepository : IUserRepository
         return await _context.Roles.ToListAsync();
     }
 
+    public async Task<IEnumerable<AppUser>> GetAllUsersAsync()
+    {
+        return await _context.Users.Include(u => u.Role).ToListAsync();
+    }
+
     public async Task AddJockeyProfileAsync(JockeyProfile profile)
     {
         await _context.JockeyProfiles.AddAsync(profile);

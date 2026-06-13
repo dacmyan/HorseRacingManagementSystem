@@ -11,6 +11,7 @@ public interface IUserRepository
 
     Task<Role?> GetRoleByNameAsync(string name);
     Task<IEnumerable<Role>> GetRolesAsync();
+    Task<IEnumerable<AppUser>> GetAllUsersAsync();
     Task AddJockeyProfileAsync(JockeyProfile profile);
     Task AddRefereeProfileAsync(RefereeProfile profile);
     Task AddWalletAsync(Wallet wallet);

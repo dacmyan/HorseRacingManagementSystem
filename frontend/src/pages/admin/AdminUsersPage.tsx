@@ -5,7 +5,7 @@ import { Sidebar } from '../../components/layout/Sidebar';
 import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
-import { getRoles, createAccount } from '../../api/adminService';
+import { getRoles, createAccount, getAccounts } from '../../api/adminService';
 import { parseApiError } from '../../api/authService';
 
 type RoleFilter = 'all' | 'owner' | 'jockey' | 'referee' | 'spectator' | 'admin';
@@ -30,6 +30,23 @@ export function AdminUsersPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const [accounts, setAccounts] = useState<any[]>([]);
+
+  const fetchAccounts = () => {
+    getAccounts()
+      .then((data: any) => {
+        const raw = Array.isArray(data) ? data
+          : Array.isArray(data?.result) ? data.result
+          : [];
+        setAccounts(raw);
+      })
+      .catch(() => setAccounts([]));
+  };
+
+  useEffect(() => {
+    fetchAccounts();
+  }, []);
 
   useEffect(() => {
     if (!showModal) return;
@@ -69,6 +86,7 @@ export function AdminUsersPage() {
       const newId = data?.result?.id ?? data?.result?.accountId ?? data?.result?.user?.id;
       setSuccess(newId != null ? `Đã tạo tài khoản thành công! ID = ${newId}` : 'Tạo tài khoản thành công!');
       setForm(INIT_FORM);
+      fetchAccounts();
     } catch (err: unknown) {
       setError(parseApiError(err as Error));
     } finally {
@@ -81,6 +99,32 @@ export function AdminUsersPage() {
     setError(''); setSuccess('');
     setForm(INIT_FORM);
   }
+
+  const counts = {
+    all: accounts.length,
+    admin: accounts.filter(a => a.roleName === 'Admin').length,
+    owner: accounts.filter(a => a.roleName === 'HorseOwner').length,
+    jockey: accounts.filter(a => a.roleName === 'Jockey').length,
+    referee: accounts.filter(a => a.roleName === 'Referee').length,
+    spectator: accounts.filter(a => a.roleName === 'Spectator').length,
+  };
+
+  const filteredAccounts = accounts.filter(acc => {
+    // 1. Role Filter
+    if (filter !== 'all') {
+      const targetRole = filter === 'owner' ? 'HorseOwner' : filter.toLowerCase();
+      if (acc.roleName?.toLowerCase() !== targetRole) return false;
+    }
+    // 2. Search filter
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      return (
+        acc.fullName?.toLowerCase().includes(q) ||
+        acc.email?.toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
 
   return (
     <div className="min-h-screen text-body font-sans flex" style={{ backgroundColor: '#0b101e' }}>
@@ -103,9 +147,8 @@ export function AdminUsersPage() {
           />
 
           {/* Role Stats */}
-          {/* TODO: BE chưa có API danh sách người dùng — số lượng theo role hiển thị 0 */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {(['all', 'owner', 'jockey', 'referee', 'spectator'] as RoleFilter[]).map((r) => (
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+            {(['all', 'admin', 'owner', 'jockey', 'referee', 'spectator'] as RoleFilter[]).map((r) => (
               <button
                 key={r}
                 onClick={() => setFilter(r)}
@@ -120,7 +163,7 @@ export function AdminUsersPage() {
                   </span>
                 </div>
                 <div className="relative z-10 text-xl font-serif font-bold text-white">
-                  0
+                  {counts[r]}
                 </div>
               </button>
             ))}
@@ -140,15 +183,68 @@ export function AdminUsersPage() {
                   className="bg-transparent text-sm text-white placeholder:text-muted/60 outline-none w-full"
                 />
               </div>
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-white/[0.04] border border-glass-border text-muted"><span className="text-champagne font-semibold">0</span> kết quả</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-white/[0.04] border border-glass-border text-muted"><span className="text-champagne font-semibold">{filteredAccounts.length}</span> kết quả</span>
             </div>
 
-            {/* TODO: BE chưa có API danh sách người dùng */}
-            <div className="glass-panel rounded-xl p-12 text-center relative overflow-hidden">
-              <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
-              <div className="text-4xl opacity-40 mb-3">👥</div>
-              <div className="text-muted text-sm">Chưa có dữ liệu</div>
-            </div>
+            {filteredAccounts.length === 0 ? (
+              <div className="glass-panel rounded-xl p-12 text-center relative overflow-hidden">
+                <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
+                <div className="text-4xl opacity-40 mb-3">👥</div>
+                <div className="text-muted text-sm">Không tìm thấy tài khoản nào khớp yêu cầu</div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-glass-border text-xs text-muted uppercase font-bold tracking-wider">
+                      <th className="py-4 px-6">ID</th>
+                      <th className="py-4 px-6">Họ và tên</th>
+                      <th className="py-4 px-6">Email</th>
+                      <th className="py-4 px-6">Vai trò</th>
+                      <th className="py-4 px-6">Trạng thái</th>
+                      <th className="py-4 px-6">Ngày tạo</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-glass-border/30 text-sm">
+                    {filteredAccounts.map((user) => (
+                      <tr key={user.userId} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="py-4 px-6 text-muted font-mono">#{user.userId}</td>
+                        <td className="py-4 px-6 font-semibold text-white">{user.fullName}</td>
+                        <td className="py-4 px-6 text-muted">{user.email}</td>
+                        <td className="py-4 px-6">
+                          <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                            user.roleName === 'Admin' ? 'text-gold bg-gold/10 border-gold/20' :
+                            user.roleName === 'HorseOwner' ? 'text-blue-400 bg-blue-500/10 border-blue-500/20' :
+                            user.roleName === 'Jockey' ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' :
+                            user.roleName === 'Referee' ? 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20' :
+                            'text-gray-400 bg-gray-500/10 border-gray-500/20'
+                          }`}>
+                            {ROLE_LABELS[user.roleName?.toLowerCase()] ?? user.roleName}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6">
+                          <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${
+                            user.status === 'Active' ? 'text-emerald-400' : 'text-red-400'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${user.status === 'Active' ? 'bg-emerald-400' : 'bg-red-400'}`} />
+                            {user.status}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6 text-muted">
+                          {new Date(user.createdAt).toLocaleDateString('vi-VN', {
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </motion.div>
 
         </main>
