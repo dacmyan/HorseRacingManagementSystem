@@ -279,7 +279,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-        modelBuilder.Entity<Horse>().ToTable("Horse");
+        modelBuilder.Entity<Horse>(entity =>
+        {
+            entity.ToTable("Horse");
+            entity.HasKey(h => h.HorseId);
+        });
         modelBuilder.Entity<RaceResult>().ToTable("RaceResult");
         modelBuilder.Entity<Prediction>().ToTable("Prediction");
         modelBuilder.Entity<WalletTransaction>().ToTable("WalletTransaction");

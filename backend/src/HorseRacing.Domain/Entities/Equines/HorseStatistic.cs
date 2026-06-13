@@ -5,7 +5,7 @@ namespace HorseRacing.Domain.Entities;
 public class HorseStatistic
 {
     public int Id { get; set; }
-    public int HorseId { get; set; }
+    public long HorseId { get; set; }
     public Horse? Horse { get; set; }
     public int TotalRaces { get; set; }
     public int TotalWins { get; set; }

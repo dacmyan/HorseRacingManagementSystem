@@ -84,7 +84,7 @@ public class BetRepository : IBetRepository
     {
         if (int.TryParse(identifier, out int id))
         {
-            return await _context.Horses.Include(h => h.Owner).FirstOrDefaultAsync(h => h.Id == id);
+            return await _context.Horses.Include(h => h.Owner).FirstOrDefaultAsync(h => h.HorseId == id);
         }
         return await _context.Horses.Include(h => h.Owner).FirstOrDefaultAsync(h => h.Name.ToLower() == identifier.ToLower());
     }

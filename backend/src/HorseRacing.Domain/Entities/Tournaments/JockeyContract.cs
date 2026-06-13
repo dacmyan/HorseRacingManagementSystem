@@ -4,7 +4,7 @@ public class JockeyContract
 {
     public int Id { get; set; }
 
-    public int HorseId { get; set; }
+    public long HorseId { get; set; }
 
     public Horse? Horse { get; set; }
 

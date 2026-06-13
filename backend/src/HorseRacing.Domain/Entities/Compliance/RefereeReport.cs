@@ -10,7 +10,7 @@ public class RefereeReport
     public long RaceId { get; set; }
     public Race? Race { get; set; }
     
-    public int RefereeId { get; set; }
+    public long RefereeId { get; set; }
     public RefereeProfile? RefereeProfile { get; set; }
     
     public string Content { get; set; } = string.Empty;
@@ -20,6 +20,6 @@ public class RefereeReport
     public int? ReportedUserId { get; set; }
     public AppUser? ReportedUser { get; set; }
 
-    public int? ReportedHorseId { get; set; }
+    public long? ReportedHorseId { get; set; }
     public Horse? ReportedHorse { get; set; }
 }

@@ -35,7 +35,7 @@ public class JockeyContractService : IJockeyContractService
         return new JockeyContractResponse
         {
             Id = contract.Id,
-            HorseId = contract.HorseId,
+            HorseId = (int)contract.HorseId,
             HorseName = contract.Horse?.Name ?? "Unknown Horse",
             OwnerId = contract.OwnerId,
             OwnerName = contract.Owner?.FullName ?? "Unknown Owner",
@@ -146,7 +146,7 @@ public class JockeyContractService : IJockeyContractService
         // If accepting, cancel/expire other active contracts for the same horse
         if (contract.Status.Equals("Active", StringComparison.OrdinalIgnoreCase))
         {
-            var existingContract = await _contractRepository.GetActiveContractForHorseAsync(contract.HorseId);
+            var existingContract = await _contractRepository.GetActiveContractForHorseAsync((int)contract.HorseId);
             if (existingContract != null)
             {
                 existingContract.Status = "Expired";

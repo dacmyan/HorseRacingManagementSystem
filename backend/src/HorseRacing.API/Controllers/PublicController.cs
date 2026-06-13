@@ -52,7 +52,7 @@ public class PublicController : ControllerBase
                 .OrderByDescending(jp => jp.RankingPoint)
                 .Select(jp => new JockeyRankingResponse
                 {
-                    JockeyId = jp.JockeyId,
+                    JockeyId = (int)jp.JockeyId,
                     UserId = jp.UserId,
                     FullName = jp.User != null ? jp.User.FullName : "Unknown Jockey",
                     Email = jp.User != null ? jp.User.Email : string.Empty,
@@ -89,11 +89,11 @@ public class PublicController : ControllerBase
                     // Calculate wins count based on name match or ID match in Winner column
                     var wins = results.Count(r => 
                         r.Winner.Equals(h.Name, StringComparison.OrdinalIgnoreCase) || 
-                        r.Winner.Equals(h.Id.ToString()));
+                        r.Winner.Equals(h.HorseId.ToString()));
 
                     return new HorseRankingResponse
                     {
-                        HorseId = h.Id,
+                        HorseId = (int)h.HorseId,
                         Name = h.Name,
                         Age = h.Age,
                         Breed = h.Breed,

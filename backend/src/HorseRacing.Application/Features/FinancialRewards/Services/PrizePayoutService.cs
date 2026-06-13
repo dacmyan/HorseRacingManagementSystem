@@ -73,7 +73,7 @@ public class PrizePayoutService : IPrizePayoutService
             throw new InvalidOperationException($"Winning horse '{result.Winner}' from final race results could not be found.");
         }
 
-        var winningEntry = await _betRepository.GetRaceEntryAsync(finalRace.RaceId, winningHorse.Id);
+        var winningEntry = await _betRepository.GetRaceEntryAsync(finalRace.RaceId, (int)winningHorse.HorseId);
         if (winningEntry == null)
         {
             throw new InvalidOperationException($"Could not find the race entry matching horse '{winningHorse.Name}' in final race ID {finalRace.RaceId}.");
