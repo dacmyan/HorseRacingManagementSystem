@@ -88,6 +88,8 @@ public class RaceService : IRaceService
             MaxLanes = savedRace.MaxLanes,
             Status = savedRace.Status,
             RoundName = savedRace.Round?.Name ?? string.Empty,
+            RoundNumber = savedRace.Round?.RoundNumber ?? 0,
+            TournamentId = savedRace.Round?.TournamentId ?? 0,
             TournamentName = savedRace.Round?.Tournament?.Name ?? string.Empty
         };
     }
@@ -105,8 +107,34 @@ public class RaceService : IRaceService
             MaxLanes = r.MaxLanes,
             Status = r.Status,
             RoundName = r.Round?.Name ?? string.Empty,
+            RoundNumber = r.Round?.RoundNumber ?? 0,
+            TournamentId = r.Round?.TournamentId ?? 0,
             TournamentName = r.Round?.Tournament?.Name ?? string.Empty
         }).ToList();
+    }
+
+    public async Task<RaceScheduleResponse?> GetRaceByIdAsync(long raceId)
+    {
+        var race = await _raceRepository.GetByIdWithDetailsAsync(raceId);
+        if (race == null)
+        {
+            return null;
+        }
+
+        return new RaceScheduleResponse
+        {
+            RaceId = race.RaceId,
+            RoundId = race.RoundId,
+            Name = race.Name ?? string.Empty,
+            RaceDate = race.RaceDate,
+            DistanceMeter = race.DistanceMeter,
+            MaxLanes = race.MaxLanes,
+            Status = race.Status,
+            RoundName = race.Round?.Name ?? string.Empty,
+            RoundNumber = race.Round?.RoundNumber ?? 0,
+            TournamentId = race.Round?.TournamentId ?? 0,
+            TournamentName = race.Round?.Tournament?.Name ?? string.Empty
+        };
     }
 
     public async Task<RaceEntryResponse> CreateRaceEntryAsync(long raceId, CreateRaceEntryRequest request)

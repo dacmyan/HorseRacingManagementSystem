@@ -194,4 +194,23 @@ public class PublicController : ControllerBase
 
         return Ok(new { message = "Round details retrieved successfully", result = round });
     }
+
+    [HttpGet("races/{id}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetRaceDetail(long id)
+    {
+        try
+        {
+            var race = await _raceService.GetRaceByIdAsync(id);
+            if (race == null)
+            {
+                return NotFound(new { message = $"Race with ID {id} was not found." });
+            }
+            return Ok(new { message = "Race details retrieved successfully", result = race });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving race details", detail = ex.Message });
+        }
+    }
 }
