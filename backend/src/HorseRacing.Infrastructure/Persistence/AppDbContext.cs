@@ -340,7 +340,26 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<RaceResult>().ToTable("RaceResult");
         modelBuilder.Entity<Tournament>().ToTable("Tournament");
 
-        modelBuilder.Entity<RaceViolation>().ToTable("RaceViolation");
+        modelBuilder.Entity<RaceViolation>(entity =>
+        {
+            entity.ToTable("RaceViolation");
+            entity.HasKey(rv => rv.Id);
+
+            entity.HasOne(rv => rv.Race)
+                .WithMany()
+                .HasForeignKey(rv => rv.RaceId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(rv => rv.RaceEntry)
+                .WithMany()
+                .HasForeignKey(rv => rv.RaceEntryId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(rv => rv.RefereeProfile)
+                .WithMany()
+                .HasForeignKey(rv => rv.RefereeId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
 
         modelBuilder.SeedData();
 

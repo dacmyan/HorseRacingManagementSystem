@@ -40,6 +40,7 @@ public static class ServiceExtensions
         services.AddScoped<ITournamentService, TournamentService>();
         services.AddScoped<IRaceService, RaceService>();
         services.AddScoped<IRefereeAssignmentService, RefereeAssignmentService>();
+        services.AddScoped<IRaceViolationService, RaceViolationService>();
 
         return services;
     }
