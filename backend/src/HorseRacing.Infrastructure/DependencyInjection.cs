@@ -39,6 +39,7 @@ public static class DependencyInjection
         services.AddScoped<IRoundRepository, RoundRepository>();
         services.AddScoped<IRaceRepository, RaceRepository>();
         services.AddScoped<IRefereeAssignmentRepository, RefereeAssignmentRepository>();
+        services.AddScoped<IViolationRepository, ViolationRepository>();
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
         services.AddScoped<DatabaseSeeder>();
 
