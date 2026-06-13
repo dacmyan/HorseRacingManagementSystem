@@ -238,7 +238,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpDelete("races/{raceId}/referees/{refereeId}")]
-    public async Task<IActionResult> RemoveRefereeAssignment([FromRoute] long raceId, [FromRoute] long refereeId)
+    public async Task<IActionResult> RemoveRefereeAssignment([FromRoute] long raceId, [FromRoute] int refereeId)
     {
         try
         {

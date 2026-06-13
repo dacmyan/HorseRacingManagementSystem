@@ -74,23 +74,18 @@ public class RaceRepository : IRaceRepository
             .ToListAsync();
     }
 
-    public async Task<bool> HasActiveJockeyContractAsync(long tournamentId, long horseId, long jockeyId)
+    public async Task<bool> HasActiveJockeyContractAsync(long tournamentId, long horseId, int jockeyId)
     {
         if (horseId < int.MinValue || horseId > int.MaxValue)
         {
             return false;
         }
-        if (jockeyId < int.MinValue || jockeyId > int.MaxValue)
-        {
-            return false;
-        }
 
         var intHorseId = (int)horseId;
-        var intJockeyId = (int)jockeyId;
 
         var jockeyProfile = await _context.JockeyProfiles
             .AsNoTracking()
-            .FirstOrDefaultAsync(jp => jp.JockeyId == intJockeyId);
+            .FirstOrDefaultAsync(jp => jp.JockeyId == jockeyId);
 
         if (jockeyProfile == null)
         {

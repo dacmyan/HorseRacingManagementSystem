@@ -9,10 +9,10 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace HorseRacing.Infrastructure.Persistence.Migrations
+namespace HorseRacing.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260613024315_AddRefereeAssignmentFeature")]
+    [Migration("20260613073037_AddRefereeAssignmentFeature")]
     partial class AddRefereeAssignmentFeature
     {
         /// <inheritdoc />
@@ -286,11 +286,11 @@ namespace HorseRacing.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("HorseRacing.Domain.Entities.JockeyProfile", b =>
                 {
-                    b.Property<long>("JockeyId")
+                    b.Property<int>("JockeyId")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
+                        .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("JockeyId"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("JockeyId"));
 
                     b.Property<int>("ExperienceYears")
                         .HasColumnType("int");
@@ -377,8 +377,8 @@ namespace HorseRacing.Infrastructure.Persistence.Migrations
                         .HasPrecision(10, 2)
                         .HasColumnType("decimal(10,2)");
 
-                    b.Property<long?>("JockeyId")
-                        .HasColumnType("bigint");
+                    b.Property<int?>("JockeyId")
+                        .HasColumnType("int");
 
                     b.Property<int>("LaneNo")
                         .HasColumnType("int");
@@ -460,11 +460,11 @@ namespace HorseRacing.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("HorseRacing.Domain.Entities.RefereeProfile", b =>
                 {
-                    b.Property<long>("RefereeId")
+                    b.Property<int>("RefereeId")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
+                        .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("RefereeId"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RefereeId"));
 
                     b.Property<int>("ExperienceYears")
                         .HasColumnType("int");
@@ -685,8 +685,8 @@ namespace HorseRacing.Infrastructure.Persistence.Migrations
                     b.Property<long>("RaceId")
                         .HasColumnType("bigint");
 
-                    b.Property<long>("RefereeId")
-                        .HasColumnType("bigint");
+                    b.Property<int>("RefereeId")
+                        .HasColumnType("int");
 
                     b.Property<string>("Status")
                         .IsRequired()

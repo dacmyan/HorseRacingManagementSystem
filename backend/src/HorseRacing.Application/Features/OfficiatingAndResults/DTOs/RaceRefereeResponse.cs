@@ -6,7 +6,7 @@ public class RaceRefereeResponse
 {
     public long AssignmentId { get; set; }
     public long RaceId { get; set; }
-    public long RefereeId { get; set; }
+    public int RefereeId { get; set; }
     public string RefereeName { get; set; } = string.Empty;
     public string LicenseNumber { get; set; } = string.Empty;
     public int ExperienceYears { get; set; }

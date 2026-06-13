@@ -14,6 +14,6 @@ public interface IRaceRepository
     Task<Race?> GetByIdWithDetailsAsync(long raceId);
     Task<Registration?> GetRegistrationWithHorseAsync(long registrationId);
     Task<List<RaceEntry>> GetRaceEntriesAsync(long raceId);
-    Task<bool> HasActiveJockeyContractAsync(long tournamentId, long horseId, long jockeyId);
+    Task<bool> HasActiveJockeyContractAsync(long tournamentId, long horseId, int jockeyId);
     Task AddRaceEntryAsync(RaceEntry raceEntry);
 }

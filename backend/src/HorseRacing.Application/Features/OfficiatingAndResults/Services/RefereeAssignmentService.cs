@@ -96,7 +96,7 @@ public class RefereeAssignmentService : IRefereeAssignmentService
         }).ToList();
     }
 
-    public async Task RemoveRefereeAssignmentAsync(long raceId, long refereeId)
+    public async Task RemoveRefereeAssignmentAsync(long raceId, int refereeId)
     {
         var race = await _repository.GetRaceByIdAsync(raceId);
         if (race == null)

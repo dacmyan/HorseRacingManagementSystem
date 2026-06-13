@@ -11,7 +11,7 @@ public class RaceRefereeAssignment
     // Navigation Properties
     public Race? Race { get; set; }
 
-    public long RefereeId { get; set; }
+    public int RefereeId { get; set; }
 
     // Navigation property to RefereeProfile
     public RefereeProfile? RefereeProfile { get; set; }

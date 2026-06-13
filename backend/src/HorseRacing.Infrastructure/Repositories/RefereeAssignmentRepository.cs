@@ -25,7 +25,7 @@ public class RefereeAssignmentRepository : IRefereeAssignmentRepository
             .FirstOrDefaultAsync(r => r.RaceId == raceId);
     }
 
-    public async Task<RefereeProfile?> GetRefereeProfileByIdAsync(long refereeId)
+    public async Task<RefereeProfile?> GetRefereeProfileByIdAsync(int refereeId)
     {
         return await _context.RefereeProfiles
             .AsNoTracking()
@@ -34,7 +34,7 @@ public class RefereeAssignmentRepository : IRefereeAssignmentRepository
             .FirstOrDefaultAsync(rp => rp.RefereeId == refereeId);
     }
 
-    public async Task<RaceRefereeAssignment?> GetAssignmentAsync(long raceId, long refereeId)
+    public async Task<RaceRefereeAssignment?> GetAssignmentAsync(long raceId, int refereeId)
     {
         return await _context.RaceRefereeAssignments
             .FirstOrDefaultAsync(rra => rra.RaceId == raceId && rra.RefereeId == refereeId);

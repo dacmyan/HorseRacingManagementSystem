@@ -7,7 +7,7 @@ public class RaceEntryResponse
     public long RegistrationId { get; set; }
     public long HorseId { get; set; }
     public string HorseName { get; set; } = string.Empty;
-    public long? JockeyId { get; set; }
+    public int? JockeyId { get; set; }
     public string? JockeyName { get; set; }
     public int LaneNo { get; set; }
     public string Status { get; set; } = string.Empty;
