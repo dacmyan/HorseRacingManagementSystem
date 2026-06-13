@@ -502,7 +502,8 @@ VALUES
 (N'20260612025302_AddRefereeReport', N'10.0.9'),
 (N'20260612030624_FixRuntimeUserSeeding', N'10.0.9'),
 (N'20260612033801_AddLaneNoToRaceEntry', N'10.0.9'),
-(N'20260612035556_AlignDatabaseWithStandardSchema', N'10.0.9');
+(N'20260612035556_AlignDatabaseWithStandardSchema', N'10.0.9'),
+(N'20260613073037_AddRefereeAssignmentFeature', N'10.0.9');
 GO
 
 PRINT 'DATABASE HorseRacingManagementSystem HAS BEEN SUCCESSFULLY RECREATED WITH CLEAN SINGULAR SCHEMA!';
