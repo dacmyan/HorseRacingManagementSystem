@@ -12,6 +12,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
+using HorseRacing.Application.Features.OfficiatingAndResults.Interfaces;
+using HorseRacing.Application.Features.OfficiatingAndResults.DTOs;
 
 namespace HorseRacing.API.Controllers;
 
@@ -23,17 +25,20 @@ public class PublicController : ControllerBase
     private readonly INotificationService _notificationService;
     private readonly IRaceService _raceService;
     private readonly IRoundService _roundService;
+    private readonly IRaceResultService _resultService;
 
     public PublicController(
         AppDbContext context,
         INotificationService notificationService,
         IRaceService raceService,
-        IRoundService roundService)
+        IRoundService roundService,
+        IRaceResultService resultService)
     {
         _context = context;
         _notificationService = notificationService;
         _raceService = raceService;
         _roundService = roundService;
+        _resultService = resultService;
     }
 
     private int GetCurrentUserId()
@@ -193,5 +198,62 @@ public class PublicController : ControllerBase
         }
 
         return Ok(new { message = "Round details retrieved successfully", result = round });
+    }
+
+    [HttpGet("races/{id}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetRaceDetail(long id)
+    {
+        try
+        {
+            var race = await _raceService.GetRaceByIdAsync(id);
+            if (race == null)
+            {
+                return NotFound(new { message = $"Race with ID {id} was not found." });
+            }
+            return Ok(new { message = "Race details retrieved successfully", result = race });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving race details", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("races/{raceId}/entries")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetRaceEntries(long raceId)
+    {
+        try
+        {
+            var entries = await _raceService.GetRaceEntriesByRaceIdAsync(raceId);
+            if (entries == null)
+            {
+                return NotFound(new { message = $"Race with ID {raceId} was not found." });
+            }
+            return Ok(new { message = "Race entries retrieved successfully", result = entries });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving race entries", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("races/{raceId}/results")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetRaceResults(long raceId)
+    {
+        try
+        {
+            var response = await _resultService.GetPublicResultsByRaceIdAsync(raceId);
+            if (response == null)
+            {
+                return NotFound(new { message = $"Race with ID {raceId} was not found." });
+            }
+            return Ok(new { message = "Race results retrieved successfully", result = response });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving race results", detail = ex.Message });
+        }
     }
 }
