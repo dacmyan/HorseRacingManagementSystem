@@ -9,11 +9,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HorseRacing.Infrastructure.Repositories;
 
-public class RefereeAssignmentRepository : IRefereeAssignmentRepository
+public class ViolationRepository : IViolationRepository
 {
     private readonly AppDbContext _context;
 
-    public RefereeAssignmentRepository(AppDbContext context)
+    public ViolationRepository(AppDbContext context)
     {
         _context = context;
     }
@@ -37,28 +37,23 @@ public class RefereeAssignmentRepository : IRefereeAssignmentRepository
     public async Task<RaceRefereeAssignment?> GetAssignmentAsync(long raceId, int refereeId)
     {
         return await _context.RaceRefereeAssignments
+            .AsNoTracking()
             .FirstOrDefaultAsync(rra => rra.RaceId == raceId && rra.RefereeId == refereeId);
     }
 
-    public async Task<List<RaceRefereeAssignment>> GetAssignmentsForRaceAsync(long raceId)
+    public async Task AddViolationAsync(RaceViolation violation)
     {
-        return await _context.RaceRefereeAssignments
+        await _context.Violations.AddAsync(violation);
+    }
+
+    public async Task<List<RaceViolation>> GetViolationsByRaceIdAsync(long raceId)
+    {
+        return await _context.Violations
             .AsNoTracking()
-            .Include(rra => rra.RefereeProfile)
-                .ThenInclude(rp => rp!.User)
-            .Where(rra => rra.RaceId == raceId)
-            .OrderBy(rra => rra.AssignedAt)
+            .Include(v => v.Race)
+            .Where(v => v.RaceId == raceId)
+            .OrderBy(v => v.Id)
             .ToListAsync();
-    }
-
-    public async Task AddAssignmentAsync(RaceRefereeAssignment assignment)
-    {
-        await _context.RaceRefereeAssignments.AddAsync(assignment);
-    }
-
-    public void RemoveAssignment(RaceRefereeAssignment assignment)
-    {
-        _context.RaceRefereeAssignments.Remove(assignment);
     }
 
     public async Task SaveChangesAsync()
