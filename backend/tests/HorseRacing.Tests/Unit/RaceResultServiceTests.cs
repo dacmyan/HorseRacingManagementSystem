@@ -10,17 +10,24 @@ using Moq;
 using Xunit;
 using FluentAssertions;
 
+using HorseRacing.Application.Features.FinancialRewards.Interfaces;
+using HorseRacing.Application.Features.BettingEngine.Interfaces;
+
 namespace HorseRacing.Tests.Unit;
 
 public class RaceResultServiceTests
 {
     private readonly Mock<IResultRepository> _repoMock;
+    private readonly Mock<IBetPayoutService> _payoutMock;
+    private readonly Mock<IPredictionService> _predictionMock;
     private readonly RaceResultService _service;
 
     public RaceResultServiceTests()
     {
         _repoMock = new Mock<IResultRepository>();
-        _service = new RaceResultService(_repoMock.Object);
+        _payoutMock = new Mock<IBetPayoutService>();
+        _predictionMock = new Mock<IPredictionService>();
+        _service = new RaceResultService(_repoMock.Object, _payoutMock.Object, _predictionMock.Object);
     }
 
     [Fact]

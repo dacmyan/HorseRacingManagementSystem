@@ -43,6 +43,7 @@ public static class ServiceExtensions
         services.AddScoped<IRefereeAssignmentService, RefereeAssignmentService>();
         services.AddScoped<IRefereeService, RefereeService>();
         services.AddScoped<IRaceResultService, RaceResultService>();
+        services.AddScoped<IPredictionService, PredictionService>();
 
         return services;
     }

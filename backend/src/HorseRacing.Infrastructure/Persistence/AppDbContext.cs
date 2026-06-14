@@ -32,6 +32,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<HorseDocument>     HorseDocuments { get; set; }
     public DbSet<HorseStatistic>    HorseStatistics { get; set; }
     public DbSet<RefereeReport>     RefereeReports { get; set; }
+    public DbSet<Prediction>        Predictions  { get; set; }
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -196,6 +197,30 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .WithMany()
                 .HasForeignKey(p => p.BetId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Prediction>(entity =>
+        {
+            entity.ToTable("Prediction");
+            entity.HasKey(p => p.PredictionId);
+            
+            entity.HasIndex(p => new { p.UserId, p.RaceId })
+                .IsUnique();
+
+            entity.HasOne(p => p.User)
+                .WithMany()
+                .HasForeignKey(p => p.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(p => p.Race)
+                .WithMany()
+                .HasForeignKey(p => p.RaceId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(p => p.RaceEntry)
+                .WithMany()
+                .HasForeignKey(p => p.RaceEntryId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Prize>(entity =>

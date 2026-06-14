@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -10,17 +10,17 @@ namespace HorseRacing.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropForeignKey(
-                name: "FK_Horse_Registration_RegistrationId",
-                table: "Horse");
-
-            migrationBuilder.DropIndex(
-                name: "IX_Horse_RegistrationId",
-                table: "Horse");
-
-            migrationBuilder.DropColumn(
-                name: "RegistrationId",
-                table: "Horse");
+            // migrationBuilder.DropForeignKey(
+            //     name: "FK_Horse_Registration_RegistrationId",
+            //     table: "Horse");
+            // 
+            // migrationBuilder.DropIndex(
+            //     name: "IX_Horse_RegistrationId",
+            //     table: "Horse");
+            // 
+            // migrationBuilder.DropColumn(
+            //     name: "RegistrationId",
+            //     table: "Horse");
 
             migrationBuilder.AlterColumn<decimal>(
                 name: "WinningProbability",
