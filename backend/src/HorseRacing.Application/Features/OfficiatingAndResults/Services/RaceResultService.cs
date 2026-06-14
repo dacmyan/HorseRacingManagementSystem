@@ -5,16 +5,25 @@ using HorseRacing.Application.Features.OfficiatingAndResults.DTOs;
 using HorseRacing.Application.Features.OfficiatingAndResults.Interfaces;
 using HorseRacing.Domain.Entities;
 using HorseRacing.Domain.Entities.Tournaments;
+using HorseRacing.Application.Features.FinancialRewards.Interfaces;
+using HorseRacing.Application.Features.BettingEngine.Interfaces;
 
 namespace HorseRacing.Application.Features.OfficiatingAndResults.Services;
 
 public class RaceResultService : IRaceResultService
 {
     private readonly IResultRepository _repository;
+    private readonly IBetPayoutService _betPayoutService;
+    private readonly IPredictionService _predictionService;
 
-    public RaceResultService(IResultRepository repository)
+    public RaceResultService(
+        IResultRepository repository,
+        IBetPayoutService betPayoutService,
+        IPredictionService predictionService)
     {
         _repository = repository;
+        _betPayoutService = betPayoutService;
+        _predictionService = predictionService;
     }
 
     public async Task<RaceResultResponse> SubmitResultAsync(SubmitRaceResultRequest request)
@@ -109,8 +118,30 @@ public class RaceResultService : IRaceResultService
         }
 
         // 3. Update race status to "Finished"
+        bool wasFinished = race.Status.Equals("Finished", StringComparison.OrdinalIgnoreCase);
         race.Status = "Finished";
         await _repository.SaveChangesAsync();
+
+        if (!wasFinished)
+        {
+            try
+            {
+                await _betPayoutService.ProcessPayoutAsync(raceId);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[BetPayout Error] Failed to process auto payout for race {raceId}: {ex.Message}");
+            }
+
+            try
+            {
+                await _predictionService.EvaluatePredictionsAsync(raceId);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Prediction Error] Failed to evaluate predictions for race {raceId}: {ex.Message}");
+            }
+        }
 
         // 4. Resolve winner details
         var horse = await _repository.GetHorseByIdOrNameAsync(result.Winner);

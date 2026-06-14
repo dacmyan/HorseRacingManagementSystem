@@ -17,13 +17,16 @@ public class SpectatorController : ControllerBase
 {
     private readonly IWalletService _walletService;
     private readonly IBettingService _bettingService;
+    private readonly IPredictionService _predictionService;
 
     public SpectatorController(
         IWalletService walletService,
-        IBettingService bettingService)
+        IBettingService bettingService,
+        IPredictionService predictionService)
     {
         _walletService = walletService;
         _bettingService = bettingService;
+        _predictionService = predictionService;
     }
 
     private int GetCurrentUserId()
@@ -146,5 +149,61 @@ public class SpectatorController : ControllerBase
         }
     }
 
+    [HttpPost("predictions")]
+    public async Task<IActionResult> CreatePrediction([FromBody] CreatePredictionRequest request)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var response = await _predictionService.CreatePredictionAsync(userId, request);
+            return Ok(new { message = "Prediction submitted successfully", result = response });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred submitting the prediction", detail = ex.Message });
+        }
+    }
 
+    [HttpGet("predictions/my-predictions")]
+    public async Task<IActionResult> GetMyPredictions()
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var response = await _predictionService.GetMyPredictionsAsync(userId);
+            return Ok(new { message = "Your predictions retrieved successfully", result = response });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving predictions", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("predictions/race/{raceId}")]
+    public async Task<IActionResult> GetPredictionsByRace(long raceId)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var predictions = await _predictionService.GetMyPredictionsAsync(userId);
+            var prediction = predictions.FirstOrDefault(p => p.RaceId == raceId);
+            if (prediction == null)
+            {
+                return NotFound(new { message = $"No prediction found for race ID {raceId}." });
+            }
+            return Ok(new { message = "Prediction retrieved successfully", result = prediction });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving prediction for the race", detail = ex.Message });
+        }
+    }
 }
