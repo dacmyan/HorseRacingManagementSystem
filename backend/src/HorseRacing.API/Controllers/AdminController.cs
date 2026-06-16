@@ -11,6 +11,9 @@ using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using HorseRacing.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using System.Linq;
 
 namespace HorseRacing.API.Controllers;
 
@@ -343,6 +346,142 @@ public class AdminController : ControllerBase
         catch (Exception ex)
         {
             return StatusCode(500, new { message = "An error occurred retrieving race results", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("registrations")]
+    public async Task<IActionResult> GetRegistrations([FromServices] AppDbContext context)
+    {
+        try
+        {
+            var registrations = await context.Registrations
+                .Include(r => r.Tournament)
+                .Include(r => r.Horse)
+                    .ThenInclude(h => h.Owner)
+                .Select(r => new {
+                    RegistrationId = r.RegistrationId,
+                    TournamentId = r.TournamentId,
+                    TournamentName = r.Tournament != null ? r.Tournament.Name : "",
+                    HorseId = r.HorseId,
+                    HorseName = r.Horse != null ? r.Horse.Name : "",
+                    OwnerName = (r.Horse != null && r.Horse.Owner != null) ? r.Horse.Owner.FullName : "",
+                    Status = r.Status,
+                    RegisteredAt = r.RegisteredAt
+                })
+                .ToListAsync();
+            return Ok(new { message = "Registrations retrieved successfully", result = registrations });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving registrations", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("referees")]
+    public async Task<IActionResult> GetReferees([FromServices] AppDbContext context)
+    {
+        try
+        {
+            var referees = await context.RefereeProfiles
+                .Include(rp => rp.User)
+                .Select(rp => new
+                {
+                    UserId = rp.UserId,
+                    RefereeId = rp.RefereeId,
+                    FullName = rp.User != null ? rp.User.FullName : "",
+                    Email = rp.User != null ? rp.User.Email : "",
+                    LicenseNumber = rp.LicenseNumber,
+                    ExperienceYears = rp.ExperienceYears,
+                    Status = rp.Status
+                })
+                .ToListAsync();
+            return Ok(new { message = "Referees retrieved successfully", result = referees });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving referees", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("violations")]
+    public async Task<IActionResult> GetViolations([FromServices] AppDbContext context)
+    {
+        try
+        {
+            var violations = await context.Violations
+                .Include(v => v.Race)
+                .Select(v => new {
+                    ViolationId = v.Id,
+                    RaceId = v.RaceId,
+                    RaceName = v.Race != null ? v.Race.Name : "",
+                    Type = v.Description.Contains(":") ? v.Description.Split(':', StringSplitOptions.None)[0] : "Vi phạm",
+                    Note = v.Description,
+                    Penalty = v.Penalty,
+                    CreatedAt = DateTime.UtcNow
+                })
+                .ToListAsync();
+            return Ok(new { message = "Violations retrieved successfully", result = violations });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving violations", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("predictions/stats")]
+    public async Task<IActionResult> GetPredictionStats([FromServices] AppDbContext context)
+    {
+        try
+        {
+            var predictions = await context.Predictions.ToListAsync();
+            var total = predictions.Count;
+            var correct = predictions.Count(p => p.IsCorrect == true);
+            var wrong = predictions.Count(p => p.IsCorrect == false);
+            var accuracyRate = total > 0 ? (double)correct * 100 / total : 0;
+
+            var stats = new {
+                TotalPredictions = total,
+                CorrectPredictions = correct,
+                WrongPredictions = wrong,
+                AccuracyRate = accuracyRate
+            };
+
+            return Ok(new { message = "Prediction stats retrieved successfully", result = stats });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving stats", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("predictions")]
+    public async Task<IActionResult> GetPredictions([FromServices] AppDbContext context)
+    {
+        try
+        {
+            var predictions = await context.Predictions
+                .Include(p => p.User)
+                .Include(p => p.Race)
+                .Include(p => p.RaceEntry)
+                    .ThenInclude(re => re.Registration)
+                        .ThenInclude(reg => reg.Horse)
+                .Select(p => new {
+                    PredictionId = p.PredictionId,
+                    SpectatorName = p.User != null ? p.User.FullName : "Unknown",
+                    RaceName = p.Race != null ? p.Race.Name : "Unknown Race",
+                    PredictedWinner = (p.RaceEntry != null && p.RaceEntry.Registration != null && p.RaceEntry.Registration.Horse != null) ? p.RaceEntry.Registration.Horse.Name : "Unknown Horse",
+                    Point = p.Point,
+                    IsCorrect = p.IsCorrect,
+                    Status = p.Status,
+                    PredictedAt = p.PredictedAt
+                })
+                .ToListAsync();
+
+            return Ok(new { message = "Predictions retrieved successfully", result = predictions });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving predictions", detail = ex.Message });
         }
     }
 }

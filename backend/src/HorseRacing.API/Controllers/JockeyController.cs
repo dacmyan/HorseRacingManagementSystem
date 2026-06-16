@@ -5,6 +5,9 @@ using HorseRacing.Application.Features.ContractAndRegistration.DTOs;
 using HorseRacing.Application.Features.ContractAndRegistration.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using HorseRacing.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using System.Linq;
 
 namespace HorseRacing.API.Controllers;
 
@@ -65,6 +68,104 @@ public class JockeyController : ControllerBase
         catch (Exception ex)
         {
             return StatusCode(500, new { message = "An error occurred responding to the contract", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("stats")]
+    public async Task<IActionResult> GetJockeyStats([FromServices] AppDbContext context)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var jockey = await context.JockeyProfiles
+                .FirstOrDefaultAsync(jp => jp.UserId == userId);
+
+            if (jockey == null)
+            {
+                return NotFound(new { message = "Jockey profile not found" });
+            }
+
+            // Count total races from RaceEntry
+            var entries = await context.RaceEntries
+                .Include(re => re.Race)
+                .Include(re => re.Registration)
+                    .ThenInclude(reg => reg.Horse)
+                .Where(re => re.JockeyId == jockey.JockeyId)
+                .ToListAsync();
+
+            var raceIds = entries.Select(re => re.RaceId).ToList();
+
+            var results = await context.RaceResults
+                .Where(rr => raceIds.Contains(rr.RaceId))
+                .ToListAsync();
+
+            int wins = 0;
+            foreach (var entry in entries)
+            {
+                var result = results.FirstOrDefault(r => r.RaceId == entry.RaceId);
+                if (result != null && entry.Registration?.Horse != null)
+                {
+                    if (result.Winner.Equals(entry.Registration.Horse.Name, StringComparison.OrdinalIgnoreCase) ||
+                        result.Winner == entry.Registration.HorseId.ToString())
+                    {
+                        wins++;
+                    }
+                }
+            }
+
+            var resultStats = new {
+                TotalRaces = entries.Count,
+                Wins = wins,
+                Top3 = wins, // Dummy or same for wins
+                TotalPoints = wins * 10,
+                RankingPoint = jockey.RankingPoint
+            };
+
+            return Ok(new { message = "Jockey stats retrieved successfully", result = resultStats });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving jockey stats", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("violations")]
+    public async Task<IActionResult> GetJockeyViolations([FromServices] AppDbContext context)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var jockey = await context.JockeyProfiles
+                .FirstOrDefaultAsync(jp => jp.UserId == userId);
+
+            if (jockey == null)
+            {
+                return NotFound(new { message = "Jockey profile not found" });
+            }
+
+            var raceIds = await context.RaceEntries
+                .Where(re => re.JockeyId == jockey.JockeyId)
+                .Select(re => re.RaceId)
+                .ToListAsync();
+
+            var violations = await context.Violations
+                .Include(v => v.Race)
+                .Where(v => raceIds.Contains(v.RaceId))
+                .Select(v => new {
+                    ViolationId = v.Id,
+                    RaceName = v.Race != null ? v.Race.Name : "",
+                    Type = v.Description.Contains(":") ? v.Description.Split(':', StringSplitOptions.None)[0] : "Vi phạm",
+                    Note = v.Description,
+                    Penalty = v.Penalty,
+                    CreatedAt = DateTime.UtcNow
+                })
+                .ToListAsync();
+
+            return Ok(new { message = "Jockey violations retrieved successfully", result = violations });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving violations", detail = ex.Message });
         }
     }
 }

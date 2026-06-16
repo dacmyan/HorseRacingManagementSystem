@@ -6,6 +6,7 @@ import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
 import { createRegistration, getMyRegistrations, getMyHorses } from '../../api/ownerService';
+import { getTournaments } from '../../api/publicService';
 import { parseApiError } from '../../api/authService';
 
 type Tab = 'pending' | 'approved' | 'rejected';
@@ -26,6 +27,7 @@ const STATUS_CONFIG = {
 export function OwnerRegistrationsPage() {
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [horses, setHorses] = useState<any[]>([]);
+  const [tournaments, setTournaments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [tab, setTab] = useState<Tab>('pending');
@@ -38,9 +40,14 @@ export function OwnerRegistrationsPage() {
   async function load() {
     setLoading(true); setError('');
     try {
-      const [regData, horseData] = await Promise.all([getMyRegistrations(), getMyHorses()]);
+      const [regData, horseData, tournamentData] = await Promise.all([
+        getMyRegistrations(),
+        getMyHorses(),
+        getTournaments()
+      ]);
       setRegistrations(regData?.result ?? (Array.isArray(regData) ? regData : []));
       setHorses(horseData?.result ?? (Array.isArray(horseData) ? horseData : []));
+      setTournaments(tournamentData?.result ?? (Array.isArray(tournamentData) ? tournamentData : []));
     } catch (err: unknown) {
       setError(parseApiError(err as Error));
     } finally {
@@ -181,11 +188,17 @@ export function OwnerRegistrationsPage() {
                   {horses.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
                 </select>
               </div>
-              {/* TODO: cần BE bổ sung GET danh sách giải đấu để thay ô nhập tay bằng dropdown */}
               <div>
-                <label className="block text-xs font-bold text-muted uppercase tracking-wider mb-1.5">ID Giải đấu * <span className="text-muted/50 normal-case font-normal">— nhập ID (BE chưa có API danh sách giải đấu)</span></label>
-                <input type="number" min="1" value={form.tournamentId} onChange={e => setForm(p => ({...p, tournamentId: e.target.value}))}
-                  placeholder="Nhập ID giải đấu" className="w-full bg-navy/50 border border-glass-border rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-muted/60 outline-none focus:border-gold/40 transition-colors" />
+                <label className="block text-xs font-bold text-muted uppercase tracking-wider mb-1.5">Chọn Giải đấu *</label>
+                <select value={form.tournamentId} onChange={e => setForm(p => ({...p, tournamentId: e.target.value}))}
+                  className="w-full bg-navy/50 border border-glass-border rounded-lg px-4 py-2.5 text-sm text-white outline-none focus:border-gold/40 transition-colors">
+                  <option value="">-- Chọn giải đấu --</option>
+                  {tournaments.map(t => (
+                    <option key={t.tournamentId} value={t.tournamentId}>
+                      {t.name} (ID: {t.tournamentId})
+                    </option>
+                  ))}
+                </select>
               </div>
               {submitError && <div className="text-sm px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400">{submitError}</div>}
               {submitSuccess && <div className="text-sm px-4 py-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">{submitSuccess}</div>}

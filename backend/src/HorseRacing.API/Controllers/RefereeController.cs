@@ -6,6 +6,10 @@ using HorseRacing.Application.Features.OfficiatingAndResults.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using HorseRacing.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using System.Linq;
+using System.Security.Claims;
 
 namespace HorseRacing.API.Controllers;
 
@@ -164,6 +168,101 @@ public class RefereeController : ControllerBase
         catch (Exception ex)
         {
             return StatusCode(StatusCodes.Status500InternalServerError, new { message = "An error occurred retrieving race results", detail = ex.Message });
+        }
+    }
+
+    private int GetCurrentUserId()
+    {
+        var nameIdentifier = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(nameIdentifier))
+        {
+            nameIdentifier = User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
+        }
+        return int.Parse(nameIdentifier ?? "0");
+    }
+
+    [HttpGet("dashboard")]
+    public async Task<IActionResult> GetDashboard([FromServices] AppDbContext context)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var referee = await context.RefereeProfiles
+                .FirstOrDefaultAsync(rp => rp.UserId == userId);
+
+            if (referee == null)
+            {
+                return NotFound(new { message = "Referee profile not found" });
+            }
+
+            var assignments = await context.RaceRefereeAssignments
+                .Include(a => a.Race)
+                .Where(a => a.RefereeId == referee.RefereeId)
+                .ToListAsync();
+
+            var assignmentIds = assignments.Select(a => a.AssignmentId).ToList();
+
+            var reports = await context.RefereeReports
+                .Where(r => assignmentIds.Contains(r.AssignmentId))
+                .ToListAsync();
+
+            var completedReportCount = reports.Count;
+            var pendingReportCount = assignments.Count - completedReportCount;
+            var violationsCreatedCount = reports.Count(r => !string.IsNullOrEmpty(r.ViolationNote));
+
+            var assignedRaces = assignments.Select(a => new {
+                RaceId = a.RaceId,
+                RaceName = a.Race?.Name ?? "",
+                RaceDate = a.Race?.RaceDate,
+                Status = a.Race?.Status ?? "Scheduled"
+            }).ToList();
+
+            var result = new {
+                AssignedRaceCount = assignments.Count,
+                PendingReportCount = pendingReportCount,
+                CompletedReportCount = completedReportCount,
+                ViolationsCreatedCount = violationsCreatedCount,
+                AssignedRaces = assignedRaces
+            };
+
+            return Ok(new { message = "Referee dashboard retrieved successfully", result = result });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving dashboard", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("races/{raceId}/horse-checks")]
+    public async Task<IActionResult> GetHorseChecks(long raceId, [FromServices] AppDbContext context)
+    {
+        try
+        {
+            var entries = await context.RaceEntries
+                .Include(re => re.Registration)
+                    .ThenInclude(reg => reg.Horse)
+                        .ThenInclude(h => h.Owner)
+                .Include(re => re.JockeyProfile)
+                    .ThenInclude(jp => jp.User)
+                .Where(re => re.RaceId == raceId)
+                .ToListAsync();
+
+            var horseChecks = entries.Select(re => new {
+                RaceEntryId = re.RaceEntryId,
+                HorseId = re.Registration?.HorseId ?? 0,
+                HorseName = re.Registration?.Horse?.Name ?? "",
+                OwnerName = re.Registration?.Horse?.Owner?.FullName ?? "",
+                JockeyName = re.JockeyProfile?.User?.FullName ?? "",
+                LaneNo = re.LaneNo,
+                MedicalStatus = re.Registration?.Horse?.HealthStatus ?? "Good",
+                Status = re.Status
+            }).ToList();
+
+            return Ok(new { message = "Horse checks retrieved successfully", result = horseChecks });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving horse checks", detail = ex.Message });
         }
     }
 }
