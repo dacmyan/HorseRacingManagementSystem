@@ -7,6 +7,9 @@ using HorseRacing.Application.Features.ContractAndRegistration.DTOs;
 using HorseRacing.Application.Features.ContractAndRegistration.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using HorseRacing.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using System.Linq;
 
 namespace HorseRacing.API.Controllers;
 
@@ -237,6 +240,73 @@ public class OwnerController : ControllerBase
         catch (Exception ex)
         {
             return StatusCode(500, new { message = "An error occurred retrieving registrations", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("owner/results")]
+    public async Task<IActionResult> GetOwnerResults([FromServices] AppDbContext context)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            // Fetch owner's horses
+            var horseIds = await context.Horses
+                .Where(h => h.OwnerId == userId)
+                .Select(h => h.HorseId)
+                .ToListAsync();
+
+            if (!horseIds.Any())
+            {
+                return Ok(new { message = "Results retrieved successfully", result = new List<object>() });
+            }
+
+            // Fetch race entries for these horses in finished races
+            var results = await context.RaceEntries
+                .Include(re => re.Race)
+                    .ThenInclude(r => r.Round)
+                        .ThenInclude(r0 => r0.Tournament)
+                .Include(re => re.Registration)
+                    .ThenInclude(reg => reg.Horse)
+                .Where(re => horseIds.Contains(re.Registration.HorseId) && re.Race.Status == "Finished")
+                .ToListAsync();
+
+            // Fetch the winners for these races
+            var raceIds = results.Select(re => re.RaceId).Distinct().ToList();
+            var winners = await context.RaceResults
+                .Where(rr => raceIds.Contains(rr.RaceId))
+                .ToDictionaryAsync(rr => rr.RaceId, rr => rr.Winner);
+
+            var ownerResults = results.Select(re => {
+                var horseName = re.Registration?.Horse?.Name ?? "";
+                var horseIdStr = re.Registration?.HorseId.ToString() ?? "";
+                
+                // Determine finish position
+                int finishPosition = 2;
+                if (winners.TryGetValue(re.RaceId, out var winner))
+                {
+                    if (winner.Equals(horseName, StringComparison.OrdinalIgnoreCase) || winner == horseIdStr)
+                    {
+                        finishPosition = 1;
+                    }
+                }
+
+                return new {
+                    RaceId = re.RaceId,
+                    RaceName = re.Race?.Name ?? "",
+                    TournamentName = re.Race?.Round?.Tournament?.Name ?? "",
+                    HorseName = horseName,
+                    FinishPosition = finishPosition,
+                    FinishTime = re.Race?.RaceDate.AddMinutes(5).ToString("HH:mm:ss") ?? "",
+                    Point = finishPosition == 1 ? 10 : 5,
+                    PrizeAmount = finishPosition == 1 ? 1000000 : 0
+                };
+            }).ToList();
+
+            return Ok(new { message = "Results retrieved successfully", result = ownerResults });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving results", detail = ex.Message });
         }
     }
 }
