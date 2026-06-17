@@ -6,6 +6,7 @@ import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
 import { getTournaments } from '../../api/publicService';
+import { formatDateTime } from '../../utils/format';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
   active: { label: 'Đang diễn ra', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', dot: 'bg-emerald-400' },
@@ -82,11 +83,11 @@ export function OwnerTournamentsPage() {
                     <div className="space-y-1.5 text-xs text-muted pt-3 border-t border-glass-border/40">
                       <div className="flex justify-between">
                         <span>Ngày bắt đầu:</span>
-                        <span className="text-white font-medium">{t.startDate ? new Date(t.startDate).toLocaleString() : '—'}</span>
+                        <span className="text-white font-medium">{formatDateTime(t.startDate)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Ngày kết thúc:</span>
-                        <span className="text-white font-medium">{t.endDate ? new Date(t.endDate).toLocaleString() : '—'}</span>
+                        <span className="text-white font-medium">{formatDateTime(t.endDate)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Số vòng đấu:</span>

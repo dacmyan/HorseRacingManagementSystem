@@ -8,6 +8,7 @@ import { PageAmbience } from '../../components/layout/PageAmbience';
 import { createTournament } from '../../api/adminService';
 import { getTournaments } from '../../api/publicService';
 import { parseApiError } from '../../api/authService';
+import { formatDateTime } from '../../utils/format';
 
 type StatusFilter = 'all' | 'upcoming' | 'active' | 'completed';
 
@@ -182,11 +183,11 @@ export function AdminTournamentsPage() {
                     <div className="space-y-1.5 text-xs text-muted pt-3 border-t border-glass-border/40">
                       <div className="flex justify-between">
                         <span>Ngày bắt đầu:</span>
-                        <span className="text-white font-medium">{t.startDate ? new Date(t.startDate).toLocaleString() : '—'}</span>
+                        <span className="text-white font-medium">{formatDateTime(t.startDate)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Ngày kết thúc:</span>
-                        <span className="text-white font-medium">{t.endDate ? new Date(t.endDate).toLocaleString() : '—'}</span>
+                        <span className="text-white font-medium">{formatDateTime(t.endDate)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Số vòng đấu:</span>
