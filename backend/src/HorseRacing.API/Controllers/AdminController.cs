@@ -6,6 +6,8 @@ using HorseRacing.Application.Features.TournamentAndRacing.DTOs;
 using HorseRacing.Application.Features.TournamentAndRacing.Services;
 using HorseRacing.Application.Features.OfficiatingAndResults.Interfaces;
 using HorseRacing.Application.Features.OfficiatingAndResults.DTOs;
+using HorseRacing.Application.Features.ContractAndRegistration.DTOs;
+using HorseRacing.Application.Features.ContractAndRegistration.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System;
@@ -29,6 +31,7 @@ public class AdminController : ControllerBase
     private readonly IRaceService _raceService;
     private readonly IRefereeAssignmentService _refereeAssignmentService;
     private readonly IRaceResultService _resultService;
+    private readonly IRegistrationService _registrationService;
 
     public AdminController(
         IAdminService adminService,
@@ -37,7 +40,8 @@ public class AdminController : ControllerBase
         ITournamentService tournamentService,
         IRaceService raceService,
         IRefereeAssignmentService refereeAssignmentService,
-        IRaceResultService resultService)
+        IRaceResultService resultService,
+        IRegistrationService registrationService)
     {
         _adminService = adminService;
         _prizePayoutService = prizePayoutService;
@@ -46,6 +50,7 @@ public class AdminController : ControllerBase
         _raceService = raceService;
         _refereeAssignmentService = refereeAssignmentService;
         _resultService = resultService;
+        _registrationService = registrationService;
     }
 
     [HttpGet("test")]
@@ -482,6 +487,163 @@ public class AdminController : ControllerBase
         catch (Exception ex)
         {
             return StatusCode(500, new { message = "An error occurred retrieving predictions", detail = ex.Message });
+        }
+    }
+
+    [HttpPut("registrations/{id}/approve")]
+    public async Task<IActionResult> ApproveRegistration([FromRoute] long id)
+    {
+        try
+        {
+            var request = new ReviewRegistrationRequest { Status = "Approved" };
+            var response = await _registrationService.ReviewRegistrationAsync(id, request);
+            return Ok(new { message = "Registration approved successfully", result = response });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred approving registration", detail = ex.Message });
+        }
+    }
+
+    [HttpPut("registrations/{id}/reject")]
+    public async Task<IActionResult> RejectRegistration([FromRoute] long id)
+    {
+        try
+        {
+            var request = new ReviewRegistrationRequest { Status = "Rejected" };
+            var response = await _registrationService.ReviewRegistrationAsync(id, request);
+            return Ok(new { message = "Registration rejected successfully", result = response });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred rejecting registration", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("activity-log")]
+    public async Task<IActionResult> GetActivityLog([FromServices] AppDbContext context)
+    {
+        try
+        {
+            var activities = new List<object>();
+
+            // Recent users
+            var recentUsers = await context.Users
+                .OrderByDescending(u => u.CreatedAt)
+                .Take(10)
+                .Select(u => new { Type = "User", Title = "New user registered", Description = u.FullName + " (" + u.Email + ")", CreatedAt = u.CreatedAt })
+                .ToListAsync();
+            activities.AddRange(recentUsers);
+
+            // Recent registrations
+            var recentRegistrations = await context.Registrations
+                .Include(r => r.Horse)
+                .Include(r => r.Tournament)
+                .OrderByDescending(r => r.RegisteredAt)
+                .Take(10)
+                .Select(r => new { Type = "Registration", Title = "Horse registration " + r.Status, Description = (r.Horse != null ? r.Horse.Name : "") + " registered for " + (r.Tournament != null ? r.Tournament.Name : ""), CreatedAt = r.RegisteredAt })
+                .ToListAsync();
+            activities.AddRange(recentRegistrations);
+
+            // Recent bets
+            var recentBets = await context.Bets
+                .Include(b => b.User)
+                .OrderByDescending(b => b.CreatedAt)
+                .Take(10)
+                .Select(b => new { Type = "Bet", Title = "Bet placed", Description = (b.User != null ? b.User.FullName : "Unknown") + " bet " + b.Amount + " on race " + b.RaceId, CreatedAt = b.CreatedAt })
+                .ToListAsync();
+            activities.AddRange(recentBets);
+
+            // Recent notifications
+            var recentNotifications = await context.Notifications
+                .OrderByDescending(n => n.CreatedAt)
+                .Take(10)
+                .Select(n => new { Type = "Notification", Title = "System notification", Description = n.Message, CreatedAt = n.CreatedAt })
+                .ToListAsync();
+            activities.AddRange(recentNotifications);
+
+            // Recent wallet transactions
+            var recentTransactions = await context.Transactions
+                .OrderByDescending(t => t.CreatedAt)
+                .Take(10)
+                .Select(t => new { Type = "Transaction", Title = "Wallet " + t.Type, Description = "Amount: " + t.Amount, CreatedAt = t.CreatedAt })
+                .ToListAsync();
+            activities.AddRange(recentTransactions);
+
+            // Sort all by CreatedAt descending and take top 50
+            var sorted = activities
+                .OrderByDescending(a => ((dynamic)a).CreatedAt)
+                .Take(50)
+                .ToList();
+
+            return Ok(new { message = "Activity log retrieved successfully", result = sorted });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving activity log", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("users/options")]
+    public async Task<IActionResult> GetUserOptions([FromServices] AppDbContext context)
+    {
+        try
+        {
+            var users = await context.Users
+                .Include(u => u.Role)
+                .Where(u => u.Status == "Active")
+                .Select(u => new
+                {
+                    Id = u.UserId,
+                    Label = u.FullName,
+                    Extra = u.Role != null ? u.Role.Name : "Unknown"
+                })
+                .ToListAsync();
+
+            return Ok(new { message = "User options retrieved successfully", result = users });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving user options", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("horses/options")]
+    public async Task<IActionResult> GetHorseOptions([FromServices] AppDbContext context)
+    {
+        try
+        {
+            var horses = await context.Horses
+                .Include(h => h.Owner)
+                .Select(h => new
+                {
+                    Id = (int)h.HorseId,
+                    Label = h.Name,
+                    Extra = "Owner: " + (h.Owner != null ? h.Owner.FullName : "Unknown")
+                })
+                .ToListAsync();
+
+            return Ok(new { message = "Horse options retrieved successfully", result = horses });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving horse options", detail = ex.Message });
         }
     }
 }

@@ -8,4 +8,5 @@ public interface IRegistrationService
 {
     Task<RegistrationResponse> RegisterHorseAsync(int ownerUserId, CreateRegistrationRequest request);
     Task<IEnumerable<RegistrationResponse>> GetRegistrationsByOwnerAsync(int ownerUserId);
+    Task<RegistrationResponse> ReviewRegistrationAsync(long id, ReviewRegistrationRequest request);
 }

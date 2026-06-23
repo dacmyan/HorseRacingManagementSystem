@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { getCurrentUser } from '../../api/authService';
 import { getBalance, getMyBets } from '../../api/spectatorService';
 import { getNotifications, getRaceSchedule } from '../../api/publicService';
+import { formatDateTime } from '../../utils/format';
 
 const child = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { duration: 0.35 } } };
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.08 } } };
@@ -35,6 +36,9 @@ export function SpectatorDashboardPage() {
   }, []);
 
   const pendingBets = bets.filter(b => { const s = (b.status ?? '').toLowerCase(); return s !== 'win' && s !== 'won' && s !== 'lose' && s !== 'lost' && s !== 'correct' && s !== 'incorrect'; }).length;
+
+  const liveRaces = upcoming.filter(r => ['active', 'ongoing', 'inprogress'].includes(r.status?.toLowerCase()));
+  const upcomingRaces = upcoming.filter(r => ['scheduled', 'upcoming'].includes(r.status?.toLowerCase()));
 
   return (
     <div className="min-h-screen text-body font-sans flex" style={{ backgroundColor: '#0b101e' }}>
@@ -71,8 +75,8 @@ export function SpectatorDashboardPage() {
           <motion.div variants={stagger} initial="hidden" animate="show" className="grid grid-cols-5 gap-4">
             {[
               { title: 'Số dư', value: balance.toLocaleString(), trend: `≈ $${(balance / 100).toFixed(2)}`, icon: Wallet, color: 'text-gold', bg: 'from-gold/15 to-amber-900/20', path: '/spectator/wallet' },
-              { title: 'Đang diễn ra', value: '—', trend: 'Live ngay', icon: Activity, color: 'text-red-400', bg: 'from-red-500/15 to-red-900/20', path: '/spectator/live' },
-              { title: 'Giải đấu', value: String(upcoming.length), trend: 'Đang theo dõi', icon: Trophy, color: 'text-emerald-400', bg: 'from-emerald-500/15 to-emerald-900/20', path: '/spectator/tournaments' },
+              { title: 'Đang diễn ra', value: liveRaces.length > 0 ? String(liveRaces.length) : '—', trend: 'Live ngay', icon: Activity, color: 'text-red-400', bg: 'from-red-500/15 to-red-900/20', path: '/spectator/live' },
+              { title: 'Giải đấu', value: String(new Set(upcoming.filter(r => r.status?.toLowerCase() !== 'finished').map(r => r.tournamentId)).size), trend: 'Đang theo dõi', icon: Trophy, color: 'text-emerald-400', bg: 'from-emerald-500/15 to-emerald-900/20', path: '/spectator/tournaments' },
               { title: 'Dự đoán', value: String(bets.length), trend: `${pendingBets} chờ kết quả`, icon: BarChart3, color: 'text-blue-400', bg: 'from-blue-500/15 to-blue-900/20', path: '/spectator/predictions' },
               { title: 'Thông báo', value: String(notifCount), trend: 'Chưa đọc', icon: Bell, color: 'text-purple-400', bg: 'from-purple-500/15 to-purple-900/20', path: '/spectator/notifications' },
             ].map((m, i) => (
@@ -102,28 +106,43 @@ export function SpectatorDashboardPage() {
                 <div className="flex-1 h-px bg-gradient-to-r from-gold/30 via-glass-border to-transparent" />
                 <button onClick={() => navigate('/spectator/live')} className="text-xs text-gold hover:text-champagne flex items-center gap-1 transition-colors font-medium shrink-0">Chi tiết <ChevronRight size={14} /></button>
               </div>
-              {/* TODO: BE chưa có API live race */}
-              <div className="glass-panel rounded-xl p-12 text-center relative overflow-hidden">
-                <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
-                <div className="text-4xl opacity-40 mb-3">🏁</div>
-                <div className="text-muted text-sm">Chưa có dữ liệu</div>
-              </div>
+              {liveRaces.length === 0 ? (
+                <div className="glass-panel rounded-xl p-12 text-center relative overflow-hidden">
+                  <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
+                  <div className="text-4xl opacity-40 mb-3">🏁</div>
+                  <div className="text-muted text-sm">Chưa có dữ liệu</div>
+                </div>
+              ) : (
+                <div className="space-y-2 mb-4">
+                  {liveRaces.map((u: any, i: number) => (
+                    <div key={i} className="flex items-center gap-3 p-3.5 rounded-xl bg-white/[0.02] border border-glass-border hover:border-gold/30 hover:bg-gold/[0.04] transition-all group">
+                      <div className="w-8 h-8 rounded-full bg-red-500/10 border border-red-500/25 flex items-center justify-center font-serif font-bold text-red-400 text-sm shrink-0">{i + 1}</div>
+                      <Trophy size={13} className="text-gold/60 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-medium text-white">{u.name ?? u.round}</div>
+                        <div className="text-[10px] text-muted">{(u.tournamentName ?? u.tournament ?? '')}{u.raceDate ? ' • ' + formatDateTime(u.raceDate) : ''}</div>
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 shrink-0 animate-pulse">LIVE</span>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="mt-4 relative z-10">
                 <div className="flex items-center gap-3 mb-3">
                   <h3 className="text-sm font-medium text-muted">Sắp diễn ra</h3>
                   <div className="flex-1 h-px bg-gradient-to-r from-gold/30 via-glass-border to-transparent" />
                 </div>
-                {upcoming.length === 0 ? (
+                {upcomingRaces.length === 0 ? (
                   <div className="text-center py-6 text-muted text-sm">Chưa có lịch thi đấu</div>
                 ) : (
                   <div className="space-y-2">
-                    {upcoming.map((u, i) => (
+                    {upcomingRaces.map((u: any, i: number) => (
                       <div key={i} className="flex items-center gap-3 p-3.5 rounded-xl bg-white/[0.02] border border-glass-border hover:border-gold/30 hover:bg-gold/[0.04] transition-all group">
                         <div className="w-8 h-8 rounded-full bg-gold/10 border border-gold/25 flex items-center justify-center font-serif font-bold text-champagne text-sm shrink-0">{i + 1}</div>
                         <Trophy size={13} className="text-gold/60 shrink-0" />
                         <div className="flex-1 min-w-0">
                           <div className="text-xs font-medium text-white">{u.name ?? u.round}</div>
-                          <div className="text-[10px] text-muted">{(u.tournamentName ?? u.tournament ?? '')}{u.raceDate ? ' • ' + u.raceDate : ''}</div>
+                          <div className="text-[10px] text-muted">{(u.tournamentName ?? u.tournament ?? '')}{u.raceDate ? ' • ' + formatDateTime(u.raceDate) : ''}</div>
                         </div>
                         <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/[0.04] border border-glass-border text-champagne shrink-0">{u.distanceMeter ? `${u.distanceMeter}m` : 'Sắp tới'}</span>
                       </div>
