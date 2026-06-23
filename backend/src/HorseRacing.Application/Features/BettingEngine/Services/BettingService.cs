@@ -135,7 +135,10 @@ public class BettingService : IBettingService
             Amount = bet.Amount,
             Odds = bet.Odds,
             Status = bet.Status,
-            CreatedAt = bet.CreatedAt
+            CreatedAt = bet.CreatedAt,
+            PotentialPayout = bet.Amount * bet.Odds,
+            ActualPayout = null,
+            PayoutStatus = "Pending"
         };
     }
 
@@ -154,7 +157,16 @@ public class BettingService : IBettingService
             Amount = b.Amount,
             Odds = b.Odds,
             Status = b.Status,
-            CreatedAt = b.CreatedAt
+            CreatedAt = b.CreatedAt,
+            PotentialPayout = b.Amount * b.Odds,
+            ActualPayout = b.Status == "PaidOut" ? b.Amount * b.Odds : null,
+            PayoutStatus = b.Status switch
+            {
+                "Won" => "Won",
+                "PaidOut" => "PaidOut",
+                "Lost" => "Lost",
+                _ => "Pending"
+            }
         });
     }
 }

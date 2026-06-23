@@ -309,4 +309,71 @@ public class OwnerController : ControllerBase
             return StatusCode(500, new { message = "An error occurred retrieving results", detail = ex.Message });
         }
     }
+
+    [HttpGet("owner/dashboard")]
+    public async Task<IActionResult> GetOwnerDashboard([FromServices] AppDbContext context)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+
+            // Horse count
+            var horseCount = await context.Horses
+                .Where(h => h.OwnerId == userId)
+                .CountAsync();
+
+            // Get horse IDs for this owner
+            var horseIds = await context.Horses
+                .Where(h => h.OwnerId == userId)
+                .Select(h => h.HorseId)
+                .ToListAsync();
+
+            // Registration count
+            var registrationCount = await context.Registrations
+                .Where(r => horseIds.Contains(r.HorseId))
+                .CountAsync();
+
+            // Active race count (races where owner's horses are entered and status is not Finished)
+            var activeRaceCount = await context.RaceEntries
+                .Include(re => re.Race)
+                .Include(re => re.Registration)
+                .Where(re => horseIds.Contains(re.Registration.HorseId)
+                    && re.Race != null
+                    && (re.Race.Status == "Live" || re.Race.Status == "Running" || re.Race.Status == "InProgress"))
+                .Select(re => re.RaceId)
+                .Distinct()
+                .CountAsync();
+
+            // Upcoming race count
+            var upcomingRaceCount = await context.RaceEntries
+                .Include(re => re.Race)
+                .Include(re => re.Registration)
+                .Where(re => horseIds.Contains(re.Registration.HorseId)
+                    && re.Race != null
+                    && re.Race.Status == "Scheduled")
+                .Select(re => re.RaceId)
+                .Distinct()
+                .CountAsync();
+
+            // Total prize amount from payouts
+            var totalPrizeAmount = await context.TournamentPrizePayouts
+                .Where(tpp => tpp.UserId == userId)
+                .SumAsync(tpp => (decimal?)tpp.Amount) ?? 0;
+
+            var dashboard = new
+            {
+                HorseCount = horseCount,
+                RegistrationCount = registrationCount,
+                ActiveRaceCount = activeRaceCount,
+                UpcomingRaceCount = upcomingRaceCount,
+                TotalPrizeAmount = totalPrizeAmount
+            };
+
+            return Ok(new { message = "Owner dashboard retrieved successfully", result = dashboard });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving owner dashboard", detail = ex.Message });
+        }
+    }
 }

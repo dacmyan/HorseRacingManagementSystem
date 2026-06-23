@@ -298,5 +298,34 @@ public async Task<IActionResult> GetRaceResults(long raceId)
     }
 }
 
+[HttpGet("races/live")]
+[AllowAnonymous]
+public async Task<IActionResult> GetLiveRaces()
+{
+    try
+    {
+        var liveStatuses = new[] { "Live", "Running", "InProgress", "Ongoing" };
+        var liveRaces = await _context.Races
+            .Include(r => r.Round)
+                .ThenInclude(rd => rd.Tournament)
+            .Where(r => liveStatuses.Contains(r.Status))
+            .Select(r => new
+            {
+                RaceId = r.RaceId,
+                RaceName = r.Name,
+                TournamentName = r.Round != null && r.Round.Tournament != null ? r.Round.Tournament.Name : "",
+                StartTime = r.RaceDate,
+                Status = r.Status
+            })
+            .ToListAsync();
+
+        return Ok(new { message = "Live races retrieved successfully", result = liveRaces });
+    }
+    catch (Exception ex)
+    {
+        return StatusCode(500, new { message = "An error occurred retrieving live races", detail = ex.Message });
+    }
+}
+
 
 }

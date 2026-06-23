@@ -88,4 +88,24 @@ public class RegistrationService : IRegistrationService
         var regs = await _registrationRepository.GetByOwnerIdAsync(ownerUserId);
         return regs.Select(MapToResponse);
     }
+
+    public async Task<RegistrationResponse> ReviewRegistrationAsync(long id, ReviewRegistrationRequest request)
+    {
+        var registration = await _registrationRepository.GetByIdAsync(id);
+        if (registration == null)
+        {
+            throw new KeyNotFoundException($"Registration with ID {id} not found.");
+        }
+
+        if (!registration.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"Registration is already '{registration.Status}'. Only 'Pending' registrations can be reviewed.");
+        }
+
+        registration.Status = request.Status;
+        await _registrationRepository.SaveChangesAsync();
+
+        var populated = await _registrationRepository.GetByIdAsync(id);
+        return MapToResponse(populated ?? registration);
+    }
 }

@@ -14,4 +14,7 @@ public class BetTicketResponse
     public decimal Odds { get; set; }
     public string Status { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
+    public decimal PotentialPayout { get; set; }
+    public decimal? ActualPayout { get; set; }
+    public string? PayoutStatus { get; set; }
 }
