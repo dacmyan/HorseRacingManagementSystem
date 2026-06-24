@@ -28,10 +28,20 @@ public class RefereeController : ControllerBase
     }
 
     [HttpPost("violations")]
-    public async Task<IActionResult> LogViolation([FromBody] LogViolationRequest request)
+    public async Task<IActionResult> LogViolation([FromBody] LogViolationRequest request, [FromServices] AppDbContext context)
     {
         try
         {
+            var userId = GetCurrentUserId();
+            var referee = await context.RefereeProfiles.FirstOrDefaultAsync(rp => rp.UserId == userId);
+            
+            if (referee == null)
+            {
+                return NotFound(new { message = "Referee profile not found for current user." });
+            }
+            
+            request.RefereeId = referee.RefereeId;
+            
             var response = await _refereeService.LogViolationAsync(request);
             return StatusCode(StatusCodes.Status201Created, response);
         }

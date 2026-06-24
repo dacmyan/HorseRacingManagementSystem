@@ -132,6 +132,34 @@ public class AdminController : ControllerBase
         }
     }
 
+    [HttpGet("payouts")]
+    public async Task<IActionResult> GetPayouts([FromServices] AppDbContext context)
+    {
+        try
+        {
+            var payouts = await context.Payouts
+                .Include(p => p.Bet)
+                    .ThenInclude(b => b.User)
+                .OrderByDescending(p => p.CreatedAt)
+                .Select(p => new {
+                    PayoutId = p.Id,
+                    BetId = p.BetId,
+                    RaceId = p.Bet != null ? p.Bet.RaceId : 0,
+                    SpectatorName = (p.Bet != null && p.Bet.User != null) ? p.Bet.User.FullName : "Unknown",
+                    Amount = p.Amount,
+                    Status = "Paid",
+                    CreatedAt = p.CreatedAt
+                })
+                .ToListAsync();
+
+            return Ok(new { message = "Payouts retrieved successfully", result = payouts });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving payouts", detail = ex.Message });
+        }
+    }
+
     [HttpPost("payouts/trigger/{raceId}")]
     public async Task<IActionResult> TriggerBetPayout(long raceId)
     {
