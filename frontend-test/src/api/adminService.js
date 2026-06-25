@@ -32,3 +32,8 @@ export const getPredictionStats = () => api.get('/admin/predictions/stats');
 
 export const getPredictions = () => api.get('/admin/predictions');
 
+export const updateUserStatus = (id) => api.put(`/admin/users/${id}/status`);
+
+export const publishRaceResult = (raceId) => api.post(`/admin/races/${raceId}/publish`);
+
+export const getRaceResults = (raceId) => api.get(`/admin/races/${raceId}/results`);

@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Megaphone, CheckCircle, DollarSign, Zap } from 'lucide-react';
 import { Sidebar } from '../../components/layout/Sidebar';
 import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
-import { createPrizes, triggerPayout } from '../../api/adminService';
+import { createPrizes, triggerPayout, publishRaceResult } from '../../api/adminService';
+import { getRaceSchedule } from '../../api/publicService';
 import { parseApiError } from '../../api/authService';
 
 const INPUT = 'w-full bg-navy/50 border border-glass-border rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-muted/60 outline-none focus:border-gold/40 transition-colors';
@@ -26,6 +27,37 @@ export function AdminResultsPage() {
   const [payoutLoading, setPayoutLoading] = useState(false);
   const [payoutError, setPayoutError] = useState('');
   const [payoutSuccess, setPayoutSuccess] = useState('');
+
+  // Races
+  const [races, setRaces] = useState<any[]>([]);
+  const [loadingRaces, setLoadingRaces] = useState(true);
+
+  // Initialize
+  useEffect(() => {
+    fetchRaces();
+  }, []);
+
+  function fetchRaces() {
+    setLoadingRaces(true);
+    getRaceSchedule()
+      .then((data: any) => {
+        const raw = Array.isArray(data) ? data : Array.isArray(data?.result) ? data.result : [];
+        setRaces(raw);
+      })
+      .catch(() => setRaces([]))
+      .finally(() => setLoadingRaces(false));
+  }
+
+  async function handlePublish(raceId: number) {
+    if (!confirm(`Bạn có chắc muốn công bố kết quả cho trận đua #${raceId}?`)) return;
+    try {
+      await publishRaceResult(raceId);
+      alert('Đã công bố thành công!');
+      fetchRaces();
+    } catch (err: unknown) {
+      alert(parseApiError(err as Error));
+    }
+  }
 
   function setP(field: string, value: string) {
     setPrizes(prev => ({ ...prev, [field]: value }));
@@ -161,29 +193,73 @@ export function AdminResultsPage() {
               <h2 className="text-base font-medium font-serif text-white">Chờ công bố</h2>
               <div className="flex-1 h-px bg-gradient-to-r from-yellow-400/30 via-glass-border to-transparent" />
             </div>
-            {/* TODO: BE chưa có API danh sách kết quả chờ công bố */}
-            <div className="glass-panel rounded-xl p-12 text-center relative overflow-hidden">
-              <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
-              <div className="text-4xl opacity-40 mb-3">📋</div>
-              <div className="text-muted text-sm">Chưa có dữ liệu</div>
-            </div>
+            
+            {loadingRaces ? (
+              <div className="text-sm text-muted py-6">Đang tải danh sách...</div>
+            ) : (() => {
+              const pendingRaces = races.filter(r => r.status === 'Completed' || r.status === 'PendingPublish');
+              if (pendingRaces.length === 0) return (
+                <div className="glass-panel rounded-xl p-12 text-center relative overflow-hidden">
+                  <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
+                  <div className="text-4xl opacity-40 mb-3">📋</div>
+                  <div className="text-muted text-sm">Chưa có dữ liệu chờ công bố</div>
+                </div>
+              );
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {pendingRaces.map((race: any) => (
+                    <div key={race.raceId} className="glass-panel p-5 rounded-xl border border-glass-border flex items-center justify-between">
+                      <div>
+                        <div className="font-bold text-white mb-1">{race.raceName} (ID: {race.raceId})</div>
+                        <div className="text-xs text-muted">Giải: {race.tournamentName || 'N/A'} • {new Date(race.raceDate || race.startTime).toLocaleString('vi-VN')}</div>
+                      </div>
+                      <button onClick={() => handlePublish(race.raceId)} className="btn-gold px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-gold/20">
+                        Công bố
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Published */}
           <div>
-            <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-3 mb-4 mt-8">
               <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
                 <CheckCircle size={14} className="text-emerald-400" />
               </div>
               <h2 className="text-base font-medium font-serif text-white">Đã công bố</h2>
               <div className="flex-1 h-px bg-gradient-to-r from-emerald-400/30 via-glass-border to-transparent" />
             </div>
-            {/* TODO: BE chưa có API danh sách kết quả đã công bố */}
-            <div className="glass-panel rounded-xl p-12 text-center relative overflow-hidden">
-              <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
-              <div className="text-4xl opacity-40 mb-3">📋</div>
-              <div className="text-muted text-sm">Chưa có dữ liệu</div>
-            </div>
+            
+            {loadingRaces ? (
+              <div className="text-sm text-muted py-6">Đang tải danh sách...</div>
+            ) : (() => {
+              const publishedRaces = races.filter(r => r.status === 'Published' || r.status === 'Finished');
+              if (publishedRaces.length === 0) return (
+                <div className="glass-panel rounded-xl p-12 text-center relative overflow-hidden">
+                  <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
+                  <div className="text-4xl opacity-40 mb-3">📋</div>
+                  <div className="text-muted text-sm">Chưa có trận nào được công bố</div>
+                </div>
+              );
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {publishedRaces.map((race: any) => (
+                    <div key={race.raceId} className="glass-panel p-5 rounded-xl border border-glass-border flex items-center justify-between">
+                      <div>
+                        <div className="font-bold text-white mb-1">{race.raceName} (ID: {race.raceId})</div>
+                        <div className="text-xs text-muted">Giải: {race.tournamentName || 'N/A'}</div>
+                      </div>
+                      <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-bold flex items-center gap-1.5">
+                        <CheckCircle size={12} /> Đã công bố
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
 
         </main>

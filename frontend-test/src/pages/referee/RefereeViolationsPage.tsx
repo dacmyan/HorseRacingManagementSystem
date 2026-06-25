@@ -1,16 +1,77 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { AlertTriangle, Plus } from 'lucide-react';
 import { Sidebar } from '../../components/layout/Sidebar';
 import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
+import { getViolations, createViolation, getRefereeDashboard } from '../../api/refereeService';
+import { parseApiError } from '../../api/authService';
 
 type Tab = 'active' | 'decided';
+
+const INIT_FORM = { raceId: '', description: '', type: 'warning', horseOrJockey: '' };
 
 export function RefereeViolationsPage() {
   const [tab, setTab] = useState<Tab>('active');
   const [showAdd, setShowAdd] = useState(false);
+  
+  const [violations, setViolations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [races, setRaces] = useState<any[]>([]);
+
+  const [form, setForm] = useState(INIT_FORM);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  function fetchData() {
+    setLoading(true);
+    Promise.all([getViolations(), getRefereeDashboard()])
+      .then(([vRes, dRes]: any[]) => {
+        const vList = Array.isArray(vRes?.result) ? vRes.result : [];
+        const rList = dRes?.result?.assignedRaces || [];
+        setViolations(vList);
+        setRaces(rList);
+      })
+      .catch(() => {
+        setViolations([]);
+        setRaces([]);
+      })
+      .finally(() => setLoading(false));
+  }
+
+  function setF(field: string, val: string) {
+    setForm(p => ({ ...p, [field]: val }));
+  }
+
+  async function handleAdd() {
+    setSubmitError('');
+    if (!form.raceId || !form.description) {
+      setSubmitError('Vui lòng chọn cuộc đua và nhập mô tả.');
+      return;
+    }
+    setSubmitLoading(true);
+    try {
+      const payload = {
+        raceId: Number(form.raceId),
+        description: `${form.type} - ${form.horseOrJockey ? '['+form.horseOrJockey+'] ' : ''}${form.description}`,
+        penalty: form.type === 'warning' ? 'None' : form.type === 'penalty' ? 'Time Penalty' : 'Disqualified'
+      };
+      await createViolation(payload);
+      setShowAdd(false);
+      setForm(INIT_FORM);
+      fetchData();
+    } catch (err: unknown) {
+      setSubmitError(parseApiError(err as Error));
+    } finally {
+      setSubmitLoading(false);
+    }
+  }
 
   return (
     <div className="min-h-screen text-body font-sans flex" style={{backgroundColor: '#0b101e'}}>
@@ -56,8 +117,7 @@ export function RefereeViolationsPage() {
           {/* Tabs */}
           <div className="flex items-center gap-1 border-b border-glass-border">
             {([
-              ['active',  'Cần xử lý', 'text-gold border-gold'],
-              ['decided', 'Đã xử lý', 'text-muted border-muted'],
+              ['active',  'Tất cả vi phạm', 'text-gold border-gold'],
             ] as [Tab, string, string][]).map(([t, label, activeClass]) => (
               <button key={t} onClick={() => setTab(t)}
                 className={`px-5 py-3 text-sm font-medium border-b-2 -mb-px transition-all ${tab === t ? activeClass : 'text-muted border-transparent hover:text-white'}`}>
@@ -66,12 +126,31 @@ export function RefereeViolationsPage() {
             ))}
           </div>
 
-          {/* TODO: BE chưa có API danh sách đơn vi phạm của trọng tài */}
-          <div className="glass-panel rounded-xl p-12 text-center relative overflow-hidden">
-            <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
-            <div className="text-4xl opacity-40 mb-3">⚠️</div>
-            <div className="text-muted text-sm">Chưa có dữ liệu</div>
-          </div>
+          {loading ? (
+            <div className="text-sm text-muted py-8 text-center">Đang tải danh sách...</div>
+          ) : violations.length === 0 ? (
+            <div className="glass-panel rounded-xl p-12 text-center relative overflow-hidden">
+              <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
+              <div className="text-4xl opacity-40 mb-3">⚠️</div>
+              <div className="text-muted text-sm">Chưa có vi phạm nào được ghi nhận</div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {violations.map((v: any) => (
+                <div key={v.violationId} className="glass-panel p-5 rounded-xl border border-glass-border relative overflow-hidden">
+                  <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-red-500/40 to-transparent pointer-events-none" />
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="font-bold text-white">Trận: {v.raceName || `#${v.raceId}`}</div>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border bg-red-500/10 text-red-400 border-red-500/20">
+                      Vi phạm
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted line-clamp-3 mb-4">{v.note || v.description || 'Không có mô tả'}</p>
+                  <div className="text-xs text-muted/60">Hình phạt: <span className="text-white/80">{v.penalty || 'Chưa định đoạt'}</span></div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Add modal */}
           {showAdd && (
@@ -87,28 +166,44 @@ export function RefereeViolationsPage() {
                 </div>
                 <p className="text-xs text-muted mb-5">Jockey sẽ nhận thông báo ngay và có <span className="text-white font-bold">30 phút</span> để gửi khiếu nại.</p>
                 <div className="space-y-4">
-                  {[['Cuộc đua', 'Chọn cuộc đua...'], ['Ngựa / Nài ngựa vi phạm', 'Nhập tên...'], ['Loại vi phạm', 'VD: Lấn đường, Cản trở, Xuất phát sớm...']].map(([label, ph]) => (
-                    <div key={label}>
-                      <label className="block text-xs text-muted font-medium mb-1.5">{label}</label>
-                      <input placeholder={ph} className="w-full bg-white/[0.04] border border-glass-border rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-muted/60 outline-none focus:border-gold/40 transition-colors" />
-                    </div>
-                  ))}
+                  
+                  <div>
+                    <label className="block text-xs text-muted font-medium mb-1.5">Cuộc đua *</label>
+                    <select value={form.raceId} onChange={e => setF('raceId', e.target.value)} className="w-full bg-[#0B1628] border border-glass-border rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-gold/40" style={{colorScheme: 'dark'}}>
+                      <option value="">-- Chọn cuộc đua --</option>
+                      {races.map(r => (
+                        <option key={r.raceId} value={r.raceId}>ID {r.raceId}: {r.raceName}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs text-muted font-medium mb-1.5">Ngựa / Nài ngựa vi phạm</label>
+                    <input value={form.horseOrJockey} onChange={e => setF('horseOrJockey', e.target.value)} placeholder="Nhập tên..." className="w-full bg-white/[0.04] border border-glass-border rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-muted/60 outline-none focus:border-gold/40 transition-colors" />
+                  </div>
+                  
                   <div>
                     <label className="block text-xs text-muted font-medium mb-1.5">Mức độ vi phạm</label>
-                    <select className="w-full bg-[#0B1628] border border-glass-border rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-gold/40">
+                    <select value={form.type} onChange={e => setF('type', e.target.value)} className="w-full bg-[#0B1628] border border-glass-border rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-gold/40" style={{colorScheme: 'dark'}}>
                       <option value="warning">Cảnh cáo</option>
                       <option value="penalty">Phạt thời gian</option>
                       <option value="disqualify">Truất quyền thi đấu</option>
                     </select>
                   </div>
+                  
                   <div>
-                    <label className="block text-xs text-muted font-medium mb-1.5">Mô tả chi tiết</label>
-                    <textarea rows={3} placeholder="Mô tả sự việc theo camera / quan sát thực tế..." className="w-full bg-white/[0.04] border border-glass-border rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-muted/60 outline-none resize-none focus:border-gold/40" />
+                    <label className="block text-xs text-muted font-medium mb-1.5">Mô tả chi tiết *</label>
+                    <textarea rows={3} value={form.description} onChange={e => setF('description', e.target.value)} placeholder="Mô tả sự việc theo camera / quan sát thực tế..." className="w-full bg-white/[0.04] border border-glass-border rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-muted/60 outline-none resize-none focus:border-gold/40" />
                   </div>
+
+                  {submitError && <div className="text-sm px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400">{submitError}</div>}
+                  
                 </div>
                 <div className="flex justify-end gap-3 mt-6">
                   <button onClick={() => setShowAdd(false)} className="px-5 py-2 rounded-lg text-sm text-muted border border-glass-border hover:text-white transition-colors">Hủy</button>
-                  <button onClick={() => setShowAdd(false)} className="btn-gold px-6 py-2 rounded-lg text-sm font-bold">Gửi vi phạm</button>
+                  <button onClick={handleAdd} disabled={submitLoading} className="btn-gold px-6 py-2 rounded-lg text-sm font-bold disabled:opacity-50">
+                    {submitLoading ? 'Đang gửi...' : 'Gửi vi phạm'}
+                  </button>
                 </div>
               </motion.div>
             </div>

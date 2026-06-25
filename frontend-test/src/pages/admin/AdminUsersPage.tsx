@@ -5,7 +5,7 @@ import { Sidebar } from '../../components/layout/Sidebar';
 import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
-import { getRoles, createAccount, getAccounts } from '../../api/adminService';
+import { getRoles, createAccount, getAccounts, updateUserStatus } from '../../api/adminService';
 import { parseApiError } from '../../api/authService';
 
 type RoleFilter = 'all' | 'owner' | 'jockey' | 'referee' | 'spectator' | 'admin';
@@ -33,6 +33,20 @@ export function AdminUsersPage() {
 
   const [accounts, setAccounts] = useState<any[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
+  const [togglingId, setTogglingId] = useState<number | null>(null);
+
+  async function handleToggleStatus(id: number, currentStatus: string) {
+    if (!confirm(`Bạn có chắc muốn ${currentStatus === 'Active' ? 'Khóa' : 'Mở khóa'} tài khoản này?`)) return;
+    setTogglingId(id);
+    try {
+      await updateUserStatus(id);
+      fetchAccounts();
+    } catch (err: unknown) {
+      alert(parseApiError(err as Error));
+    } finally {
+      setTogglingId(null);
+    }
+  }
 
   const fetchAccounts = () => {
     setLoadingAccounts(true);
@@ -208,6 +222,7 @@ export function AdminUsersPage() {
                       <th className="py-4 px-6">Vai trò</th>
                       <th className="py-4 px-6">Trạng thái</th>
                       <th className="py-4 px-6">Ngày tạo</th>
+                      <th className="py-4 px-6 text-right">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-glass-border/30 text-sm">
@@ -243,6 +258,19 @@ export function AdminUsersPage() {
                             hour: '2-digit',
                             minute: '2-digit'
                           })}
+                        </td>
+                        <td className="py-4 px-6 text-right">
+                          <button
+                            onClick={() => handleToggleStatus(user.userId, user.status)}
+                            disabled={user.roleName === 'Admin' || togglingId === user.userId}
+                            className={`px-3 py-1.5 rounded text-xs font-bold transition-colors ${
+                              user.roleName === 'Admin' ? 'opacity-30 cursor-not-allowed bg-glass-border/30 text-muted' :
+                              user.status === 'Active' ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20' :
+                              'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20'
+                            }`}
+                          >
+                            {togglingId === user.userId ? '...' : user.status === 'Active' ? 'Khóa' : 'Mở khóa'}
+                          </button>
                         </td>
                       </tr>
                     ))}
