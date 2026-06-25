@@ -1,11 +1,45 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Trophy } from 'lucide-react';
+import { Trophy, Award } from 'lucide-react';
 import { Sidebar } from '../../components/layout/Sidebar';
 import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
+import { getOwnerResults } from '../../api/ownerService';
+
+interface OwnerResult {
+  raceId: number;
+  raceName: string;
+  tournamentName: string;
+  horseName: string;
+  finishPosition: number;
+  finishTime: string;
+  point: number;
+  prizeAmount: number;
+}
 
 export function OwnerResultsPage() {
+  const [results, setResults] = useState<OwnerResult[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    getOwnerResults()
+      .then(res => {
+        if (res.data && res.data.result) {
+          setResults(res.data.result);
+        } else {
+          setResults([]);
+        }
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setError('Không thể tải kết quả thi đấu');
+        setLoading(false);
+      });
+  }, []);
+
   return (
     <div className="min-h-screen text-body font-sans flex" style={{backgroundColor: '#0b101e'}}>
       <Sidebar />
@@ -16,10 +50,17 @@ export function OwnerResultsPage() {
 
           <PageHero
             title="Kết quả thi đấu"
-            subtitle="Kết quả và thành tích mùa giải"
+            subtitle="Kết quả và thành tích mùa giải của các ngựa thuộc sở hữu"
             imageUrl="/images/hero-owner.jpg"
             imagePosition="center 58%"
           />
+
+          {/* Error Message */}
+          {error && (
+            <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm">
+              {error}
+            </div>
+          )}
 
           {/* Results Table */}
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="glass-panel rounded-xl overflow-hidden relative">
@@ -32,13 +73,59 @@ export function OwnerResultsPage() {
               <h2 className="text-base font-serif text-white whitespace-nowrap">Lịch sử thi đấu</h2>
               <div className="flex-1 h-px bg-gradient-to-r from-gold/30 via-glass-border to-transparent" />
             </div>
-            {/* TODO: BE chưa có API kết quả của owner */}
+
             <div className="relative z-10 p-6">
-              <div className="glass-panel rounded-xl p-12 text-center relative overflow-hidden">
-                <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
-                <div className="text-4xl opacity-40 mb-3">📋</div>
-                <div className="text-muted text-sm">Chưa có dữ liệu</div>
-              </div>
+              {loading ? (
+                <div className="text-center py-12 text-muted text-sm">Đang tải kết quả...</div>
+              ) : results.length === 0 ? (
+                <div className="glass-panel rounded-xl p-12 text-center relative overflow-hidden">
+                  <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
+                  <div className="text-4xl opacity-40 mb-3">📋</div>
+                  <div className="text-muted text-sm">Chưa có kết quả thi đấu nào của ngựa của bạn</div>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-glass-border bg-white/[0.02] text-xs font-semibold text-muted uppercase tracking-wider">
+                        <th className="px-6 py-4">Mã</th>
+                        <th className="px-6 py-4">Giải đấu</th>
+                        <th className="px-6 py-4">Cuộc đua</th>
+                        <th className="px-6 py-4">Tên ngựa</th>
+                        <th className="px-6 py-4">Hạng</th>
+                        <th className="px-6 py-4">Thời gian</th>
+                        <th className="px-6 py-4">Điểm số</th>
+                        <th className="px-6 py-4 text-right">Tiền thưởng</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-glass-border/40 text-sm text-white">
+                      {results.map((res, i) => (
+                        <tr key={`${res.raceId}-${i}`} className="hover:bg-white/[0.01] transition-colors">
+                          <td className="px-6 py-4 font-mono text-xs text-muted">#{res.raceId}</td>
+                          <td className="px-6 py-4 font-medium">{res.tournamentName}</td>
+                          <td className="px-6 py-4 text-muted">{res.raceName}</td>
+                          <td className="px-6 py-4 text-emerald-400 font-semibold">{res.horseName}</td>
+                          <td className="px-6 py-4">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-bold ${
+                              res.finishPosition === 1 ? 'bg-gold/15 text-gold border border-gold/30' :
+                              res.finishPosition === 2 ? 'bg-slate-400/15 text-slate-300 border border-slate-400/30' :
+                              'bg-amber-600/15 text-amber-500 border border-amber-600/30'
+                            }`}>
+                              {res.finishPosition === 1 && <Award size={12} />}
+                              Hạng {res.finishPosition}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 font-mono text-xs text-muted">{res.finishTime}</td>
+                          <td className="px-6 py-4 font-mono text-xs text-gold">+{res.point}</td>
+                          <td className="px-6 py-4 text-right font-mono text-emerald-400 font-semibold">
+                            {res.prizeAmount > 0 ? `${res.prizeAmount.toLocaleString('vi-VN')} đ` : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </motion.div>
 

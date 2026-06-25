@@ -5,19 +5,13 @@ import { Sidebar } from '../../components/layout/Sidebar';
 import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
-import { getContracts } from '../../api/jockeyService';
+import { getAssignedHorses } from '../../api/jockeyService';
 import { parseApiError } from '../../api/authService';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  pending:   { label: 'Chờ phản hồi', color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20' },
-  waiting:   { label: 'Chờ phản hồi', color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20' },
-  active:    { label: 'Đang hoạt động', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' },
-  accepted:  { label: 'Đã chấp nhận', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' },
-  rejected:  { label: 'Đã từ chối', color: 'text-red-400 bg-red-500/10 border-red-500/20' },
-  declined:  { label: 'Đã từ chối', color: 'text-red-400 bg-red-500/10 border-red-500/20' },
+  pending:   { label: 'Sắp tới', color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20' },
+  active:    { label: 'Đang diễn ra', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' },
   completed: { label: 'Đã kết thúc', color: 'text-muted bg-white/5 border-glass-border' },
-  racing:    { label: 'Đang đua', color: 'text-blue-400 bg-blue-500/10 border-blue-500/20' },
-  upcoming:  { label: 'Sắp diễn ra', color: 'text-purple-400 bg-purple-500/10 border-purple-500/20' },
 };
 
 export function JockeyRacesPage() {
@@ -28,7 +22,7 @@ export function JockeyRacesPage() {
   useEffect(() => {
     (async () => {
       try {
-        const data = await getContracts();
+        const data = await getAssignedHorses();
         setRaces(data?.result ?? (Array.isArray(data) ? data : []));
       } catch (err: unknown) {
         setError(parseApiError(err as Error));
@@ -88,11 +82,11 @@ export function JockeyRacesPage() {
                         </div>
                         <div className="flex flex-wrap gap-2 text-xs text-muted mb-3">
                           {r.tournamentName && <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/[0.04] border border-glass-border"><Trophy size={10} className="text-gold/60" /> {r.tournamentName}</span>}
-                          {r.startDate && <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/[0.04] border border-glass-border"><Calendar size={10} className="text-gold/60" /> {r.startDate}{r.endDate ? ` → ${r.endDate}` : ''}</span>}
+                          {r.raceDate && <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/[0.04] border border-glass-border"><Calendar size={10} className="text-gold/60" /> {r.raceDate}</span>}
                         </div>
                         <div className="flex items-center gap-5 p-3 rounded-xl bg-white/[0.02] border border-glass-border hover:border-gold/30 hover:bg-gold/[0.04] transition-all w-fit">
-                          <div className="text-sm font-bold text-white group-hover:text-champagne transition-colors">🐴 {r.horseName ?? `Ngựa #${r.horseId}`}</div>
-                          <div className="flex items-center gap-1 text-xs text-muted"><ShieldCheck size={11} className="text-emerald-400" /> Chủ: <span className="text-champagne font-semibold">{r.ownerName ?? `Owner #${r.ownerId ?? '—'}`}</span></div>
+                          <div className="text-sm font-bold text-white group-hover:text-champagne transition-colors">🐴 Lane {r.laneNo ?? '?'}</div>
+                          <div className="flex items-center gap-1 text-xs text-muted"><ShieldCheck size={11} className="text-emerald-400" /> Trận: <span className="text-champagne font-semibold">{r.raceName || `Race #${r.raceId}`}</span></div>
                         </div>
                       </div>
                       <button className="text-xs text-gold hover:text-champagne flex items-center gap-1 transition-colors shrink-0 font-medium">

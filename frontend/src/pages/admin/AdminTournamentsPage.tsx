@@ -8,6 +8,7 @@ import { PageAmbience } from '../../components/layout/PageAmbience';
 import { createTournament } from '../../api/adminService';
 import { getTournaments } from '../../api/publicService';
 import { parseApiError } from '../../api/authService';
+import { formatDateTime } from '../../utils/format';
 
 type StatusFilter = 'all' | 'upcoming' | 'active' | 'completed';
 
@@ -71,7 +72,7 @@ export function AdminTournamentsPage() {
         endDate: form.endDate,
         numberOfRounds: Number(form.numberOfRounds),
       });
-      const newId = data?.tournamentId ?? data?.result?.tournamentId ?? data?.result?.id;
+      const newId = data?.result?.id ?? data?.result?.tournamentId;
       setSuccess(newId != null
         ? `Đã tạo giải đấu thành công! ID = ${newId} — dùng ID này cho bước tạo giải thưởng / đăng ký thi đấu.`
         : 'Tạo giải đấu thành công!');
@@ -92,18 +93,17 @@ export function AdminTournamentsPage() {
 
   const statsCounts: Record<StatusFilter, number> = {
     all: tournaments.length,
-    active: tournaments.filter(t => t.status?.toLowerCase() === 'active').length,
-    upcoming: tournaments.filter(t => t.status?.toLowerCase() === 'upcoming').length,
-    completed: tournaments.filter(t => t.status?.toLowerCase() === 'completed').length,
+    active: tournaments.filter(t => t.status === 'Active').length,
+    upcoming: tournaments.filter(t => t.status === 'Upcoming').length,
+    completed: tournaments.filter(t => t.status === 'Completed').length,
   };
 
   const filteredTournaments = tournaments.filter(t => {
     const matchesSearch = (t.name ?? '').toLowerCase().includes(search.toLowerCase());
-    const statusLower = t.status?.toLowerCase();
     if (filter === 'all') return matchesSearch;
-    if (filter === 'active') return matchesSearch && statusLower === 'active';
-    if (filter === 'upcoming') return matchesSearch && statusLower === 'upcoming';
-    if (filter === 'completed') return matchesSearch && statusLower === 'completed';
+    if (filter === 'active') return matchesSearch && t.status === 'Active';
+    if (filter === 'upcoming') return matchesSearch && t.status === 'Upcoming';
+    if (filter === 'completed') return matchesSearch && t.status === 'Completed';
     return matchesSearch;
   });
 
@@ -183,15 +183,15 @@ export function AdminTournamentsPage() {
                     <div className="space-y-1.5 text-xs text-muted pt-3 border-t border-glass-border/40">
                       <div className="flex justify-between">
                         <span>Ngày bắt đầu:</span>
-                        <span className="text-white font-medium">{t.startDate ? new Date(t.startDate).toLocaleString() : '—'}</span>
+                        <span className="text-white font-medium">{formatDateTime(t.startDate)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Ngày kết thúc:</span>
-                        <span className="text-white font-medium">{t.endDate ? new Date(t.endDate).toLocaleString() : '—'}</span>
+                        <span className="text-white font-medium">{formatDateTime(t.endDate)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Số vòng đấu:</span>
-                        <span className="text-gold font-bold">{t.rounds?.length ?? t.numberOfRounds ?? '—'}</span>
+                        <span className="text-gold font-bold">{t.numberOfRounds ?? '—'}</span>
                       </div>
                     </div>
                   </motion.div>

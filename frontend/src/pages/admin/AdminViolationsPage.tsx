@@ -1,15 +1,59 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { AlertTriangle, CheckCircle, ArrowUpCircle } from 'lucide-react';
 import { Sidebar } from '../../components/layout/Sidebar';
 import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
+import { getViolations } from '../../api/adminService';
 
 type Tab = 'notifications' | 'escalations';
 
+interface Violation {
+  violationId: number;
+  raceId: number;
+  raceName: string;
+  type: string;
+  note: string;
+  penalty: string;
+  createdAt: string;
+}
+
 export function AdminViolationsPage() {
-  const [tab, setTab] = useState<Tab>('escalations');
+  const [tab, setTab] = useState<Tab>('notifications');
+  const [violations, setViolations] = useState<Violation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    getViolations()
+      .then(res => {
+        if (res.data && res.data.result) {
+          setViolations(res.data.result);
+        } else {
+          setViolations([]);
+        }
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setError('Không thể tải danh sách vi phạm');
+        setLoading(false);
+      });
+  }, []);
+
+  const totalConfirmed = violations.length;
+  // Let's assume violations containing "kháng cáo" or "khiếu nại" or "appeal" are escalations
+  const escalations = violations.filter(v => 
+    v.note?.toLowerCase().includes('kháng cáo') || 
+    v.note?.toLowerCase().includes('khiếu nại') ||
+    v.note?.toLowerCase().includes('appeal')
+  );
+  
+  const notifications = violations.filter(v => !escalations.includes(v));
+
+  const totalEscalations = escalations.length;
+  const totalNotifications = notifications.length;
 
   return (
     <div className="min-h-screen text-body font-sans flex" style={{backgroundColor: '#0b101e'}}>
@@ -50,12 +94,11 @@ export function AdminViolationsPage() {
           </div>
 
           {/* Stats */}
-          {/* TODO: BE chưa có API thống kê vi phạm — số liệu hiển thị '—' */}
           <div className="grid grid-cols-3 gap-4">
             {[
-              { label: 'Vi phạm được xác nhận', value: '—', color: 'text-red-400', bg: 'from-red-500/15 to-red-900/20', icon: AlertTriangle },
-              { label: 'Vi phạm bị bác bỏ', value: '—', color: 'text-emerald-400', bg: 'from-emerald-500/15 to-emerald-900/20', icon: CheckCircle },
-              { label: 'Kháng cáo chờ xử lý', value: '—', color: 'text-orange-400', bg: 'from-orange-500/15 to-orange-900/20', icon: ArrowUpCircle },
+              { label: 'Vi phạm được xác nhận', value: loading ? '...' : totalConfirmed, color: 'text-red-400', bg: 'from-red-500/15 to-red-900/20', icon: AlertTriangle },
+              { label: 'Vi phạm bị bác bỏ', value: '0', color: 'text-emerald-400', bg: 'from-emerald-500/15 to-emerald-900/20', icon: CheckCircle },
+              { label: 'Kháng cáo chờ xử lý', value: loading ? '...' : totalEscalations, color: 'text-orange-400', bg: 'from-orange-500/15 to-orange-900/20', icon: ArrowUpCircle },
             ].map((s, i) => (
               <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}
                 className="glass-panel rounded-xl p-5 relative overflow-hidden border border-glass-border hover:border-gold/30 transition-all">
@@ -70,12 +113,18 @@ export function AdminViolationsPage() {
             ))}
           </div>
 
+          {/* Error Message */}
+          {error && (
+            <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm">
+              {error}
+            </div>
+          )}
+
           {/* Tabs */}
-          {/* TODO: BE chưa có API danh sách vi phạm — số đếm tab hiển thị 0 */}
           <div className="flex items-center gap-1 border-b border-glass-border">
-            {([
-              ['escalations', 'Kháng cáo chờ xử lý (0)', 'text-orange-400 border-orange-400'],
-              ['notifications', 'Thông báo chính thức (0)', 'text-muted border-muted'],
+            {( [
+              ['notifications', `Thông báo chính thức (${loading ? 0 : totalNotifications})`, 'text-red-400 border-red-400'],
+              ['escalations', `Kháng cáo chờ xử lý (${loading ? 0 : totalEscalations})`, 'text-orange-400 border-orange-400'],
             ] as [Tab, string, string][]).map(([t, label, ac]) => (
               <button key={t} onClick={() => setTab(t)}
                 className={`px-5 py-3 text-sm font-medium border-b-2 -mb-px transition-all ${tab === t ? ac : 'text-muted border-transparent hover:text-white'}`}>
@@ -84,23 +133,94 @@ export function AdminViolationsPage() {
             ))}
           </div>
 
-          {/* Escalations */}
-          {tab === 'escalations' && (
-            /* TODO: BE chưa có API danh sách kháng cáo */
-            <div className="glass-panel rounded-xl p-12 text-center relative overflow-hidden">
-              <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
-              <div className="text-4xl opacity-40 mb-3">⚠️</div>
-              <div className="text-muted text-sm">Chưa có dữ liệu</div>
+          {/* Loading */}
+          {loading ? (
+            <div className="glass-panel rounded-xl p-12 text-center text-muted">
+              Đang tải danh sách vi phạm...
             </div>
-          )}
+          ) : (
+            <div>
+              {tab === 'escalations' && (
+                totalEscalations === 0 ? (
+                  <div className="glass-panel rounded-xl p-12 text-center relative overflow-hidden">
+                    <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
+                    <div className="text-4xl opacity-40 mb-3">⚠️</div>
+                    <div className="text-muted text-sm">Không có khiếu nại/kháng cáo nào chờ xử lý</div>
+                  </div>
+                ) : (
+                  <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="glass-panel rounded-xl overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-glass-border bg-white/[0.02] text-xs font-semibold text-muted uppercase tracking-wider">
+                            <th className="px-6 py-4">Mã VP</th>
+                            <th className="px-6 py-4">Cuộc đua</th>
+                            <th className="px-6 py-4">Loại vi phạm</th>
+                            <th className="px-6 py-4">Mô tả / Kháng nghị</th>
+                            <th className="px-6 py-4">Hình phạt dự kiến</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-glass-border/40 text-sm text-white">
+                          {escalations.map((v) => (
+                            <tr key={v.violationId} className="hover:bg-white/[0.01] transition-colors">
+                              <td className="px-6 py-4 font-mono text-xs text-muted">#{v.violationId}</td>
+                              <td className="px-6 py-4 font-medium">{v.raceName}</td>
+                              <td className="px-6 py-4 text-orange-400 font-semibold">{v.type}</td>
+                              <td className="px-6 py-4 text-muted">{v.note}</td>
+                              <td className="px-6 py-4">
+                                <span className="px-2 py-1 bg-red-500/10 text-red-400 border border-red-500/20 rounded text-xs font-semibold">
+                                  {v.penalty}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </motion.div>
+                )
+              )}
 
-          {/* Official notifications (read-only) */}
-          {tab === 'notifications' && (
-            /* TODO: BE chưa có API danh sách thông báo vi phạm chính thức */
-            <div className="glass-panel rounded-xl p-12 text-center relative overflow-hidden">
-              <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
-              <div className="text-4xl opacity-40 mb-3">⚠️</div>
-              <div className="text-muted text-sm">Chưa có dữ liệu</div>
+              {tab === 'notifications' && (
+                totalNotifications === 0 ? (
+                  <div className="glass-panel rounded-xl p-12 text-center relative overflow-hidden">
+                    <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
+                    <div className="text-4xl opacity-40 mb-3">⚠️</div>
+                    <div className="text-muted text-sm">Chưa có thông báo vi phạm chính thức</div>
+                  </div>
+                ) : (
+                  <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="glass-panel rounded-xl overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-glass-border bg-white/[0.02] text-xs font-semibold text-muted uppercase tracking-wider">
+                            <th className="px-6 py-4">Mã VP</th>
+                            <th className="px-6 py-4">Cuộc đua</th>
+                            <th className="px-6 py-4">Loại vi phạm</th>
+                            <th className="px-6 py-4">Mô tả</th>
+                            <th className="px-6 py-4">Hình phạt</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-glass-border/40 text-sm text-white">
+                          {notifications.map((v) => (
+                            <tr key={v.violationId} className="hover:bg-white/[0.01] transition-colors">
+                              <td className="px-6 py-4 font-mono text-xs text-muted">#{v.violationId}</td>
+                              <td className="px-6 py-4 font-medium">{v.raceName}</td>
+                              <td className="px-6 py-4 text-red-400 font-semibold">{v.type}</td>
+                              <td className="px-6 py-4 text-muted">{v.note}</td>
+                              <td className="px-6 py-4">
+                                <span className="px-2 py-1 bg-red-500/10 text-red-400 border border-red-500/20 rounded text-xs font-semibold">
+                                  {v.penalty}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </motion.div>
+                )
+              )}
             </div>
           )}
 

@@ -9,3 +9,7 @@ export const markNotificationRead = (id) => api.put(`/public/notifications/${id}
 export const getTournaments = () => api.get('/public/tournaments');
 export const getTournamentDetail = (id) => api.get(`/public/tournaments/${id}`);
 
+export const getLiveRaces = () => api.get('/public/races/live');
+
+export const getRaceDetail = (id) => api.get(`/public/races/${id}`);
+export const getRaceEntries = (raceId) => api.get(`/public/races/${raceId}/entries`);

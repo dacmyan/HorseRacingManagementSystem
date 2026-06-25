@@ -64,9 +64,18 @@ public class BettingService : IBettingService
         {
             throw new ArgumentException($"Race with ID {request.RaceId} not found.");
         }
-        if (!race.Status.Equals("Scheduled", StringComparison.OrdinalIgnoreCase))
+        var invalidTournamentStatuses = new[] { "finished", "completed", "cancelled", "ended" };
+        var tournamentStatus = race.Round?.Tournament?.Status?.ToLower() ?? "";
+        if (invalidTournamentStatuses.Contains(tournamentStatus))
         {
-            throw new InvalidOperationException($"Cannot place bet. Race status is '{race.Status}'. Only 'Scheduled' races accept bets.");
+            throw new ArgumentException("Cannot place bet because tournament has ended.");
+        }
+
+        var validRaceStatuses = new[] { "upcoming", "scheduled", "ongoing", "running" };
+        var raceStatus = race.Status?.ToLower() ?? "";
+        if (!validRaceStatuses.Contains(raceStatus))
+        {
+            throw new ArgumentException("Betting is only allowed for upcoming or ongoing races.");
         }
 
         var isHorseInRace = await _betRepository.IsHorseInRaceAsync(request.RaceId, request.HorseId);

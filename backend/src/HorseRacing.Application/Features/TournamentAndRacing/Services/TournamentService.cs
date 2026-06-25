@@ -142,6 +142,74 @@ public class TournamentService : ITournamentService
         return MapToResponse(tournament);
     }
 
+    public async Task<List<RaceScheduleResponse>> GenerateRacesForTournamentAsync(long tournamentId)
+    {
+        var tournament = await _tournamentRepository.GetByIdWithRoundsAsync(tournamentId);
+        if (tournament == null) throw new KeyNotFoundException($"Tournament {tournamentId} not found.");
+
+        var registrations = await _tournamentRepository.GetApprovedRegistrationsAsync(tournamentId);
+        if (!registrations.Any()) throw new InvalidOperationException("No approved registrations found for this tournament.");
+
+        var firstRound = tournament.Rounds.OrderBy(r => r.RoundNumber).FirstOrDefault();
+        if (firstRound == null) throw new InvalidOperationException("Tournament has no rounds.");
+
+        var maxHorsePerRace = 12;
+        var horseGroups = registrations
+            .Select((reg, index) => new { reg, index })
+            .GroupBy(x => x.index / maxHorsePerRace)
+            .Select(g => g.Select(x => x.reg).ToList())
+            .ToList();
+
+        var newRaces = new List<HorseRacing.Domain.Entities.Tournaments.Race>();
+        var newEntries = new List<HorseRacing.Domain.Entities.RaceEntry>();
+
+        int raceCounter = 1;
+        foreach (var group in horseGroups)
+        {
+            var race = new HorseRacing.Domain.Entities.Tournaments.Race
+            {
+                RoundId = firstRound.RoundId,
+                Name = $"Race {raceCounter}",
+                DistanceMeter = 1200,
+                MaxLanes = maxHorsePerRace,
+                Status = "Scheduled",
+                RaceDate = tournament.StartDate ?? DateTime.UtcNow.AddDays(1)
+            };
+            newRaces.Add(race);
+            
+            int lane = 1;
+            foreach (var reg in group)
+            {
+                var entry = new HorseRacing.Domain.Entities.RaceEntry
+                {
+                    Race = race,
+                    RegistrationId = reg.RegistrationId,
+                    LaneNo = lane++,
+                    Status = "Confirmed",
+                    WinningProbability = 0.5m,
+                    CurrentOdds = 2.0m
+                };
+                newEntries.Add(entry);
+            }
+            raceCounter++;
+        }
+
+        await _tournamentRepository.AddRacesAsync(newRaces);
+        await _tournamentRepository.AddRaceEntriesAsync(newEntries);
+        await _tournamentRepository.SaveChangesAsync();
+
+        return newRaces.Select(r => new RaceScheduleResponse
+        {
+            RaceId = r.RaceId,
+            RoundId = r.RoundId,
+            Name = r.Name ?? string.Empty,
+            RaceDate = r.RaceDate,
+            DistanceMeter = r.DistanceMeter,
+            MaxLanes = r.MaxLanes,
+            Status = r.Status ?? string.Empty
+        }).ToList();
+    }
+
     private static TournamentResponse MapToResponse(Tournament tournament)
     {
         return new TournamentResponse

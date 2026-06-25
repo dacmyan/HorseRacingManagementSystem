@@ -41,6 +41,8 @@ import { RefereeReportsPage } from '../pages/referee/RefereeReportsPage';
 // Spectator
 import { SpectatorDashboardPage } from '../pages/spectator/SpectatorDashboardPage';
 import { SpectatorTournamentsPage } from '../pages/spectator/SpectatorTournamentsPage';
+import { SpectatorTournamentDetailPage } from '../pages/spectator/SpectatorTournamentDetailPage';
+import { SpectatorRaceDetailPage } from '../pages/spectator/SpectatorRaceDetailPage';
 import { SpectatorLiveResultsPage } from '../pages/spectator/SpectatorLiveResultsPage';
 import { SpectatorPredictionsPage } from '../pages/spectator/SpectatorPredictionsPage';
 import { SpectatorNotificationsPage } from '../pages/spectator/SpectatorNotificationsPage';
@@ -95,6 +97,8 @@ export function AppRoutes() {
       {/* Spectator */}
       <Route path="/spectator/dashboard" element={<PrivateRoute><SpectatorDashboardPage /></PrivateRoute>} />
       <Route path="/spectator/tournaments" element={<PrivateRoute><SpectatorTournamentsPage /></PrivateRoute>} />
+      <Route path="/spectator/tournaments/:tournamentId" element={<PrivateRoute><SpectatorTournamentDetailPage /></PrivateRoute>} />
+      <Route path="/spectator/races/:raceId" element={<PrivateRoute><SpectatorRaceDetailPage /></PrivateRoute>} />
       <Route path="/spectator/live" element={<PrivateRoute><SpectatorLiveResultsPage /></PrivateRoute>} />
       <Route path="/spectator/predictions" element={<PrivateRoute><SpectatorPredictionsPage /></PrivateRoute>} />
       <Route path="/spectator/notifications" element={<PrivateRoute><SpectatorNotificationsPage /></PrivateRoute>} />

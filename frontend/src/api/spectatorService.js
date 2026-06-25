@@ -7,3 +7,6 @@ export const getWalletHistory = () => api.get('/spectator/wallet/history');
 
 export const placeBet = (data) => api.post('/spectator/bets', data);
 export const getMyBets = () => api.get('/spectator/bets/my-bets');
+
+export const createPrediction = (data) => api.post('/spectator/predictions', data);
+export const getMyPredictions = () => api.get('/spectator/predictions/my-predictions');

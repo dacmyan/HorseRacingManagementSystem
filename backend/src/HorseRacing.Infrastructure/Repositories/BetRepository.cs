@@ -58,7 +58,10 @@ public class BetRepository : IBetRepository
 
     public async Task<Race?> GetRaceByIdAsync(long raceId)
     {
-        return await _context.Races.FirstOrDefaultAsync(r => r.RaceId == raceId);
+        return await _context.Races
+            .Include(r => r.Round)
+            .ThenInclude(round => round.Tournament)
+            .FirstOrDefaultAsync(r => r.RaceId == raceId);
     }
 
     public async Task<bool> IsHorseInRaceAsync(long raceId, int horseId)

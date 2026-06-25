@@ -168,4 +168,48 @@ public class JockeyController : ControllerBase
             return StatusCode(500, new { message = "An error occurred retrieving violations", detail = ex.Message });
         }
     }
+
+    [HttpGet("assigned-horses")]
+    public async Task<IActionResult> GetAssignedHorses([FromServices] AppDbContext context)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var jockey = await context.JockeyProfiles
+                .FirstOrDefaultAsync(jp => jp.UserId == userId);
+
+            if (jockey == null)
+            {
+                return NotFound(new { message = "Jockey profile not found" });
+            }
+
+            // We can get assigned horses from accepted contracts and Race Entries.
+            // Let's get it from Race Entries where Jockey is assigned.
+            var assignments = await context.RaceEntries
+                .Include(re => re.Race)
+                .Include(re => re.Registration)
+                    .ThenInclude(reg => reg.Horse)
+                .Include(re => re.Registration)
+                    .ThenInclude(reg => reg.Tournament)
+                .Where(re => re.JockeyId == jockey.JockeyId)
+                .Select(re => new {
+                    RaceEntryId = re.RaceEntryId,
+                    RaceId = re.RaceId,
+                    RaceName = re.Race != null ? re.Race.Name : "",
+                    RaceDate = re.Race != null ? re.Race.RaceDate : (DateTime?)null,
+                    HorseId = re.Registration != null ? re.Registration.HorseId : 0,
+                    HorseName = (re.Registration != null && re.Registration.Horse != null) ? re.Registration.Horse.Name : "",
+                    TournamentName = (re.Registration != null && re.Registration.Tournament != null) ? re.Registration.Tournament.Name : "",
+                    LaneNo = re.LaneNo,
+                    Status = re.Status
+                })
+                .ToListAsync();
+
+            return Ok(new { message = "Assigned horses retrieved successfully", result = assignments });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving assigned horses", detail = ex.Message });
+        }
+    }
 }

@@ -317,4 +317,34 @@ public class RefereeController : ControllerBase
             return StatusCode(500, new { message = "An error occurred retrieving horse checks", detail = ex.Message });
         }
     }
+
+    [HttpPut("violations/{id}")]
+    public async Task<IActionResult> UpdateViolation(long id, [FromBody] UpdateViolationRequest request, [FromServices] AppDbContext context)
+    {
+        try
+        {
+            var violation = await context.Violations.FindAsync(id);
+            if (violation == null)
+            {
+                return NotFound(new { message = $"Violation with ID {id} was not found." });
+            }
+
+            if (!string.IsNullOrEmpty(request.Penalty))
+            {
+                violation.Penalty = request.Penalty;
+            }
+            if (!string.IsNullOrEmpty(request.Description))
+            {
+                violation.Description = request.Description;
+            }
+
+            await context.SaveChangesAsync();
+
+            return Ok(new { message = "Violation updated successfully", result = violation });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred updating the violation", detail = ex.Message });
+        }
+    }
 }

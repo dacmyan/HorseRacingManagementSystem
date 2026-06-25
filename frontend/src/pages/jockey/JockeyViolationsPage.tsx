@@ -1,10 +1,43 @@
-import { Clock } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { Clock, AlertTriangle } from 'lucide-react';
 import { Sidebar } from '../../components/layout/Sidebar';
 import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
+import { getJockeyViolations } from '../../api/jockeyService';
+
+interface JockeyViolation {
+  violationId: number;
+  raceName: string;
+  type: string;
+  note: string;
+  penalty: string;
+  createdAt: string;
+}
 
 export function JockeyViolationsPage() {
+  const [violations, setViolations] = useState<JockeyViolation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    getJockeyViolations()
+      .then(res => {
+        if (res.data && res.data.result) {
+          setViolations(res.data.result);
+        } else {
+          setViolations([]);
+        }
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setError('Không thể tải danh sách vi phạm');
+        setLoading(false);
+      });
+  }, []);
+
   return (
     <div className="min-h-screen text-body font-sans flex" style={{backgroundColor: '#0b101e'}}>
       <Sidebar />
@@ -15,7 +48,7 @@ export function JockeyViolationsPage() {
 
           <PageHero
             title="Vi phạm của tôi"
-            subtitle="Các đơn vi phạm và khiếu nại"
+            subtitle="Các đơn vi phạm và khiếu nại ghi nhận của bạn"
             imageUrl="/images/hero-jockey.jpg"
             imagePosition="center 25%"
           />
@@ -31,12 +64,71 @@ export function JockeyViolationsPage() {
             </div>
           </div>
 
-          {/* TODO: BE chưa có API vi phạm jockey */}
-          <div className="glass-panel rounded-xl p-12 text-center relative overflow-hidden">
-            <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
-            <div className="text-4xl opacity-40 mb-3">⚠️</div>
-            <div className="text-muted text-sm">Chưa có dữ liệu</div>
-          </div>
+          {error && (
+            <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm">
+              {error}
+            </div>
+          )}
+
+          {/* Table */}
+          {loading ? (
+            <div className="glass-panel rounded-xl p-12 text-center text-muted">
+              Đang tải danh sách vi phạm...
+            </div>
+          ) : violations.length === 0 ? (
+            <div className="glass-panel rounded-xl p-12 text-center relative overflow-hidden">
+              <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
+              <div className="text-4xl opacity-40 mb-3">✔️</div>
+              <div className="text-emerald-400 text-sm font-semibold">Tuyệt vời! Bạn không có vi phạm nào được ghi nhận</div>
+            </div>
+          ) : (
+            <motion.div 
+              initial={{ opacity: 0, y: 16 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              className="glass-panel rounded-xl overflow-hidden relative"
+            >
+              <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
+              <div className="p-5 border-b border-glass-border flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center shrink-0">
+                  <AlertTriangle size={15} className="text-red-400" />
+                </div>
+                <h2 className="text-base font-serif text-white">Danh sách lỗi vi phạm</h2>
+                <div className="flex-1 h-px bg-gradient-to-r from-red-500/20 via-glass-border to-transparent" />
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-glass-border bg-white/[0.02] text-xs font-semibold text-muted uppercase tracking-wider">
+                      <th className="px-6 py-4">Mã</th>
+                      <th className="px-6 py-4">Cuộc đua</th>
+                      <th className="px-6 py-4">Loại vi phạm</th>
+                      <th className="px-6 py-4">Chi tiết</th>
+                      <th className="px-6 py-4">Hình phạt</th>
+                      <th className="px-6 py-4">Ngày ghi nhận</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-glass-border/40 text-sm text-white">
+                    {violations.map((v) => (
+                      <tr key={v.violationId} className="hover:bg-white/[0.01] transition-colors">
+                        <td className="px-6 py-4 font-mono text-xs text-muted">#{v.violationId}</td>
+                        <td className="px-6 py-4 font-medium">{v.raceName}</td>
+                        <td className="px-6 py-4 text-red-400 font-semibold">{v.type}</td>
+                        <td className="px-6 py-4 text-muted">{v.note}</td>
+                        <td className="px-6 py-4">
+                          <span className="px-2.5 py-1 bg-red-500/10 text-red-400 border border-red-500/20 rounded text-xs font-semibold">
+                            {v.penalty}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-xs text-muted">
+                          {v.createdAt ? new Date(v.createdAt).toLocaleDateString('vi-VN') : ''}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </motion.div>
+          )}
 
         </main>
       </div>

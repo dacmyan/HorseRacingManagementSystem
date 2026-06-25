@@ -21,3 +21,21 @@ export const removeReferee = (raceId, refereeId) => api.delete(`/admin/races/${r
 export const createPrizes = (data) => api.post('/admin/payouts/prizes', data);
 
 export const triggerPayout = (raceId) => api.post(`/admin/payouts/trigger/${raceId}`);
+
+export const getRegistrations = () => api.get('/admin/registrations');
+
+export const getReferees = () => api.get('/admin/referees');
+
+export const getViolations = () => api.get('/admin/violations');
+
+export const getPredictionStats = () => api.get('/admin/predictions/stats');
+
+export const getPredictions = () => api.get('/admin/predictions');
+
+export const updateUserStatus = (id) => api.put(`/admin/users/${id}/status`);
+
+export const publishRaceResult = (raceId) => api.post(`/admin/races/${raceId}/publish`);
+
+export const getRaceResults = (raceId) => api.get(`/admin/races/${raceId}/results`);
+
+export const getDashboardStats = () => api.get('/admin/dashboard');

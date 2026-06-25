@@ -204,48 +204,7 @@ export function OwnerDashboardPage() {
             </motion.div>
           </div>
 
-          {/* ROW 4: PERFORMANCE + ACTIVITY */}
-          <div className="grid grid-cols-2 gap-6">
-            <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.4 }} className="glass-panel rounded-xl p-6 relative overflow-hidden">
-              <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent" />
-              <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-gradient-to-br from-emerald-500/10 to-transparent blur-[40px] pointer-events-none" />
-              <div className="relative z-10 flex items-center gap-3 mb-5">
-                <div className="w-8 h-8 rounded-lg bg-gold/10 border border-gold/20 flex items-center justify-center shrink-0">
-                  <TrendingUp size={15} className="text-gold" />
-                </div>
-                <h2 className="text-lg font-serif text-white whitespace-nowrap">Thành tích mùa giải</h2>
-                <div className="flex-1 h-px bg-gradient-to-r from-gold/30 via-glass-border to-transparent" />
-              </div>
-              {/* TODO: BE chưa có API */}
-              <div className="relative z-10">
-                <div className="glass-panel rounded-xl p-12 text-center relative overflow-hidden">
-                  <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
-                  <div className="text-4xl opacity-40 mb-3">📊</div>
-                  <div className="text-muted text-sm">Chưa có dữ liệu</div>
-                </div>
-              </div>
-            </motion.div>
 
-            <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1, duration: 0.4 }} className="glass-panel rounded-xl p-6 relative overflow-hidden">
-              <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent" />
-              <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-gradient-to-br from-emerald-500/10 to-transparent blur-[40px] pointer-events-none" />
-              <div className="relative z-10 flex items-center gap-3 mb-5">
-                <div className="w-8 h-8 rounded-lg bg-gold/10 border border-gold/20 flex items-center justify-center shrink-0">
-                  <Activity size={15} className="text-gold" />
-                </div>
-                <h2 className="text-lg font-serif text-white whitespace-nowrap">Hoạt động gần đây</h2>
-                <div className="flex-1 h-px bg-gradient-to-r from-gold/30 via-glass-border to-transparent" />
-              </div>
-              {/* TODO: BE chưa có API */}
-              <div className="relative z-10">
-                <div className="glass-panel rounded-xl p-12 text-center relative overflow-hidden">
-                  <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
-                  <div className="text-4xl opacity-40 mb-3">🕑</div>
-                  <div className="text-muted text-sm">Chưa có dữ liệu</div>
-                </div>
-              </div>
-            </motion.div>
-          </div>
 
         </main>
       </div>

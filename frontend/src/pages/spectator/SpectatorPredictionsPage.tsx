@@ -5,8 +5,8 @@ import { Sidebar } from '../../components/layout/Sidebar';
 import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
-import { getMyBets, placeBet } from '../../api/spectatorService';
-import { getRaceSchedule } from '../../api/publicService';
+import { getMyBets, placeBet, getMyPredictions, createPrediction } from '../../api/spectatorService';
+import { getRaceSchedule, getRaceEntries } from '../../api/publicService';
 import { parseApiError } from '../../api/authService';
 
 type BetStatus = 'correct' | 'incorrect' | 'pending';
@@ -31,21 +31,48 @@ const INPUT = 'w-full bg-[#0B1628] border border-glass-border rounded-lg px-3 py
 
 export function SpectatorPredictionsPage() {
   const [bets, setBets] = useState<any[]>([]);
+  const [predictions, setPredictions] = useState<any[]>([]);
+  const [viewType, setViewType] = useState<'bet'|'prediction'>('bet');
+  
   const [races, setRaces] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [tab, setTab] = useState<Tab>('all');
   const [showAdd, setShowAdd] = useState(false);
+  const [addMode, setAddMode] = useState<'bet'|'prediction'>('bet');
   const [form, setForm] = useState({ raceId: '', horseId: '', amount: '' });
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState('');
 
+  const [horses, setHorses] = useState<any[]>([]);
+  const [loadingHorses, setLoadingHorses] = useState(false);
+
+  useEffect(() => {
+    if (form.raceId) {
+      setLoadingHorses(true);
+      getRaceEntries(form.raceId)
+        .then((res: any) => {
+          setHorses(res?.result ?? []);
+          setForm(p => ({ ...p, horseId: '' }));
+        })
+        .catch(() => setHorses([]))
+        .finally(() => setLoadingHorses(false));
+    } else {
+      setHorses([]);
+      setForm(p => ({ ...p, horseId: '' }));
+    }
+  }, [form.raceId]);
+
   async function load() {
     setLoading(true); setError('');
     try {
-      const data = await getMyBets();
-      setBets(data?.result ?? (Array.isArray(data) ? data : []));
+      const [betsData, predsData] = await Promise.all([
+        getMyBets().catch(() => ({ result: [] })),
+        getMyPredictions().catch(() => ({ result: [] }))
+      ]);
+      setBets(betsData?.result ?? (Array.isArray(betsData) ? betsData : []));
+      setPredictions(predsData?.result ?? (Array.isArray(predsData) ? predsData : []));
     } catch (err: unknown) {
       setError(parseApiError(err as Error));
     } finally {
@@ -62,14 +89,21 @@ export function SpectatorPredictionsPage() {
 
   async function handlePlaceBet() {
     setSubmitError(''); setSubmitSuccess('');
-    if (!form.raceId || !form.horseId || !form.amount) {
+    if (!form.raceId || !form.horseId || (addMode === 'bet' && !form.amount)) {
       setSubmitError('Vui lòng điền đầy đủ thông tin.');
       return;
     }
     setSubmitLoading(true);
     try {
-      await placeBet({ raceId: Number(form.raceId), horseId: Number(form.horseId), amount: Number(form.amount) });
-      setSubmitSuccess('Đặt cược thành công!');
+      if (addMode === 'bet') {
+        await placeBet({ raceId: Number(form.raceId), horseId: Number(form.horseId), amount: Number(form.amount) });
+        setSubmitSuccess('Đặt cược thành công!');
+      } else {
+        const selectedHorse = horses.find(h => String(h.horseId) === form.horseId);
+        if (!selectedHorse || !selectedHorse.raceEntryId) throw new Error("Không tìm thấy thông tin lượt đua.");
+        await createPrediction({ raceId: Number(form.raceId), raceEntryId: selectedHorse.raceEntryId });
+        setSubmitSuccess('Gửi dự đoán thành công!');
+      }
       setForm({ raceId: '', horseId: '', amount: '' });
       load();
     } catch (err: unknown) {
@@ -85,12 +119,13 @@ export function SpectatorPredictionsPage() {
     setForm({ raceId: '', horseId: '', amount: '' });
   }
 
-  const filtered = tab === 'all' ? bets : bets.filter(b => normalizeStatus(b.status) === tab);
+  const activeList = viewType === 'bet' ? bets : predictions;
+  const filtered = tab === 'all' ? activeList : activeList.filter(b => normalizeStatus(b.status || (b.isCorrect === true ? 'win' : b.isCorrect === false ? 'lose' : 'pending')) === tab);
   const counts: Record<Tab, number> = {
-    all: bets.length,
-    pending: bets.filter(b => normalizeStatus(b.status) === 'pending').length,
-    correct: bets.filter(b => normalizeStatus(b.status) === 'correct').length,
-    incorrect: bets.filter(b => normalizeStatus(b.status) === 'incorrect').length,
+    all: activeList.length,
+    pending: activeList.filter(b => normalizeStatus(b.status || (b.isCorrect === true ? 'win' : b.isCorrect === false ? 'lose' : 'pending')) === 'pending').length,
+    correct: activeList.filter(b => normalizeStatus(b.status || (b.isCorrect === true ? 'win' : b.isCorrect === false ? 'lose' : 'pending')) === 'correct').length,
+    incorrect: activeList.filter(b => normalizeStatus(b.status || (b.isCorrect === true ? 'win' : b.isCorrect === false ? 'lose' : 'pending')) === 'incorrect').length,
   };
 
   const totalWon = bets.filter(b => normalizeStatus(b.status) === 'correct').reduce((s, b) => s + (b.prize ?? b.reward ?? 0), 0);
@@ -107,17 +142,32 @@ export function SpectatorPredictionsPage() {
 
           <PageHero
             title="Dự đoán & Cược"
-            subtitle="Đặt cược và theo dõi kết quả"
+            subtitle="Đặt cược và dự đoán kết quả"
             imageUrl="/images/hero-spectator.jpg"
             imagePosition="center 50%"
             actions={
-              <button onClick={() => setShowAdd(true)} className="btn-gold px-5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5">
-                <Plus size={14} /> Đặt cược
-              </button>
+              <div className="flex gap-2">
+                <button onClick={() => { setAddMode('prediction'); setShowAdd(true); }} className="px-5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 border border-gold/30 text-gold hover:bg-gold/10 transition-colors">
+                  <Sparkles size={14} /> Dự đoán miễn phí
+                </button>
+                <button onClick={() => { setAddMode('bet'); setShowAdd(true); }} className="btn-gold px-5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5">
+                  <Plus size={14} /> Đặt cược
+                </button>
+              </div>
             }
           />
 
           {error && <div className="glass-panel rounded-xl p-5 text-red-400 text-sm border border-red-500/20">{error}</div>}
+
+          {/* Type Toggle */}
+          <div className="flex gap-2">
+            <button onClick={() => { setViewType('bet'); setTab('all'); }} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${viewType === 'bet' ? 'bg-gold/10 text-gold border border-gold/20' : 'text-muted border border-glass-border hover:text-white'}`}>
+              Lịch sử Đặt Cược
+            </button>
+            <button onClick={() => { setViewType('prediction'); setTab('all'); }} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${viewType === 'prediction' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'text-muted border border-glass-border hover:text-white'}`}>
+              Lịch sử Dự Đoán
+            </button>
+          </div>
 
           {/* Summary */}
           <div className="grid grid-cols-3 gap-4">
@@ -205,7 +255,7 @@ export function SpectatorPredictionsPage() {
               <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className="glass-panel rounded-2xl p-7 w-full max-w-md border border-glass-border">
                 <div className="flex items-center gap-3 mb-5">
                   <div className="w-8 h-8 rounded-lg bg-gold/10 border border-gold/20 flex items-center justify-center shrink-0"><Sparkles size={15} className="text-gold" /></div>
-                  <h3 className="text-lg font-serif text-white">Đặt cược mới</h3>
+                  <h3 className="text-lg font-serif text-white">{addMode === 'bet' ? 'Đặt cược mới' : 'Dự đoán kết quả'}</h3>
                   <div className="flex-1 h-px bg-gradient-to-r from-gold/30 via-glass-border to-transparent" />
                 </div>
                 <div className="space-y-4">
@@ -219,22 +269,29 @@ export function SpectatorPredictionsPage() {
                     </select>
                     {races.length === 0 && <p className="text-[10px] text-muted/60 mt-1">Chưa có cuộc đua nào trong lịch.</p>}
                   </div>
-                  {/* TODO: cần BE bổ sung GET danh sách ngựa theo cuộc đua để thay ô nhập tay bằng dropdown */}
                   <div>
-                    <label className="block text-xs text-muted font-medium mb-1.5">ID Ngựa cược * <span className="text-muted/50">— nhập ID (BE chưa có API danh sách ngựa theo cuộc đua)</span></label>
-                    <input type="number" value={form.horseId} onChange={e => setForm(p => ({...p, horseId: e.target.value}))} placeholder="Nhập ID ngựa" className={INPUT} />
+                    <label className="block text-xs text-muted font-medium mb-1.5">Ngựa chọn *</label>
+                    <select value={form.horseId} onChange={e => setForm(p => ({...p, horseId: e.target.value}))} disabled={!form.raceId || loadingHorses} className={INPUT}>
+                      <option value="">-- Chọn ngựa --</option>
+                      {horses.map(h => (
+                        <option key={h.horseId} value={h.horseId}>{h.laneNo ? `Lane ${h.laneNo} - ` : ''}{h.horseName ?? h.name ?? `Ngựa #${h.horseId}`}</option>
+                      ))}
+                    </select>
+                    {form.raceId && horses.length === 0 && !loadingHorses && <p className="text-[10px] text-muted/60 mt-1">Trận này chưa có ngựa nào.</p>}
                   </div>
-                  <div>
-                    <label className="block text-xs text-muted font-medium mb-1.5">Số coins cược *</label>
-                    <input type="number" min="1" value={form.amount} onChange={e => setForm(p => ({...p, amount: e.target.value}))} placeholder="VD: 100" className={INPUT} />
-                  </div>
+                  {addMode === 'bet' && (
+                    <div>
+                      <label className="block text-xs text-muted font-medium mb-1.5">Số coins cược *</label>
+                      <input type="number" min="1" value={form.amount} onChange={e => setForm(p => ({...p, amount: e.target.value}))} placeholder="VD: 100" className={INPUT} />
+                    </div>
+                  )}
                   {submitError && <div className="text-xs text-red-400 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20">{submitError}</div>}
                   {submitSuccess && <div className="text-xs text-emerald-400 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">{submitSuccess}</div>}
                 </div>
                 <div className="flex justify-end gap-3 mt-6">
-                  <button onClick={closeModal} className="px-5 py-2 rounded-lg text-sm text-muted border border-glass-border hover:text-white transition-colors">Hủy</button>
+                  <button onClick={closeModal} className="px-5 py-2 rounded-lg text-sm text-muted border border-glass-border hover:text-white transition-colors">Đóng</button>
                   <button onClick={handlePlaceBet} disabled={submitLoading} className="btn-gold px-6 py-2 rounded-lg text-sm font-bold disabled:opacity-60">
-                    {submitLoading ? 'Đang đặt…' : 'Xác nhận cược'}
+                    {submitLoading ? 'Đang xử lý…' : 'Xác nhận'}
                   </button>
                 </div>
               </motion.div>

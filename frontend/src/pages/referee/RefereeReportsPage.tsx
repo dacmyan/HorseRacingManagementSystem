@@ -1,13 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FileText, Plus, Award } from 'lucide-react';
 import { Sidebar } from '../../components/layout/Sidebar';
 import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
+import { getRefereeDashboard } from '../../api/refereeService';
 
 export function RefereeReportsPage() {
   const [showAdd, setShowAdd] = useState(false);
+  const [stats, setStats] = useState<any>(null);
+
+  useEffect(() => {
+    getRefereeDashboard().then((res: any) => setStats(res?.result)).catch(() => {});
+  }, []);
 
   return (
     <div className="min-h-screen text-body font-sans flex" style={{backgroundColor: '#0b101e'}}>
@@ -30,11 +36,10 @@ export function RefereeReportsPage() {
           />
 
           <div className="grid grid-cols-[1fr_380px] gap-6">
-            {/* TODO: BE chưa có API danh sách báo cáo của trọng tài */}
             <div className="glass-panel rounded-xl p-12 text-center relative overflow-hidden">
               <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
               <div className="text-4xl opacity-40 mb-3">📋</div>
-              <div className="text-muted text-sm">Chưa có dữ liệu</div>
+              <div className="text-muted text-sm">Chưa có dữ liệu báo cáo chi tiết</div>
             </div>
 
             <motion.div initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }} className="glass-panel rounded-xl p-6 h-fit relative overflow-hidden">
@@ -45,13 +50,12 @@ export function RefereeReportsPage() {
                 <h3 className="text-base font-serif text-white">Tóm tắt mùa giải</h3>
                 <div className="flex-1 h-px bg-gradient-to-r from-gold/30 via-glass-border to-transparent" />
               </div>
-              {/* TODO: BE chưa có API thống kê tóm tắt mùa giải của trọng tài */}
               <div className="space-y-3 relative z-10">
                 {[
-                  { label: 'Tổng báo cáo', value: '—', color: 'text-white' },
-                  { label: 'Đã gửi', value: '—', color: 'text-emerald-400' },
-                  { label: 'Bản nháp', value: '—', color: 'text-yellow-400' },
-                  { label: 'Tổng vi phạm ghi nhận', value: '—', color: 'text-red-400' },
+                  { label: 'Tổng báo cáo cần nộp', value: stats ? stats.assignedRaceCount : '—', color: 'text-white' },
+                  { label: 'Đã nộp', value: stats ? stats.completedReportCount : '—', color: 'text-emerald-400' },
+                  { label: 'Chờ nộp', value: stats ? stats.pendingReportCount : '—', color: 'text-yellow-400' },
+                  { label: 'Tổng vi phạm ghi nhận', value: stats ? stats.violationsCreatedCount : '—', color: 'text-red-400' },
                 ].map((s, i) => (
                   <div key={i} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white/[0.02] border border-glass-border hover:border-gold/30 hover:bg-gold/[0.04] transition-all group">
                     <div className="flex items-center gap-3 min-w-0">

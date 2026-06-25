@@ -327,5 +327,18 @@ public async Task<IActionResult> GetLiveRaces()
     }
 }
 
-
+    [HttpPost("tournaments/{id}/generate-races")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GenerateRacesForTournament(long id)
+    {
+        try
+        {
+            var races = await _tournamentService.GenerateRacesForTournamentAsync(id);
+            return Ok(new { message = "Races generated successfully", result = races });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred", detail = ex.Message });
+        }
+    }
 }

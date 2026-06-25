@@ -110,6 +110,28 @@ public class AdminController : ControllerBase
         }
     }
 
+    [HttpPost("tournaments/{id}/generate-races")]
+    public async Task<IActionResult> GenerateRacesForTournament(long id)
+    {
+        try
+        {
+            var races = await _tournamentService.GenerateRacesForTournamentAsync(id);
+            return Ok(new { message = "Races generated successfully", result = races });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred generating races", detail = ex.Message });
+        }
+    }
+
     [HttpPost("payouts/prizes")]
     public async Task<IActionResult> DistributeTournamentPrizes([FromBody] PrizePayoutRequest request)
     {
@@ -694,6 +716,38 @@ public class AdminController : ControllerBase
         catch (Exception ex)
         {
             return StatusCode(500, new { message = "An error occurred updating user status", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("dashboard")]
+    public async Task<IActionResult> GetDashboardStats([FromServices] AppDbContext context)
+    {
+        try
+        {
+            var totalUsers = await context.Users.CountAsync();
+            var totalTournaments = await context.Tournaments.CountAsync();
+            var activeRaces = await context.Races.CountAsync(r => r.Status == "Live" || r.Status == "Scheduled");
+            var totalBets = await context.Bets.CountAsync();
+            
+            var totalRevenue = await context.Bets.Where(b => b.Status != "Pending").SumAsync(b => (decimal?)b.Amount) ?? 0;
+            var totalPayout = await context.Payouts.SumAsync(p => (decimal?)p.Amount) ?? 0;
+
+            var result = new
+            {
+                TotalUsers = totalUsers,
+                TotalTournaments = totalTournaments,
+                ActiveRaces = activeRaces,
+                TotalBets = totalBets,
+                TotalRevenue = totalRevenue,
+                TotalPayout = totalPayout,
+                Profit = totalRevenue - totalPayout
+            };
+
+            return Ok(new { message = "Dashboard stats retrieved successfully", result = result });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving dashboard stats", detail = ex.Message });
         }
     }
 }

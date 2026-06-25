@@ -94,7 +94,7 @@ export function JockeyDashboardPage() {
               { title: 'Lời mời mới',    value: String(pending.length),    trend: 'Chờ phản hồi', icon: Bell,     color: 'text-yellow-400', bg: 'from-yellow-500/15 to-yellow-900/20', path: '/jockey/invitations' },
               { title: 'Cuộc đua sắp tới', value: schedule.length > 0 ? String(schedule.length) : '—', trend: '7 ngày tới', icon: Calendar, color: 'text-blue-400', bg: 'from-blue-500/15 to-blue-900/20', path: '/jockey/schedule' },
               { title: 'Số lần thắng',   value: '—',                      trend: 'Mùa 2026',     icon: Trophy,   color: 'text-gold',       bg: 'from-gold/15 to-amber-900/20',      path: '/jockey/stats' },
-              { title: 'Tổng hợp đồng',  value: String(contracts.length), trend: 'Mùa giải 2026',icon: Flag,     color: 'text-purple-400', bg: 'from-purple-500/15 to-purple-900/20',path: '/jockey/races' },
+              { title: 'Ngựa tham gia',  value: 'Xem ngay', trend: 'Cuộc đua của tôi',icon: Flag,     color: 'text-purple-400', bg: 'from-purple-500/15 to-purple-900/20',path: '/jockey/races' },
             ].map((m, i) => (
               <motion.div key={i} variants={child} onClick={() => navigate(m.path)}
                 className="glass-panel rounded-xl p-5 relative overflow-hidden group cursor-pointer hover:border-gold/30 transition-all" style={{ height: '130px' }}>

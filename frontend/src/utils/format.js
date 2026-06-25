@@ -8,11 +8,13 @@ export function formatCurrency(amount, currency = 'USD') {
   }).format(amount);
 }
 
-export function formatCurrencyVND(amount) {
+export function formatCurrencyVND(value) {
+  if (value == null || Number.isNaN(value)) return "—";
   return new Intl.NumberFormat('vi-VN', {
     style: 'currency',
     currency: 'VND',
-  }).format(amount);
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
 export function formatDate(date) {
@@ -20,6 +22,20 @@ export function formatDate(date) {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(date));
+}
+
+export function formatDateTime(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return "—";
+  
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  
+  return `${day}/${month}/${year} ${hours}:${minutes}`;
 }
 
 export function formatRaceCountdown(targetDate) {
@@ -33,4 +49,13 @@ export function formatRaceCountdown(targetDate) {
 export function formatPercentage(value, total) {
   if (!total) return '0%';
   return `${Math.round((value / total) * 100)}%`;
+}
+
+export function formatWinProbability(value) {
+  if (value == null || Number.isNaN(Number(value))) return "—";
+
+  const numeric = Number(value);
+  const percent = numeric <= 1 ? numeric * 100 : numeric;
+
+  return `${Math.min(Math.max(percent, 0), 100).toFixed(1)}%`;
 }

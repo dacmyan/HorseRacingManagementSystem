@@ -60,4 +60,23 @@ public class TournamentRepository : ITournamentRepository
             .OrderByDescending(t => t.StartDate)
             .ToListAsync();
     }
+
+    public async Task<List<HorseRacing.Domain.Entities.Registration>> GetApprovedRegistrationsAsync(long tournamentId)
+    {
+        return await _context.Set<HorseRacing.Domain.Entities.Registration>()
+            .Include(r => r.Horse)
+            .Where(r => r.TournamentId == tournamentId && r.Status == "Approved")
+            .OrderBy(r => r.RegistrationId)
+            .ToListAsync();
+    }
+
+    public async Task AddRacesAsync(IEnumerable<HorseRacing.Domain.Entities.Tournaments.Race> races)
+    {
+        await _context.Races.AddRangeAsync(races);
+    }
+
+    public async Task AddRaceEntriesAsync(IEnumerable<HorseRacing.Domain.Entities.RaceEntry> entries)
+    {
+        await _context.RaceEntries.AddRangeAsync(entries);
+    }
 }
