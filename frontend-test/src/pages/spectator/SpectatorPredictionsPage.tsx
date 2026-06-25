@@ -6,7 +6,7 @@ import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
 import { getMyBets, placeBet } from '../../api/spectatorService';
-import { getRaceSchedule } from '../../api/publicService';
+import { getRaceSchedule, getRaceEntries } from '../../api/publicService';
 import { parseApiError } from '../../api/authService';
 
 type BetStatus = 'correct' | 'incorrect' | 'pending';
@@ -40,6 +40,25 @@ export function SpectatorPredictionsPage() {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState('');
+
+  const [horses, setHorses] = useState<any[]>([]);
+  const [loadingHorses, setLoadingHorses] = useState(false);
+
+  useEffect(() => {
+    if (form.raceId) {
+      setLoadingHorses(true);
+      getRaceEntries(form.raceId)
+        .then((res: any) => {
+          setHorses(res?.result ?? []);
+          setForm(p => ({ ...p, horseId: '' }));
+        })
+        .catch(() => setHorses([]))
+        .finally(() => setLoadingHorses(false));
+    } else {
+      setHorses([]);
+      setForm(p => ({ ...p, horseId: '' }));
+    }
+  }, [form.raceId]);
 
   async function load() {
     setLoading(true); setError('');
@@ -219,10 +238,15 @@ export function SpectatorPredictionsPage() {
                     </select>
                     {races.length === 0 && <p className="text-[10px] text-muted/60 mt-1">Chưa có cuộc đua nào trong lịch.</p>}
                   </div>
-                  {/* TODO: cần BE bổ sung GET danh sách ngựa theo cuộc đua để thay ô nhập tay bằng dropdown */}
                   <div>
-                    <label className="block text-xs text-muted font-medium mb-1.5">ID Ngựa cược * <span className="text-muted/50">— nhập ID (BE chưa có API danh sách ngựa theo cuộc đua)</span></label>
-                    <input type="number" value={form.horseId} onChange={e => setForm(p => ({...p, horseId: e.target.value}))} placeholder="Nhập ID ngựa" className={INPUT} />
+                    <label className="block text-xs text-muted font-medium mb-1.5">Ngựa cược *</label>
+                    <select value={form.horseId} onChange={e => setForm(p => ({...p, horseId: e.target.value}))} disabled={!form.raceId || loadingHorses} className={INPUT}>
+                      <option value="">-- Chọn ngựa --</option>
+                      {horses.map(h => (
+                        <option key={h.horseId} value={h.horseId}>{h.laneNo ? `Lane ${h.laneNo} - ` : ''}{h.horseName ?? h.name ?? `Ngựa #${h.horseId}`}</option>
+                      ))}
+                    </select>
+                    {form.raceId && horses.length === 0 && !loadingHorses && <p className="text-[10px] text-muted/60 mt-1">Trận này chưa có ngựa nào.</p>}
                   </div>
                   <div>
                     <label className="block text-xs text-muted font-medium mb-1.5">Số coins cược *</label>

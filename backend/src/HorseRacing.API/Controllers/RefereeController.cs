@@ -85,6 +85,48 @@ public class RefereeController : ControllerBase
         }
     }
 
+    [HttpGet("violations")]
+    public async Task<IActionResult> GetViolations([FromServices] AppDbContext context)
+    {
+        try
+        {
+            // For simplicity and since we don't have a direct Referee -> Violation link easily accessible, 
+            // returning all violations similar to Admin, or just violations for races this referee officiated.
+            var userId = GetCurrentUserId();
+            var referee = await context.RefereeProfiles.FirstOrDefaultAsync(rp => rp.UserId == userId);
+            
+            if (referee == null)
+            {
+                return NotFound(new { message = "Referee profile not found" });
+            }
+
+            var assignedRaceIds = await context.RaceRefereeAssignments
+                .Where(a => a.RefereeId == referee.RefereeId)
+                .Select(a => a.RaceId)
+                .ToListAsync();
+
+            var violations = await context.Violations
+                .Include(v => v.Race)
+                .Where(v => assignedRaceIds.Contains(v.RaceId))
+                .Select(v => new {
+                    ViolationId = v.Id,
+                    RaceId = v.RaceId,
+                    RaceName = v.Race != null ? v.Race.Name : "",
+                    Type = v.Description.Contains(":") ? v.Description.Split(':', StringSplitOptions.None)[0] : "Vi phạm",
+                    Note = v.Description,
+                    Penalty = v.Penalty,
+                    CreatedAt = DateTime.UtcNow // Using UTC now since Violation entity lacks CreatedAt
+                })
+                .ToListAsync();
+                
+            return Ok(new { message = "Violations retrieved successfully", result = violations });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving violations", detail = ex.Message });
+        }
+    }
+
     [HttpPost("reports")]
     public async Task<IActionResult> SubmitReport([FromBody] CreateRefereeReportRequest request)
     {

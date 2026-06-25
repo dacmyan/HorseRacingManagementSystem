@@ -674,4 +674,26 @@ public class AdminController : ControllerBase
             return StatusCode(500, new { message = "An error occurred retrieving horse options", detail = ex.Message });
         }
     }
+
+    [HttpPut("users/{id}/status")]
+    public async Task<IActionResult> UpdateUserStatus(int id, [FromServices] AppDbContext context)
+    {
+        try
+        {
+            var user = await context.Users.FindAsync(id);
+            if (user == null)
+            {
+                return NotFound(new { message = $"User with ID {id} was not found." });
+            }
+
+            user.Status = user.Status == "Active" ? "Inactive" : "Active";
+            await context.SaveChangesAsync();
+
+            return Ok(new { message = "User status updated successfully", result = user });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred updating user status", detail = ex.Message });
+        }
+    }
 }
