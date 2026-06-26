@@ -16,4 +16,7 @@ public class Bet
     public decimal Odds { get; set; }
     public string Status { get; set; } = "Pending"; // Pending, Won, Lost, PaidOut
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public long? RaceEntryId { get; set; }
+    public RaceEntry? RaceEntry { get; set; }
 }

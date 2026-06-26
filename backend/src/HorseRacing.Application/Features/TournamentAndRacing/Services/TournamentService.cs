@@ -5,15 +5,21 @@ using System.Threading.Tasks;
 using HorseRacing.Application.Features.TournamentAndRacing.DTOs;
 using HorseRacing.Application.Features.TournamentAndRacing.Interfaces;
 using HorseRacing.Domain.Entities.Tournaments;
+using HorseRacing.Application.Features.BettingEngine.Interfaces;
+
 namespace HorseRacing.Application.Features.TournamentAndRacing.Services;
 
 public class TournamentService : ITournamentService
 {
     private readonly ITournamentRepository _tournamentRepository;
+    private readonly IBettingService? _bettingService;
 
-    public TournamentService(ITournamentRepository tournamentRepository)
+    public TournamentService(
+        ITournamentRepository tournamentRepository,
+        IBettingService? bettingService = null)
     {
         _tournamentRepository = tournamentRepository;
+        _bettingService = bettingService;
     }
 
     public async Task<TournamentResponse> CreateTournamentAsync(CreateTournamentRequest request)
@@ -212,27 +218,6 @@ public class TournamentService : ITournamentService
             if (!registrations.Any()) throw new InvalidOperationException("No approved registrations found for this tournament.");
 
             var maxHorsePerRace = 12;
-            if (registrations.Count <= maxHorsePerRace)
-            {
-                var finalRace = await GetSingleFinalRaceAsync(secondRound.RoundId);
-                var existingFinalEntries = await _tournamentRepository.GetRaceEntriesByRaceIdAsync(finalRace.RaceId);
-                if (existingFinalEntries.Any())
-                {
-                    throw new InvalidOperationException("Final race already has participants.");
-                }
-
-                var activeJockeyByHorseId = await _tournamentRepository.GetActiveJockeyProfileIdsByHorseAsync(
-                    tournamentId,
-                    registrations.Select(r => r.HorseId)) ?? new Dictionary<long, int>();
-                var directFinalEntries = CreateRaceEntriesForRegistrations(registrations, finalRace.RaceId, activeJockeyByHorseId);
-                await _tournamentRepository.AddRaceEntriesAsync(directFinalEntries);
-                await _tournamentRepository.SaveChangesAsync();
-
-                return new List<RaceScheduleResponse>
-                {
-                    MapRaceToScheduleResponse(finalRace)
-                };
-            }
 
             var horseGroups = BuildRaceGroups(registrations, maxHorsePerRace);
             var activePrefinalJockeyByHorseId = await _tournamentRepository.GetActiveJockeyProfileIdsByHorseAsync(
@@ -462,6 +447,152 @@ public class TournamentService : ITournamentService
                     EndDate = r.EndDate,
                     Status = r.Status
                 }).ToList()
+        };
+    }
+
+    public async Task<RaceScheduleResponse> GenerateFinalRaceAsync(long tournamentId)
+    {
+        if (_bettingService == null)
+        {
+            throw new InvalidOperationException("Dependencies are not resolved.");
+        }
+
+        // 1. Verify tournament exists
+        var tournament = await _tournamentRepository.GetByIdWithRoundsAsync(tournamentId);
+        if (tournament == null)
+        {
+            throw new KeyNotFoundException($"Tournament with ID {tournamentId} was not found.");
+        }
+
+        var rounds = tournament.Rounds.OrderBy(r => r.RoundNumber).ToList();
+        var preRound = rounds.FirstOrDefault(r => r.RoundNumber == 1);
+        if (preRound == null)
+        {
+            throw new InvalidOperationException("Pre Round (Round 1) does not exist.");
+        }
+
+        var finalRound = rounds.FirstOrDefault(r => r.RoundNumber == 2);
+        if (finalRound == null)
+        {
+            // Create final round if missing
+            finalRound = new Round
+            {
+                TournamentId = tournamentId,
+                Name = "Final",
+                RoundNumber = 2,
+                Status = "Scheduled",
+                StartDate = tournament.StartDate,
+                EndDate = tournament.EndDate
+            };
+            await _tournamentRepository.AddRoundAsync(finalRound);
+            await _tournamentRepository.SaveChangesAsync();
+        }
+
+        // 2. Check if all Pre races are completed/finished
+        var preRaces = await _tournamentRepository.GetRacesByRoundIdAsync(preRound.RoundId);
+
+        if (preRaces.Count == 0)
+        {
+            throw new InvalidOperationException("Cannot generate Final Race because there are no Pre races scheduled.");
+        }
+
+        bool allPreFinished = preRaces.All(r => r.Status == "Completed" || r.Status == "Finished");
+        if (!allPreFinished)
+        {
+            throw new InvalidOperationException("Cannot generate Final Race because not all Pre races are completed.");
+        }
+
+        // Ensure there is at least 1 race result in Pre round
+        var preRaceIds = preRaces.Select(r => r.RaceId).ToList();
+        var hasPreResults = await _tournamentRepository.HasRaceResultsAsync(preRaceIds);
+        if (!hasPreResults)
+        {
+            throw new InvalidOperationException("Cannot generate Final Race because there are no race results in the Pre Round.");
+        }
+
+        // 3. Locate or create Final Race (Final Round has unique 1 Race)
+        var finalRaces = await _tournamentRepository.GetRacesByRoundIdAsync(finalRound.RoundId);
+        var finalRace = finalRaces.FirstOrDefault();
+
+        if (finalRace == null)
+        {
+            finalRace = new HorseRacing.Domain.Entities.Tournaments.Race
+            {
+                RoundId = finalRound.RoundId,
+                Name = "Final Race",
+                RaceDate = tournament.EndDate ?? DateTime.UtcNow.AddDays(1),
+                DistanceMeter = 1600,
+                MaxLanes = 12,
+                Status = "Scheduled"
+            };
+            await _tournamentRepository.AddRaceAsync(finalRace);
+            await _tournamentRepository.SaveChangesAsync();
+        }
+        else if (finalRace.Status == "Running" || finalRace.Status == "Completed" || finalRace.Status == "Finished")
+        {
+            throw new InvalidOperationException("Cannot generate Final Race because it has already started or completed.");
+        }
+
+        // 4. Query Top 12 finalists based on pre-final results
+        var sortedFinalists = await _tournamentRepository.GetFinalistsFromPreRoundAsync(tournamentId, preRound.RoundId);
+        
+        var top12Finalists = sortedFinalists
+            .OrderBy(re => re.FinishTime ?? 99999m)
+            .ThenBy(re => re.FinishPosition ?? 99)
+            .ThenBy(re => re.Registration?.Horse?.AverageTime ?? 99999m)
+            .Take(12)
+            .ToList();
+
+        if (top12Finalists.Count == 0)
+        {
+            throw new InvalidOperationException("No eligible finalists found from Pre Round results.");
+        }
+
+        // 5. Clear or update entries for the Final Race (no duplicates)
+        var existingFinalEntries = await _tournamentRepository.GetRaceEntriesByRaceIdAsync(finalRace.RaceId);
+
+        if (existingFinalEntries.Count > 0)
+        {
+            await _tournamentRepository.RemoveRaceEntriesAsync(existingFinalEntries);
+            await _tournamentRepository.SaveChangesAsync();
+        }
+
+        var activeFinalJockeyByHorseId = await _tournamentRepository.GetActiveJockeyProfileIdsByHorseAsync(
+            tournamentId,
+            top12Finalists.Select(re => re.Registration!.HorseId)) ?? new Dictionary<long, int>();
+
+        var newEntries = new List<HorseRacing.Domain.Entities.RaceEntry>();
+        int lane = 1;
+        foreach (var finalist in top12Finalists)
+        {
+            var entry = new HorseRacing.Domain.Entities.RaceEntry
+            {
+                RaceId = finalRace.RaceId,
+                RegistrationId = finalist.RegistrationId,
+                JockeyId = activeFinalJockeyByHorseId.TryGetValue(finalist.Registration!.HorseId, out var jId) ? jId : finalist.JockeyId,
+                LaneNo = lane++,
+                Status = "Confirmed",
+                WinningProbability = 0.5m,
+                CurrentOdds = 2.0m
+            };
+            newEntries.Add(entry);
+        }
+
+        await _tournamentRepository.AddRaceEntriesAsync(newEntries);
+        await _tournamentRepository.SaveChangesAsync();
+
+        // 6. Recalculate odds for the Final Race
+        await _bettingService.RecalculateRaceOddsAsync(finalRace.RaceId);
+
+        return new RaceScheduleResponse
+        {
+            RaceId = finalRace.RaceId,
+            RoundId = finalRace.RoundId,
+            Name = finalRace.Name ?? string.Empty,
+            RaceDate = finalRace.RaceDate,
+            DistanceMeter = finalRace.DistanceMeter,
+            MaxLanes = finalRace.MaxLanes,
+            Status = finalRace.Status
         };
     }
 }

@@ -15,4 +15,6 @@ public class RaceEntry
     public decimal? CurrentOdds { get; set; }
     public int LaneNo { get; set; }
     public string Status { get; set; } = "Ready";
+    public decimal? FinishTime { get; set; }
+    public int? FinishPosition { get; set; }
 }

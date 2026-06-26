@@ -45,11 +45,31 @@ public class BetPayoutService : IBetPayoutService
             throw new InvalidOperationException($"No published results or winner found for race ID {raceId}.");
         }
 
+        // Get race entries
+        var entries = (await _betRepository.GetRaceEntriesWithHorseAsync(raceId)).ToList();
+
+        // Find winner RaceEntry with FinishPosition == 1
+        long? winnerRaceEntryId = null;
+        var winnerEntry = entries.FirstOrDefault(re => re.FinishPosition == 1);
+        if (winnerEntry != null)
+        {
+            winnerRaceEntryId = winnerEntry.RaceEntryId;
+        }
+
         // Try to resolve the winning horse by ID or by Name
         var winningHorse = await _betRepository.GetHorseByIdOrNameAsync(result.Winner);
         if (winningHorse == null)
         {
             throw new InvalidOperationException($"Winning horse '{result.Winner}' could not be found in the database.");
+        }
+
+        if (winnerRaceEntryId == null)
+        {
+            var entry = entries.FirstOrDefault(re => re.Registration != null && re.Registration.HorseId == winningHorse.HorseId);
+            if (entry != null)
+            {
+                winnerRaceEntryId = entry.RaceEntryId;
+            }
         }
 
         var bets = await _betRepository.GetByRaceIdAsync(raceId);
@@ -62,7 +82,17 @@ public class BetPayoutService : IBetPayoutService
 
         foreach (var bet in betList)
         {
-            if (bet.HorseId == winningHorse.HorseId)
+            bool isWon = false;
+            if (winnerRaceEntryId.HasValue)
+            {
+                isWon = bet.RaceEntryId == winnerRaceEntryId.Value || (bet.RaceEntryId == null && bet.HorseId == winningHorse.HorseId);
+            }
+            else
+            {
+                isWon = bet.HorseId == winningHorse.HorseId;
+            }
+
+            if (isWon)
             {
                 decimal payoutAmount = Math.Round(bet.Amount * bet.Odds, 2);
                 bet.Status = "Won";

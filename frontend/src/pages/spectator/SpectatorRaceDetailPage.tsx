@@ -6,7 +6,7 @@ import { Sidebar } from '../../components/layout/Sidebar';
 import { Topbar } from '../../components/layout/Topbar';
 import { PageAmbience } from '../../components/layout/PageAmbience';
 import { getRaceDetail, getRaceEntries } from '../../api/publicService';
-import { getBalance, placeBet } from '../../api/spectatorService';
+import { getBalance, placeBet, getRaceBettingInfo } from '../../api/spectatorService';
 import { formatCurrencyVND, formatDateTime, formatWinProbability } from '../../utils/format';
 
 const RACE_STATUS_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
@@ -22,6 +22,7 @@ export function SpectatorRaceDetailPage() {
   const [race, setRace] = useState<any>(null);
   const [entries, setEntries] = useState<any[]>([]);
   const [balance, setBalance] = useState(0);
+  const [canBet, setCanBet] = useState(false);
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -46,14 +47,15 @@ export function SpectatorRaceDetailPage() {
   async function loadData() {
     setLoading(true);
     try {
-      const [raceRes, entriesRes, balanceRes] = await Promise.all([
+      const [raceRes, bettingRes, balanceRes] = await Promise.all([
         getRaceDetail(raceId),
-        getRaceEntries(raceId),
+        getRaceBettingInfo(raceId),
         getBalance().catch(() => ({ result: 0 }))
       ]);
 
       setRace(raceRes?.result ?? null);
-      setEntries(entriesRes?.result ?? []);
+      setEntries(bettingRes?.result?.entries ?? []);
+      setCanBet(bettingRes?.result?.canBet ?? false);
       setBalance(balanceRes?.result?.balance ?? 0);
     } catch (err) {
       console.error(err);
@@ -74,8 +76,7 @@ export function SpectatorRaceDetailPage() {
     setBetLoading(true);
     try {
       await placeBet({
-        raceId: Number(raceId),
-        horseId: selectedEntry.horseId,
+        raceEntryId: selectedEntry.raceEntryId,
         amount: amount
       });
       
@@ -116,9 +117,7 @@ export function SpectatorRaceDetailPage() {
   const validRaceStatuses = ['upcoming', 'scheduled', 'ongoing', 'running', 'live'];
   const invalidTournamentStatuses = ['finished', 'completed', 'cancelled', 'ended'];
   
-  const isBettingAllowed = 
-    validRaceStatuses.includes(statusKey) && 
-    !invalidTournamentStatuses.includes(tournamentStatusKey);
+  const isBettingAllowed = canBet;
 
   return (
     <div className="min-h-screen text-body font-sans flex" style={{backgroundColor: '#0b101e'}}>
@@ -201,6 +200,21 @@ export function SpectatorRaceDetailPage() {
                       <div className="text-xs text-muted mb-3 flex items-center gap-1">
                         <ShieldCheck size={12} className="text-gold/60" />
                         Jockey: {e.jockeyName}
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 mt-2 pt-2 border-t border-glass-border/20 text-center mb-3">
+                        <div>
+                          <div className="text-[10px] text-muted">Avg Time</div>
+                          <div className="text-xs text-white font-medium">{e.averageTime ? `${e.averageTime.toFixed(2)}s` : '—'}</div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] text-muted">Recent Avg</div>
+                          <div className="text-xs text-white font-medium">{e.recentAverageTime ? `${e.recentAverageTime.toFixed(2)}s` : '—'}</div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] text-muted">Win Rate</div>
+                          <div className="text-xs text-white font-medium">{((e.winRate > 1 ? e.winRate : e.winRate * 100) || 0).toFixed(0)}%</div>
+                        </div>
                       </div>
 
                       {e.winningProbability != null && (

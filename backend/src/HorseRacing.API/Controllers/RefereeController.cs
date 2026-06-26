@@ -175,6 +175,37 @@ public class RefereeController : ControllerBase
         }
     }
 
+    [HttpPost("races/{raceId}/results")]
+    public async Task<IActionResult> SubmitResultRoute([FromRoute] long raceId, [FromBody] SubmitRaceResultRequest request)
+    {
+        try
+        {
+            request.RaceId = raceId;
+            var response = await _resultService.SubmitResultAsync(request);
+            return StatusCode(StatusCodes.Status201Created, response);
+        }
+        catch (ArgumentNullException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = "An error occurred submitting the race result", detail = ex.Message });
+        }
+    }
+
     [HttpPost("results")]
     public async Task<IActionResult> SubmitResult([FromBody] SubmitRaceResultRequest request)
     {

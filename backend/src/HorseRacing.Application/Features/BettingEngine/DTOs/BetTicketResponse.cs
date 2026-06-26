@@ -10,6 +10,7 @@ public class BetTicketResponse
     public string RaceName { get; set; } = string.Empty;
     public int HorseId { get; set; }
     public string HorseName { get; set; } = string.Empty;
+    public long? RaceEntryId { get; set; }
     public decimal Amount { get; set; }
     public decimal Odds { get; set; }
     public string Status { get; set; } = string.Empty;

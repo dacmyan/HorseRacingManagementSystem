@@ -16,6 +16,7 @@ interface OwnerResult {
   finishTime: string;
   point: number;
   prizeAmount: number;
+  status: string;
 }
 
 export function OwnerResultsPage() {
@@ -26,8 +27,8 @@ export function OwnerResultsPage() {
   useEffect(() => {
     getOwnerResults()
       .then(res => {
-        if (res.data && res.data.result) {
-          setResults(res.data.result);
+        if (res && res.result) {
+          setResults(res.result);
         } else {
           setResults([]);
         }
@@ -106,19 +107,33 @@ export function OwnerResultsPage() {
                           <td className="px-6 py-4 text-muted">{res.raceName}</td>
                           <td className="px-6 py-4 text-emerald-400 font-semibold">{res.horseName}</td>
                           <td className="px-6 py-4">
-                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-bold ${
-                              res.finishPosition === 1 ? 'bg-gold/15 text-gold border border-gold/30' :
-                              res.finishPosition === 2 ? 'bg-slate-400/15 text-slate-300 border border-slate-400/30' :
-                              'bg-amber-600/15 text-amber-500 border border-amber-600/30'
-                            }`}>
-                              {res.finishPosition === 1 && <Award size={12} />}
-                              Hạng {res.finishPosition}
-                            </span>
+                            {res.status === 'Finished' ? (
+                              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-bold ${
+                                res.finishPosition === 1 ? 'bg-gold/15 text-gold border border-gold/30' :
+                                res.finishPosition === 2 ? 'bg-slate-400/15 text-slate-300 border border-slate-400/30' :
+                                'bg-amber-600/15 text-amber-500 border border-amber-600/30'
+                              }`}>
+                                {res.finishPosition === 1 && <Award size={12} />}
+                                Hạng {res.finishPosition}
+                              </span>
+                            ) : res.status === 'Live' || res.status === 'Running' || res.status === 'InProgress' ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 animate-pulse">
+                                Đang diễn ra
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-bold bg-slate-500/15 text-slate-400 border border-slate-500/30">
+                                Chưa diễn ra
+                              </span>
+                            )}
                           </td>
                           <td className="px-6 py-4 font-mono text-xs text-muted">{res.finishTime}</td>
-                          <td className="px-6 py-4 font-mono text-xs text-gold">+{res.point}</td>
+                          <td className="px-6 py-4 font-mono text-xs text-gold">
+                            {res.status === 'Finished' ? `+${res.point}` : '—'}
+                          </td>
                           <td className="px-6 py-4 text-right font-mono text-emerald-400 font-semibold">
-                            {res.prizeAmount > 0 ? `${res.prizeAmount.toLocaleString('vi-VN')} đ` : '—'}
+                            {res.status === 'Finished' && res.prizeAmount > 0 
+                              ? `${res.prizeAmount.toLocaleString('vi-VN')} đ` 
+                              : '—'}
                           </td>
                         </tr>
                       ))}

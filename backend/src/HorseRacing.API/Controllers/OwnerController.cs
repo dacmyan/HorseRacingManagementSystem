@@ -283,14 +283,15 @@ public class OwnerController : ControllerBase
                 return Ok(new { message = "Results retrieved successfully", result = new List<object>() });
             }
 
-            // Fetch race entries for these horses in finished races
+            // Fetch race entries for these horses
             var results = await context.RaceEntries
                 .Include(re => re.Race)
                     .ThenInclude(r => r.Round)
                         .ThenInclude(r0 => r0.Tournament)
                 .Include(re => re.Registration)
                     .ThenInclude(reg => reg.Horse)
-                .Where(re => horseIds.Contains(re.Registration.HorseId) && re.Race.Status == "Finished")
+                .Where(re => horseIds.Contains(re.Registration.HorseId))
+                .OrderByDescending(re => re.Race != null ? re.Race.RaceDate : DateTime.MinValue)
                 .ToListAsync();
 
             // Fetch the winners for these races
@@ -302,14 +303,19 @@ public class OwnerController : ControllerBase
             var ownerResults = results.Select(re => {
                 var horseName = re.Registration?.Horse?.Name ?? "";
                 var horseIdStr = re.Registration?.HorseId.ToString() ?? "";
+                var raceStatus = re.Race?.Status ?? "Scheduled";
                 
                 // Determine finish position
-                int finishPosition = 2;
-                if (winners.TryGetValue(re.RaceId, out var winner))
+                int finishPosition = 0;
+                if (raceStatus.Equals("Finished", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (winner.Equals(horseName, StringComparison.OrdinalIgnoreCase) || winner == horseIdStr)
+                    finishPosition = 2; // Default for finished
+                    if (winners.TryGetValue(re.RaceId, out var winner))
                     {
-                        finishPosition = 1;
+                        if (winner.Equals(horseName, StringComparison.OrdinalIgnoreCase) || winner == horseIdStr)
+                        {
+                            finishPosition = 1;
+                        }
                     }
                 }
 
@@ -319,9 +325,16 @@ public class OwnerController : ControllerBase
                     TournamentName = re.Race?.Round?.Tournament?.Name ?? "",
                     HorseName = horseName,
                     FinishPosition = finishPosition,
-                    FinishTime = re.Race?.RaceDate.AddMinutes(5).ToString("HH:mm:ss") ?? "",
-                    Point = finishPosition == 1 ? 10 : 5,
-                    PrizeAmount = finishPosition == 1 ? 1000000 : 0
+                    FinishTime = raceStatus.Equals("Finished", StringComparison.OrdinalIgnoreCase)
+                        ? (re.Race?.RaceDate.AddMinutes(5).ToString("HH:mm:ss") ?? "")
+                        : "—",
+                    Point = raceStatus.Equals("Finished", StringComparison.OrdinalIgnoreCase)
+                        ? (finishPosition == 1 ? 10 : 5)
+                        : 0,
+                    PrizeAmount = raceStatus.Equals("Finished", StringComparison.OrdinalIgnoreCase)
+                        ? (finishPosition == 1 ? 1000000 : 0)
+                        : 0,
+                    Status = raceStatus
                 };
             }).ToList();
 

@@ -37,8 +37,8 @@ export function RefereeDashboardPage() {
   useEffect(() => {
     getRefereeDashboard()
       .then(res => {
-        if (res.data && res.data.result) {
-          setData(res.data.result);
+        if (res && res.result) {
+          setData(res.result);
         }
         setLoading(false);
       })

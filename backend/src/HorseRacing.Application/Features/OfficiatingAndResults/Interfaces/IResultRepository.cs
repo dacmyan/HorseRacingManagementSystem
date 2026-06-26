@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using HorseRacing.Domain.Entities;
 using HorseRacing.Domain.Entities.Tournaments;
@@ -13,4 +14,6 @@ public interface IResultRepository
     Task<RaceEntry?> GetRaceEntryByHorseIdAsync(long raceId, long horseId);
     Task AddResultAsync(RaceResult result);
     Task SaveChangesAsync();
+    Task<IEnumerable<RaceEntry>> GetRaceEntriesAsync(long raceId);
+    Task UpdateHorseStatsAsync(int horseId);
 }

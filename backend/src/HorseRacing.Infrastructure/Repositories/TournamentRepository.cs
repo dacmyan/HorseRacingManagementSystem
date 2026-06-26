@@ -174,12 +174,29 @@ public class TournamentRepository : ITournamentRepository
             .Where(re => raceIds.Contains(re.RaceId))
             .ToListAsync();
 
-        var selectedHorseIds = new List<long>(winnersList);
+        var selectedHorseIds = new List<long>();
 
+        // Winners first (if not disqualified/scratched)
+        foreach (var winHorseId in winnersList)
+        {
+            var entry = allPrefinalEntries.FirstOrDefault(e => e.Registration?.HorseId == winHorseId);
+            if (entry != null && (entry.Status == "Disqualified" || entry.Status == "Scratched"))
+            {
+                continue;
+            }
+            selectedHorseIds.Add(winHorseId);
+        }
+
+        // Fill remaining spots up to 12
         foreach (var entry in allPrefinalEntries)
         {
             if (entry.Registration == null) continue;
             if (selectedHorseIds.Count >= 12) break;
+
+            if (entry.Status == "Disqualified" || entry.Status == "Scratched" || entry.Status != "Confirmed")
+            {
+                continue;
+            }
 
             if (!selectedHorseIds.Contains(entry.Registration.HorseId))
             {
@@ -192,5 +209,37 @@ public class TournamentRepository : ITournamentRepository
             .Where(r => r.TournamentId == tournamentId && selectedHorseIds.Contains(r.HorseId))
             .ToListAsync();
     }
-}
 
+    public async Task AddRoundAsync(Round round)
+    {
+        await _context.Rounds.AddAsync(round);
+    }
+
+    public async Task AddRaceAsync(Race race)
+    {
+        await _context.Races.AddAsync(race);
+    }
+
+    public async Task RemoveRaceEntriesAsync(IEnumerable<HorseRacing.Domain.Entities.RaceEntry> entries)
+    {
+        _context.RaceEntries.RemoveRange(entries);
+        await Task.CompletedTask;
+    }
+
+    public async Task<List<HorseRacing.Domain.Entities.RaceEntry>> GetFinalistsFromPreRoundAsync(long tournamentId, long preRoundId)
+    {
+        return await _context.RaceEntries
+            .Include(re => re.Registration)
+                .ThenInclude(reg => reg!.Horse)
+            .Include(re => re.Race)
+            .Where(re => re.Race.RoundId == preRoundId)
+            .Where(re => re.FinishTime.HasValue && re.FinishTime.Value > 0)
+            .Where(re => re.Race.Status == "Completed" || re.Race.Status == "Finished")
+            .ToListAsync();
+    }
+
+    public async Task<bool> HasRaceResultsAsync(IEnumerable<long> raceIds)
+    {
+        return await _context.RaceResults.AnyAsync(rr => raceIds.Contains(rr.RaceId));
+    }
+}

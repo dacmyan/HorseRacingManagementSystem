@@ -70,4 +70,46 @@ public class ResultRepository : IResultRepository
     {
         await _context.SaveChangesAsync();
     }
+
+    public async Task<System.Collections.Generic.IEnumerable<RaceEntry>> GetRaceEntriesAsync(long raceId)
+    {
+        return await _context.RaceEntries
+            .Include(re => re.Registration)
+                .ThenInclude(reg => reg!.Horse)
+            .Include(re => re.JockeyProfile)
+                .ThenInclude(jp => jp!.User)
+            .Where(re => re.RaceId == raceId)
+            .ToListAsync();
+    }
+
+    public async Task UpdateHorseStatsAsync(int horseId)
+    {
+        var horseObj = await _context.Horses.FindAsync(horseId);
+        if (horseObj == null) return;
+
+        // Fetch all finished entries for this horse in the DB
+        var horseEntries = await _context.RaceEntries
+            .Include(re => re.Race)
+            .Where(re => re.Registration != null && re.Registration.HorseId == horseId)
+            .Where(re => re.FinishTime.HasValue && re.FinishTime.Value > 0)
+            .Where(re => re.Race!.Status == "Finished" || re.Race.Status == "Completed")
+            .ToListAsync();
+
+        if (horseEntries.Count > 0)
+        {
+            var avgTime = horseEntries.Average(re => re.FinishTime!.Value);
+            var recentAvgTime = horseEntries
+                .OrderByDescending(re => re.Race!.RaceDate)
+                .Take(3)
+                .Average(re => re.FinishTime!.Value);
+
+            var totalRaces = horseEntries.Count;
+            var totalWins = horseEntries.Count(re => re.FinishPosition == 1);
+            var winRate = (decimal)totalWins / totalRaces;
+
+            horseObj.AverageTime = Math.Round(avgTime, 2);
+            horseObj.RecentAverageTime = Math.Round(recentAvgTime, 2);
+            horseObj.WinRate = Math.Round(winRate, 2);
+        }
+    }
 }

@@ -127,4 +127,26 @@ public class BetRepository : IBetRepository
     {
         return await _context.RaceResults.ToListAsync();
     }
+
+    public async Task<RaceEntry?> GetRaceEntryByIdAsync(long raceEntryId)
+    {
+        return await _context.RaceEntries
+            .Include(re => re.Race)
+                .ThenInclude(r => r!.Round)
+                    .ThenInclude(round => round!.Tournament)
+            .Include(re => re.Registration)
+                .ThenInclude(reg => reg!.Horse)
+            .FirstOrDefaultAsync(re => re.RaceEntryId == raceEntryId);
+    }
+
+    public async Task<IEnumerable<RaceEntry>> GetRaceEntriesWithHorseAsync(long raceId)
+    {
+        return await _context.RaceEntries
+            .Include(re => re.Registration)
+                .ThenInclude(reg => reg!.Horse)
+            .Include(re => re.JockeyProfile)
+                .ThenInclude(jp => jp!.User)
+            .Where(re => re.RaceId == raceId)
+            .ToListAsync();
+    }
 }

@@ -25,4 +25,8 @@ public class Horse
     public ICollection<HorseDocument> Documents { get; set; } = new List<HorseDocument>();
 
     public HorseStatistic? Statistic { get; set; }
+
+    public decimal? AverageTime { get; set; }
+    public decimal? RecentAverageTime { get; set; }
+    public decimal? WinRate { get; set; }
 }

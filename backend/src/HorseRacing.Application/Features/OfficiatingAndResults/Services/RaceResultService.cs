@@ -7,6 +7,7 @@ using HorseRacing.Domain.Entities;
 using HorseRacing.Domain.Entities.Tournaments;
 using HorseRacing.Application.Features.FinancialRewards.Interfaces;
 using HorseRacing.Application.Features.BettingEngine.Interfaces;
+using System.Linq;
 
 namespace HorseRacing.Application.Features.OfficiatingAndResults.Services;
 
@@ -76,6 +77,31 @@ public class RaceResultService : IRaceResultService
             throw new InvalidOperationException($"A result has already been submitted for race with ID {request.RaceId}.");
         }
 
+        // Generate times and positions for all entries in that race if they exist
+        var entries = (await _repository.GetRaceEntriesAsync(request.RaceId))?.ToList() ?? new List<RaceEntry>();
+        if (entries.Any())
+        {
+            var winnerEntry = entries.FirstOrDefault(re => re.Registration?.HorseId == horse.HorseId);
+            if (winnerEntry == null)
+            {
+                throw new ArgumentException($"Horse '{horse.Name}' is not entered in race with ID {request.RaceId}.");
+            }
+
+            var random = new Random();
+            decimal winnerTime = Math.Round(55m + (decimal)random.NextDouble() * 10m, 2);
+
+            winnerEntry.FinishPosition = 1;
+            winnerEntry.FinishTime = winnerTime;
+
+            int position = 2;
+            foreach (var entryItem in entries.Where(re => re.RaceEntryId != winnerEntry.RaceEntryId))
+            {
+                entryItem.FinishPosition = position++;
+                entryItem.FinishTime = Math.Round(winnerTime + (decimal)(random.NextDouble() * 3.0 + 0.5), 2);
+            }
+            await _repository.SaveChangesAsync();
+        }
+
         // 6. Save result (using only actual properties from DB/entity)
         var result = new RaceResult
         {
@@ -97,7 +123,9 @@ public class RaceResultService : IRaceResultService
             HorseName = horse.Name,
             JockeyId = entry.JockeyId,
             JockeyName = entry.JockeyProfile?.User?.FullName ?? string.Empty,
-            Status = race.Status
+            Status = race.Status,
+            ResultRecordedAt = result.ResultRecordedAt,
+            CreatedAt = result.CreatedAt
         };
     }
 
@@ -120,6 +148,20 @@ public class RaceResultService : IRaceResultService
         // 3. Update race status to "Finished"
         bool wasFinished = race.Status.Equals("Finished", StringComparison.OrdinalIgnoreCase);
         race.Status = "Finished";
+
+        if (!wasFinished)
+        {
+            // Fetch all entries to update horse stats
+            var entries = (await _repository.GetRaceEntriesAsync(raceId))?.ToList() ?? new List<RaceEntry>();
+
+            foreach (var entryItem in entries)
+            {
+                var horseId = entryItem.Registration?.HorseId;
+                if (horseId == null) continue;
+
+                await _repository.UpdateHorseStatsAsync((int)horseId);
+            }
+        }
         await _repository.SaveChangesAsync();
 
         if (!wasFinished)
@@ -162,7 +204,9 @@ public class RaceResultService : IRaceResultService
             HorseName = horse?.Name,
             JockeyId = entry?.JockeyId,
             JockeyName = entry?.JockeyProfile?.User?.FullName ?? string.Empty,
-            Status = race.Status
+            Status = race.Status,
+            ResultRecordedAt = result.ResultRecordedAt,
+            CreatedAt = result.CreatedAt
         };
     }
 
@@ -200,7 +244,9 @@ public class RaceResultService : IRaceResultService
                 HorseName = horse?.Name,
                 JockeyId = entry?.JockeyId,
                 JockeyName = entry?.JockeyProfile?.User?.FullName ?? string.Empty,
-                Status = race.Status
+                Status = race.Status,
+                ResultRecordedAt = result.ResultRecordedAt,
+                CreatedAt = result.CreatedAt
             }
         };
     }
@@ -245,7 +291,9 @@ public class RaceResultService : IRaceResultService
                 HorseName = horse?.Name,
                 JockeyId = entry?.JockeyId,
                 JockeyName = entry?.JockeyProfile?.User?.FullName ?? string.Empty,
-                Status = race.Status
+                Status = race.Status,
+                ResultRecordedAt = result.ResultRecordedAt,
+                CreatedAt = result.CreatedAt
             }
         };
     }

@@ -23,8 +23,8 @@ export function JockeyStatsPage() {
   useEffect(() => {
     getJockeyStats()
       .then(res => {
-        if (res.data && res.data.result) {
-          setStats(res.data.result);
+        if (res && res.result) {
+          setStats(res.result);
         }
         setLoading(false);
       })

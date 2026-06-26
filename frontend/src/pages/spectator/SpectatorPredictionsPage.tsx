@@ -96,7 +96,9 @@ export function SpectatorPredictionsPage() {
     setSubmitLoading(true);
     try {
       if (addMode === 'bet') {
-        await placeBet({ raceId: Number(form.raceId), horseId: Number(form.horseId), amount: Number(form.amount) });
+        const selectedHorse = horses.find(h => String(h.horseId) === form.horseId);
+        if (!selectedHorse || !selectedHorse.raceEntryId) throw new Error("Không tìm thấy thông tin lượt đua.");
+        await placeBet({ raceEntryId: selectedHorse.raceEntryId, amount: Number(form.amount) });
         setSubmitSuccess('Đặt cược thành công!');
       } else {
         const selectedHorse = horses.find(h => String(h.horseId) === form.horseId);

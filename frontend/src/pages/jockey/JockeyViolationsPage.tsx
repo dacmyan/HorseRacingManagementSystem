@@ -24,8 +24,8 @@ export function JockeyViolationsPage() {
   useEffect(() => {
     getJockeyViolations()
       .then(res => {
-        if (res.data && res.data.result) {
-          setViolations(res.data.result);
+        if (res && res.result) {
+          setViolations(res.result);
         } else {
           setViolations([]);
         }

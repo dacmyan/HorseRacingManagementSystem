@@ -4,6 +4,7 @@ using HorseRacing.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HorseRacing.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260626121942_AddResultRecordedAtToRaceResult")]
+    partial class AddResultRecordedAtToRaceResult
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -83,9 +86,6 @@ namespace HorseRacing.Infrastructure.Migrations
                     b.Property<decimal>("Odds")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<long?>("RaceEntryId")
-                        .HasColumnType("bigint");
-
                     b.Property<long>("RaceId")
                         .HasColumnType("bigint");
 
@@ -99,8 +99,6 @@ namespace HorseRacing.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("HorseId");
-
-                    b.HasIndex("RaceEntryId");
 
                     b.HasIndex("RaceId");
 
@@ -152,10 +150,6 @@ namespace HorseRacing.Infrastructure.Migrations
                     b.Property<int>("Age")
                         .HasColumnType("int");
 
-                    b.Property<decimal?>("AverageTime")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)");
-
                     b.Property<string>("Breed")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -174,14 +168,6 @@ namespace HorseRacing.Infrastructure.Migrations
 
                     b.Property<int>("OwnerId")
                         .HasColumnType("int");
-
-                    b.Property<decimal?>("RecentAverageTime")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)");
-
-                    b.Property<decimal?>("WinRate")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
 
                     b.HasKey("HorseId");
 
@@ -430,13 +416,6 @@ namespace HorseRacing.Infrastructure.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("RaceEntryId"));
 
                     b.Property<decimal?>("CurrentOdds")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)");
-
-                    b.Property<int?>("FinishPosition")
-                        .HasColumnType("int");
-
-                    b.Property<decimal?>("FinishTime")
                         .HasPrecision(10, 2)
                         .HasColumnType("decimal(10,2)");
 
@@ -933,11 +912,6 @@ namespace HorseRacing.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("HorseRacing.Domain.Entities.RaceEntry", "RaceEntry")
-                        .WithMany()
-                        .HasForeignKey("RaceEntryId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("HorseRacing.Domain.Entities.Tournaments.Race", "Race")
                         .WithMany()
                         .HasForeignKey("RaceId")
@@ -953,8 +927,6 @@ namespace HorseRacing.Infrastructure.Migrations
                     b.Navigation("Horse");
 
                     b.Navigation("Race");
-
-                    b.Navigation("RaceEntry");
 
                     b.Navigation("User");
                 });

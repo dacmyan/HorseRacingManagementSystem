@@ -22,6 +22,8 @@ public interface IBetRepository
     Task<Horse?> GetHorseByIdOrNameAsync(string identifier);
     Task<Tournament?> GetTournamentByIdAsync(long tournamentId);
     Task<Race?> GetFinalRaceInTournamentAsync(long tournamentId);
+    Task<RaceEntry?> GetRaceEntryByIdAsync(long raceEntryId);
+    Task<IEnumerable<RaceEntry>> GetRaceEntriesWithHorseAsync(long raceId);
 
 
 

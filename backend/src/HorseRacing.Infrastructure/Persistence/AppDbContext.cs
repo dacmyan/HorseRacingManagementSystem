@@ -107,6 +107,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(re => re.CurrentOdds)
                 .HasPrecision(10, 2);
 
+            entity.Property(re => re.FinishTime)
+                .HasPrecision(10, 2);
+
             entity.HasOne(re => re.Registration)
                 .WithMany()
                 .HasForeignKey(re => re.RegistrationId)
@@ -186,6 +189,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.HasOne(b => b.Horse)
                 .WithMany()
                 .HasForeignKey(b => b.HorseId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(b => b.RaceEntry)
+                .WithMany()
+                .HasForeignKey(b => b.RaceEntryId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -360,6 +367,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(h => h.HorseId)
                 .HasColumnName("Id")
                 .HasConversion<int>();
+            entity.Property(h => h.AverageTime)
+                .HasPrecision(10, 2);
+            entity.Property(h => h.RecentAverageTime)
+                .HasPrecision(10, 2);
+            entity.Property(h => h.WinRate)
+                .HasPrecision(5, 2);
         });
         modelBuilder.Entity<Race>().ToTable("Race");
         modelBuilder.Entity<RaceResult>().ToTable("RaceResult");

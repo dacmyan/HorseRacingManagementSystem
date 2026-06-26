@@ -39,8 +39,8 @@ export function RefereeHorseCheckPage() {
   useEffect(() => {
     getRefereeDashboard()
       .then(res => {
-        if (res.data && res.data.result && res.data.result.assignedRaces) {
-          const assigned = res.data.result.assignedRaces;
+        if (res && res.result && res.result.assignedRaces) {
+          const assigned = res.result.assignedRaces;
           setRaces(assigned);
           if (assigned.length > 0) {
             setSelectedRaceId(assigned[0].raceId);
@@ -64,8 +64,8 @@ export function RefereeHorseCheckPage() {
     setLoadingChecks(true);
     getHorseChecks(selectedRaceId)
       .then(res => {
-        if (res.data && res.data.result) {
-          setHorseChecks(res.data.result);
+        if (res && res.result) {
+          setHorseChecks(res.result);
         } else {
           setHorseChecks([]);
         }

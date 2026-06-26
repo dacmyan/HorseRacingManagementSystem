@@ -134,6 +134,25 @@ public class SpectatorController : ControllerBase
         }
     }
 
+    [HttpGet("races/{raceId}/betting-info")]
+    public async Task<IActionResult> GetRaceBettingInfo([FromRoute] long raceId)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var response = await _bettingService.GetRaceBettingInfoAsync(userId, raceId);
+            return Ok(new { message = "Race betting info retrieved successfully", result = response });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving race betting info", detail = ex.Message });
+        }
+    }
+
     [HttpGet("bets/my-bets")]
     public async Task<IActionResult> GetMyBets()
     {

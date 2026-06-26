@@ -31,8 +31,8 @@ export function AdminViolationsPage() {
     try {
       setLoading(true);
       const res = await getViolations();
-      const raw = Array.isArray(res.data) ? res.data
-        : Array.isArray(res.data?.result) ? res.data.result
+      const raw = Array.isArray(res) ? res
+        : Array.isArray(res?.result) ? res.result
         : [];
       setViolations(raw);
       setError('');

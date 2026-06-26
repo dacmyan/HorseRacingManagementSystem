@@ -132,6 +132,42 @@ public class AdminController : ControllerBase
         }
     }
 
+    [HttpPost("tournaments/{tournamentId}/generate-final")]
+    public async Task<IActionResult> GenerateFinal(long tournamentId)
+    {
+        try
+        {
+            var race = await _tournamentService.GenerateFinalRaceAsync(tournamentId);
+            return Ok(new { message = "Final race generated successfully", result = race });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred generating final race", detail = ex.Message });
+        }
+    }
+
+    [HttpPost("races/{raceId}/recalculate-odds")]
+    public async Task<IActionResult> RecalculateOdds(long raceId, [FromServices] HorseRacing.Application.Features.BettingEngine.Interfaces.IBettingService bettingService)
+    {
+        try
+        {
+            await bettingService.RecalculateRaceOddsAsync(raceId);
+            return Ok(new { message = "Odds recalculated successfully" });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred recalculating odds", detail = ex.Message });
+        }
+    }
+
     [HttpPost("payouts/prizes")]
     public async Task<IActionResult> DistributeTournamentPrizes([FromBody] PrizePayoutRequest request)
     {

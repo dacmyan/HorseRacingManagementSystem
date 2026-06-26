@@ -124,7 +124,7 @@ public class TournamentServiceTests
     }
 
     [Fact]
-    public async Task GenerateRacesForTournamentAsync_ShouldFillFinalRaceDirectly_WhenApprovedRegistrationsAreAtMost12()
+    public async Task GenerateRacesForTournamentAsync_ShouldCreatePrefinalRaces_WhenApprovedRegistrationsAreAtMost12()
     {
         // Arrange
         var tournament = BuildTournament();
@@ -163,12 +163,15 @@ public class TournamentServiceTests
         var response = await _service.GenerateRacesForTournamentAsync(tournament.TournamentId);
 
         // Assert
-        response.Should().ContainSingle()
-            .Which.RaceId.Should().Be(existingFinalRace.RaceId);
-        createdRaces.Should().BeEmpty();
+        response.Should().HaveCount(1);
+        createdRaces.Should().HaveCount(1);
+        createdRaces.Should().OnlyContain(r =>
+            r.RoundId == 101 &&
+            r.Name!.Contains("Pre") &&
+            r.MaxLanes == 12 &&
+            r.Status == "Scheduled");
         createdEntries.Should().HaveCount(12);
-        createdEntries.Should().OnlyContain(e => e.RaceId == existingFinalRace.RaceId && e.Status == "Confirmed");
-        createdEntries.Select(e => e.LaneNo).Should().Equal(Enumerable.Range(1, 12));
+        createdEntries.Should().OnlyContain(e => e.Status == "Confirmed");
     }
 
     [Fact]

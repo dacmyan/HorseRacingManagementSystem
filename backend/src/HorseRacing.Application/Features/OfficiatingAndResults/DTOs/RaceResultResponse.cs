@@ -12,4 +12,7 @@ public class RaceResultResponse
     public int? JockeyId { get; set; }
     public string? JockeyName { get; set; }
     public string Status { get; set; } = string.Empty; // Race.Status
+    public DateTime ResultRecordedAt { get; set; }
+    public DateTime CreatedAt { get; set; }
 }
+
