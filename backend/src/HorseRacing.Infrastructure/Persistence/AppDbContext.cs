@@ -79,6 +79,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             entity.ToTable("Wallet");
             entity.HasKey(w => w.WalletId);
+            entity.Property(w => w.Balance).HasPrecision(18, 2);
             entity.HasOne(w => w.User)
                 .WithOne()
                 .HasForeignKey<Wallet>(w => w.UserId)
@@ -178,6 +179,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             entity.ToTable("Bet");
             entity.HasKey(b => b.Id);
+            entity.Property(b => b.Amount).HasPrecision(18, 2);
+            entity.Property(b => b.Odds).HasPrecision(10, 2);
             entity.HasOne(b => b.User)
                 .WithMany()
                 .HasForeignKey(b => b.UserId)
@@ -200,6 +203,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             entity.ToTable("Payout");
             entity.HasKey(p => p.Id);
+            entity.Property(p => p.Amount).HasPrecision(18, 2);
             entity.HasOne(p => p.Bet)
                 .WithMany()
                 .HasForeignKey(p => p.BetId)
@@ -234,6 +238,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             entity.ToTable("Prize");
             entity.HasKey(pr => pr.Id);
+            entity.Property(pr => pr.Amount).HasPrecision(18, 2);
+            entity.Property(pr => pr.JockeyPercentage).HasPrecision(5, 2);
+            entity.Property(pr => pr.OwnerPercentage).HasPrecision(5, 2);
 
             entity.HasIndex(x => new { x.TournamentId, x.RankPosition })
                 .IsUnique();
@@ -248,6 +255,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             entity.ToTable("TournamentPrizePayout");
             entity.HasKey(tpp => tpp.Id);
+            entity.Property(tpp => tpp.Amount).HasPrecision(18, 2);
             entity.HasOne(tpp => tpp.Tournament)
                 .WithMany()
                 .HasForeignKey(tpp => tpp.TournamentId)
@@ -282,6 +290,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             entity.ToTable("HorseStatistic");
             entity.HasKey(hs => hs.Id);
+            entity.Property(hs => hs.AverageSpeed).HasPrecision(10, 2);
             entity.HasOne(hs => hs.Horse)
                 .WithOne(h => h.Statistic)
                 .HasForeignKey<HorseStatistic>(hs => hs.HorseId)
@@ -310,6 +319,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             entity.ToTable("WalletTransaction");
             entity.HasKey(wt => wt.TransactionId);
+            entity.Property(wt => wt.Amount).HasPrecision(18, 2);
 
             entity.HasOne(wt => wt.Wallet)
                 .WithMany()

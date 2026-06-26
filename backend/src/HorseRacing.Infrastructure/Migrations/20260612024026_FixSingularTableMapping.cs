@@ -135,12 +135,13 @@ namespace HorseRacing.Infrastructure.Migrations
                 name: "FK_Wallets_Users_UserId",
                 table: "Wallets");
 
-            migrationBuilder.DropTable(
-                name: "Tournaments");
+            migrationBuilder.DropPrimaryKey(
+                name: "PK_Tournaments",
+                table: "Tournaments");
 
-            migrationBuilder.DropUniqueConstraint(
-                name: "AK_Tournament_TempId",
-                table: "Tournament");
+            migrationBuilder.RenameTable(
+                name: "Tournaments",
+                newName: "Tournament");
 
             migrationBuilder.DropPrimaryKey(
                 name: "PK_Wallets",
@@ -234,9 +235,6 @@ namespace HorseRacing.Infrastructure.Migrations
                 name: "PK_Bets",
                 table: "Bets");
 
-            migrationBuilder.DropColumn(
-                name: "TempId",
-                table: "Tournament");
 
             migrationBuilder.RenameTable(
                 name: "Wallets",
@@ -485,39 +483,6 @@ namespace HorseRacing.Infrastructure.Migrations
                 table: "Bet",
                 newName: "IX_Bet_HorseId");
 
-            migrationBuilder.AddColumn<long>(
-                name: "TournamentId",
-                table: "Tournament",
-                type: "bigint",
-                nullable: false,
-                defaultValue: 0L)
-                .Annotation("SqlServer:Identity", "1, 1");
-
-            migrationBuilder.AddColumn<DateTime>(
-                name: "EndDate",
-                table: "Tournament",
-                type: "datetime2",
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "Name",
-                table: "Tournament",
-                type: "nvarchar(max)",
-                nullable: false,
-                defaultValue: "");
-
-            migrationBuilder.AddColumn<DateTime>(
-                name: "StartDate",
-                table: "Tournament",
-                type: "datetime2",
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "Status",
-                table: "Tournament",
-                type: "nvarchar(max)",
-                nullable: false,
-                defaultValue: "");
 
             migrationBuilder.AlterColumn<long>(
                 name: "TournamentId",
@@ -526,6 +491,7 @@ namespace HorseRacing.Infrastructure.Migrations
                 nullable: false,
                 oldClrType: typeof(int),
                 oldType: "int");
+
 
             migrationBuilder.AddPrimaryKey(
                 name: "PK_Tournament",
