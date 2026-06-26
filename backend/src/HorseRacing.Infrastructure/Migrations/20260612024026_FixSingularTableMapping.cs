@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -104,7 +104,7 @@ namespace HorseRacing.Infrastructure.Migrations
                 table: "Registrations");
 
             migrationBuilder.DropForeignKey(
-                name: "FK_Registrations_Tournament_TournamentId",
+                name: "FK_Registrations_Tournaments_TournamentId",
                 table: "Registrations");
 
             migrationBuilder.DropForeignKey(

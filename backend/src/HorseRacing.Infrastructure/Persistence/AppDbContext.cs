@@ -385,3 +385,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         base.OnModelCreating(modelBuilder);
     }
 }
+
+public static class ModelBuilderExtensions
+{
+    public static void SeedData(this ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Role>().HasData(
+            new Role { RoleId = 1, Name = "Admin" },
+            new Role { RoleId = 2, Name = "HorseOwner" },
+            new Role { RoleId = 3, Name = "Jockey" },
+            new Role { RoleId = 4, Name = "Referee" },
+            new Role { RoleId = 5, Name = "Spectator" }
+        );
+    }
+}

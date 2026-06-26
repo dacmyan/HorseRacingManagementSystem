@@ -5,6 +5,7 @@ using HorseRacing.Infrastructure;
 using HorseRacing.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -62,8 +63,30 @@ app.MapControllers();
 
 using (var scope = app.Services.CreateScope())
 {
-    var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
-    await seeder.SeedAsync();
+    var services = scope.ServiceProvider;
+    var logger = services.GetRequiredService<ILogger<Program>>();
+    try
+    {
+        logger.LogInformation("Checking database migrations...");
+        var db = services.GetRequiredService<AppDbContext>();
+        await db.Database.MigrateAsync();
+        logger.LogInformation("Database migration check completed.");
+
+        var dataSeeder = services.GetRequiredService<DataSeeder>();
+        await dataSeeder.SeedAsync();
+
+        if (app.Environment.IsDevelopment())
+        {
+            logger.LogInformation("Running in Development mode. Seeding demo data...");
+            var demoSeeder = services.GetRequiredService<DemoDataSeeder>();
+            await demoSeeder.SeedAsync();
+        }
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "An error occurred during database migration or seeding.");
+        throw;
+    }
 }
 
 app.Run();

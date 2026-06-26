@@ -44,7 +44,8 @@ public static class DependencyInjection
         services.AddScoped<IResultRepository, ResultRepository>();
         services.AddScoped<IPredictionRepository, PredictionRepository>();
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
-        services.AddScoped<DatabaseSeeder>();
+        services.AddScoped<DataSeeder>();
+        services.AddScoped<DemoDataSeeder>();
 
         return services;
     }

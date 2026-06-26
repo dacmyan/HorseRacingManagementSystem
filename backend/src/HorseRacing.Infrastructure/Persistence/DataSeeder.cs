@@ -1,19 +1,85 @@
-using HorseRacing.Domain.Entities;
+using System;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Logging;
+using HorseRacing.Domain.Entities;
 
 namespace HorseRacing.Infrastructure.Persistence;
 
-public static class DataSeeder
+public class DataSeeder
 {
-    public static void SeedData(this ModelBuilder modelBuilder)
+    private readonly AppDbContext _context;
+    private readonly ILogger<DataSeeder> _logger;
+
+    public DataSeeder(AppDbContext context, ILogger<DataSeeder> logger)
     {
-        // 1. Seed Roles
-        modelBuilder.Entity<Role>().HasData(
-            new Role { RoleId = 1, Name = "Admin" },
-            new Role { RoleId = 2, Name = "HorseOwner" },
-            new Role { RoleId = 3, Name = "Jockey" },
-            new Role { RoleId = 4, Name = "Referee" },
-            new Role { RoleId = 5, Name = "Spectator" }
-        );
+        _context = context;
+        _logger = logger;
+    }
+
+    public async Task SeedAsync()
+    {
+        _logger.LogInformation("Starting mandatory data seeding...");
+
+        try
+        {
+            // 1. Seed Roles
+            var roles = new[]
+            {
+                new Role { RoleId = 1, Name = "Admin" },
+                new Role { RoleId = 2, Name = "HorseOwner" },
+                new Role { RoleId = 3, Name = "Jockey" },
+                new Role { RoleId = 4, Name = "Referee" },
+                new Role { RoleId = 5, Name = "Spectator" }
+            };
+
+            bool roleAdded = false;
+            foreach (var role in roles)
+            {
+                if (!await _context.Roles.AnyAsync(r => r.RoleId == role.RoleId))
+                {
+                    _context.Roles.Add(role);
+                    roleAdded = true;
+                }
+            }
+
+            if (roleAdded)
+            {
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("System roles seeded successfully.");
+            }
+
+            // 2. Seed Default Admin User
+            var hasher = new PasswordHasher<AppUser>();
+            var defaultAdminEmail = "admin@gmail.com";
+            var defaultAdminUsername = "admin";
+
+            if (!await _context.Users.AnyAsync(u => u.Email == defaultAdminEmail || u.Username == defaultAdminUsername))
+            {
+                var adminUser = new AppUser
+                {
+                    Username = defaultAdminUsername,
+                    Email = defaultAdminEmail,
+                    FullName = "System Administrator",
+                    RoleId = 1, // Admin Role
+                    Status = "Active",
+                    CreatedAt = DateTime.UtcNow
+                };
+                adminUser.PasswordHash = hasher.HashPassword(adminUser, "123456");
+
+                _context.Users.Add(adminUser);
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("Default Admin user ('admin@gmail.com' / '123456') seeded successfully.");
+            }
+
+            _logger.LogInformation("Mandatory data seeding completed successfully.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while seeding mandatory data.");
+            throw;
+        }
     }
 }

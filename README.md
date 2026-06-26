@@ -24,3 +24,10 @@ HorseRacingManagementSystem/
 
 └── .gitignore
 
+## Guides & Documentation
+
+To set up the project locally and sync the database using EF Core Migrations and Seeders, refer to the following documentation:
+
+- **[Local Setup Guide](file:///d:/FPTUni/FU_SU2026/SWP391/HorseRacingManagementSystem/docs/run-local-guide.md)**: Steps to run the backend API and React frontend locally.
+- **[Database Synchronization Guide](file:///d:/FPTUni/FU_SU2026/SWP391/HorseRacingManagementSystem/docs/database-sync-guide.md)**: Instructions in Vietnamese on managing migrations, seeding data, and database reset commands.
+

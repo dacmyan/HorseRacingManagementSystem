@@ -62,3 +62,12 @@ TestResults/
 # =========================
 *.nupkg
 packages/
+
+# =========================
+# Database files & Local Configs
+# =========================
+*.mdf
+*.ldf
+*.bak
+*.db
+**/appsettings.Development.json
