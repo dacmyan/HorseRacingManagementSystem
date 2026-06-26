@@ -1,10 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap');
 
 @import "tailwindcss";
 
 @theme {
-  --font-serif: "Playfair Display", serif;
-  --font-sans: "DM Sans", sans-serif;
+  --font-serif: "Orbitron", sans-serif;
+  --font-sans: "Rajdhani", sans-serif;
   
   --color-navy: #0B1628;
   --color-navy-light: #0B1628;
@@ -26,7 +26,7 @@
 body {
   background-color: var(--color-navy);
   color: var(--color-body);
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--font-sans);
   overflow-x: hidden;
   background-image: 
     radial-gradient(circle at top right, rgba(201,168,76,0.12), transparent 35%),
@@ -34,7 +34,7 @@ body {
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'Playfair Display', serif;
+  font-family: var(--font-serif);
 }
 
 @layer utilities {
@@ -147,3 +147,312 @@ h1, h2, h3, h4, h5, h6 {
   0%, 100% { opacity: 0.15; transform: scale(0.8); }
   50% { opacity: 0.6; transform: scale(1.15); }
 }
+
+/* Light Theme variables and overrides */
+.light, [data-theme="light"] {
+  --color-navy: #F8FAFC;
+  --color-navy-light: #F1F5F9;
+  --color-surface: #FFFFFF;
+  --color-surface-elevated: #F1F5F9;
+  
+  --color-gold: #B58A30;
+  --color-champagne: #8A6D25;
+  --color-gold-glow: rgba(181, 138, 48, 0.15);
+  
+  --color-primary-text: #0F172A;
+  --color-body: #334155;
+  --color-muted: #64748B;
+  
+  --color-glass-border: rgba(15, 23, 42, 0.08);
+  --color-gold-border: rgba(181, 138, 48, 0.15);
+}
+
+/* Light Theme element overrides */
+[data-theme="light"] body {
+  background-color: var(--color-navy);
+  color: var(--color-body);
+  background-image: 
+    radial-gradient(circle at top right, rgba(181,138,48,0.06), transparent 35%),
+    radial-gradient(circle at bottom left, rgba(181,138,48,0.04), transparent 40%);
+}
+
+/* Override all pages wrapping min-h-screen with hardcoded background */
+[data-theme="light"] .min-h-screen {
+  background-color: var(--color-navy) !important;
+  color: var(--color-body) !important;
+}
+
+/* Sidebar and Topbar overrides */
+[data-theme="light"] aside {
+  background-color: #FFFFFF !important;
+  border-right-color: var(--color-glass-border) !important;
+}
+[data-theme="light"] header {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  border-bottom-color: var(--color-glass-border) !important;
+}
+
+/* Card panel overrides */
+[data-theme="light"] .glass-panel {
+  background: rgba(255, 255, 255, 0.8) !important;
+  border-color: rgba(181, 138, 48, 0.2) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
+}
+[data-theme="light"] .glass-panel-elevated {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-color: rgba(181, 138, 48, 0.25) !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08) !important;
+}
+[data-theme="light"] .feature-card {
+  background: rgba(255, 255, 255, 0.85) !important;
+  border-color: rgba(181, 138, 48, 0.2) !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Text overrides */
+[data-theme="light"] .text-white {
+  color: #0F172A !important;
+}
+[data-theme="light"] .text-champagne {
+  color: #B58A30 !important;
+}
+[data-theme="light"] .text-muted {
+  color: #64748B !important;
+}
+[data-theme="light"] .text-muted\/50 {
+  color: rgba(100, 116, 139, 0.5) !important;
+}
+[data-theme="light"] .text-muted\/60 {
+  color: rgba(100, 116, 139, 0.6) !important;
+}
+[data-theme="light"] .text-muted\/70 {
+  color: rgba(100, 116, 139, 0.7) !important;
+}
+
+/* Hover styles for light sidebar buttons */
+[data-theme="light"] aside button:hover {
+  background-color: rgba(181, 138, 48, 0.08) !important;
+  color: #B58A30 !important;
+}
+[data-theme="light"] aside button.text-champagne {
+  background-color: rgba(181, 138, 48, 0.1) !important;
+  color: #B58A30 !important;
+  border-color: rgba(181, 138, 48, 0.2) !important;
+}
+
+/* Input, select, and textarea overrides */
+[data-theme="light"] input,
+[data-theme="light"] select,
+[data-theme="light"] textarea {
+  background-color: #FFFFFF !important;
+  color: #0F172A !important;
+  border-color: rgba(15, 23, 42, 0.15) !important;
+}
+[data-theme="light"] input::placeholder {
+  color: #94A3B8 !important;
+}
+[data-theme="light"] select option {
+  background-color: #FFFFFF !important;
+  color: #0F172A !important;
+}
+
+/* Tables overrides */
+[data-theme="light"] table {
+  color: #334155 !important;
+}
+[data-theme="light"] th {
+  background-color: #F1F5F9 !important;
+  color: #1E293B !important;
+  border-bottom-color: rgba(15, 23, 42, 0.08) !important;
+}
+[data-theme="light"] td {
+  border-bottom-color: rgba(15, 23, 42, 0.05) !important;
+}
+[data-theme="light"] tr:hover td {
+  background-color: #F8FAFC !important;
+}
+
+/* Other custom dark classes override */
+[data-theme="light"] .bg-\[\#0B1628\] {
+  background-color: #F1F5F9 !important;
+}
+[data-theme="light"] .bg-\[\#0A1220\] {
+  background-color: #FFFFFF !important;
+}
+[data-theme="light"] .bg-\[\#0B1628\]\/90 {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+}
+[data-theme="light"] .bg-\[\#060E1C\] {
+  background-color: #F8FAFC !important;
+}
+[data-theme="light"] .bg-\[\#0b101e\] {
+  background-color: #F1F5F9 !important;
+}
+[data-theme="light"] .border-glass-border {
+  border-color: rgba(15, 23, 42, 0.08) !important;
+}
+[data-theme="light"] .border-white\/\[0\.08\] {
+  border-color: rgba(15, 23, 42, 0.08) !important;
+}
+[data-theme="light"] .border-gold\/20 {
+  border-color: rgba(181, 138, 48, 0.25) !important;
+}
+[data-theme="light"] .border-gold\/25 {
+  border-color: rgba(181, 138, 48, 0.3) !important;
+}
+
+/* Badge overrides in light mode */
+[data-theme="light"] .border-\[\#1A5C36\] {
+  background-color: #E6F4EA !important;
+  color: #137333 !important;
+  border-color: #A3E2AB !important;
+}
+[data-theme="light"] .border-\[\#6B5A1A\] {
+  background-color: #FEF7E0 !important;
+  color: #B06000 !important;
+  border-color: #FAD283 !important;
+}
+[data-theme="light"] .border-\[\#5C1A1A\] {
+  background-color: #FCE8E6 !important;
+  color: #C5221F !important;
+  border-color: #F8B4B4 !important;
+}
+[data-theme="light"] .border-\[\#1A3A6B\] {
+  background-color: #E8F0FE !important;
+  color: #1A73E8 !important;
+  border-color: #ADCCF9 !important;
+}
+[data-theme="light"] .border-\[\#2A2A2A\] {
+  background-color: #F1F5F9 !important;
+  color: #475569 !important;
+  border-color: #CBD5E1 !important;
+}
+
+/* PageHero specific overrides in Light Mode to keep text readable on dark banners */
+[data-theme="light"] .page-hero-container h1,
+[data-theme="light"] .page-hero-container h2,
+[data-theme="light"] .page-hero-container h3,
+[data-theme="light"] .page-hero-container .text-white {
+  color: #FFFFFF !important;
+}
+[data-theme="light"] .page-hero-container .text-muted {
+  color: #E2EAF4 !important;
+}
+[data-theme="light"] .page-hero-container .text-muted\/50 {
+  color: rgba(226, 234, 244, 0.5) !important;
+}
+[data-theme="light"] .page-hero-container .text-muted\/60 {
+  color: rgba(226, 234, 244, 0.6) !important;
+}
+[data-theme="light"] .page-hero-container .text-muted\/70 {
+  color: rgba(226, 234, 244, 0.7) !important;
+}
+[data-theme="light"] .page-hero-container .text-champagne {
+  color: #F0D080 !important;
+}
+[data-theme="light"] .page-hero-container .text-gold {
+  color: #C9A84C !important;
+}
+[data-theme="light"] .page-hero-container .text-body {
+  color: #E2EAF4 !important;
+}
+[data-theme="light"] .page-hero-container .bg-gold\/10 {
+  background-color: rgba(201, 168, 76, 0.15) !important;
+  color: #F0D080 !important;
+  border-color: rgba(201, 168, 76, 0.3) !important;
+}
+[data-theme="light"] .page-hero-container .hover\:text-white:hover {
+  color: #FFFFFF !important;
+}
+[data-theme="light"] .page-hero-container .hover\:text-champagne:hover {
+  color: #F0D080 !important;
+}
+
+/* Color contrast overrides for text tags in Light Mode */
+[data-theme="light"] .text-red-400 {
+  color: #DC2626 !important;
+}
+[data-theme="light"] .text-emerald-400 {
+  color: #16A34A !important;
+}
+[data-theme="light"] .text-blue-400 {
+  color: #2563EB !important;
+}
+[data-theme="light"] .text-purple-400 {
+  color: #7C3AED !important;
+}
+[data-theme="light"] .text-cyan-400 {
+  color: #0891B2 !important;
+}
+[data-theme="light"] .text-success {
+  color: #16A34A !important;
+}
+[data-theme="light"] .text-gold {
+  color: #B58A30 !important;
+}
+[data-theme="light"] .text-champagne {
+  color: #8A6D25 !important;
+}
+
+/* Hover state and transparent background overrides in Light Mode */
+[data-theme="light"] .hover\:text-white:hover,
+[data-theme="light"] .group:hover .group-hover\:text-white,
+[data-theme="light"] .focus\:text-white:focus {
+  color: #0F172A !important;
+}
+[data-theme="light"] .hover\:bg-white\/\[0\.04\]:hover {
+  background-color: rgba(15, 23, 42, 0.04) !important;
+}
+[data-theme="light"] .hover\:bg-white\/10:hover {
+  background-color: rgba(15, 23, 42, 0.08) !important;
+}
+[data-theme="light"] .hover\:bg-white\/5:hover {
+  background-color: rgba(15, 23, 42, 0.04) !important;
+}
+[data-theme="light"] .bg-white\/5 {
+  background-color: rgba(15, 23, 42, 0.03) !important;
+}
+[data-theme="light"] .bg-white\/10 {
+  background-color: rgba(15, 23, 42, 0.06) !important;
+}
+[data-theme="light"] .bg-white\/\[0\.04\] {
+  background-color: rgba(15, 23, 42, 0.02) !important;
+}
+[data-theme="light"] input.bg-transparent,
+[data-theme="light"] select.bg-transparent,
+[data-theme="light"] textarea.bg-transparent {
+  background-color: transparent !important;
+}
+
+[data-theme="light"] .bg-black\/25 {
+  background-color: rgba(15, 23, 42, 0.06) !important;
+}
+
+/* Auth pages specific overrides in Light Mode */
+[data-theme="light"] .auth-card {
+  background: rgba(255, 255, 255, 0.85) !important;
+  border-color: rgba(181, 138, 48, 0.2) !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08) !important;
+}
+[data-theme="light"] .auth-card h2 {
+  color: #B58A30 !important;
+}
+[data-theme="light"] .auth-card label {
+  color: #475569 !important;
+}
+[data-theme="light"] .auth-card p {
+  color: #64748B !important;
+}
+[data-theme="light"] .auth-card button:not(.btn-gold) {
+  color: #B58A30 !important;
+}
+[data-theme="light"] .auth-card button:not(.btn-gold):hover {
+  color: #8A6D25 !important;
+}
+[data-theme="light"] .auth-badge {
+  background: rgba(181, 138, 48, 0.08) !important;
+  color: #B58A30 !important;
+  border-color: rgba(181, 138, 48, 0.25) !important;
+}
+
+

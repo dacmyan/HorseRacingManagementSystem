@@ -19,7 +19,7 @@ export function PageHero({
   actions,
 }: PageHeroProps) {
   return (
-    <div style={{
+    <div className="page-hero-container" style={{
       padding: '1px',
       borderRadius: '16px',
       background: 'linear-gradient(135deg, rgba(212,175,55,0.45) 0%, rgba(212,175,55,0.06) 40%, rgba(212,175,55,0.35) 100%)',

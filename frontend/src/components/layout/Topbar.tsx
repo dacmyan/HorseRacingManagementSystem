@@ -1,13 +1,15 @@
 import { Bell, Search } from 'lucide-react';
+import { useLanguage } from '../../context/LanguageContext';
 
 export function Topbar() {
+  const { t } = useLanguage();
   return (
     <header className="sticky top-0 z-30 h-16 border-b border-glass-border bg-[#0B1628]/90 backdrop-blur-xl flex items-center px-8 justify-between">
       <div className="flex items-center gap-3 bg-white/[0.04] border border-glass-border rounded-lg px-3 py-2 w-80">
         <Search size={16} className="text-muted" />
         <input
           type="text"
-          placeholder="Search horses, races, tournaments..."
+          placeholder={t("Tìm kiếm ngựa, cuộc đua, giải đấu...")}
           className="bg-transparent text-sm text-white placeholder:text-muted/60 outline-none w-full"
         />
       </div>
@@ -17,9 +19,10 @@ export function Topbar() {
           <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-gold" />
         </button>
         <div className="text-sm text-muted">
-          <span className="text-white font-medium">Season 2026</span> • Q3
+          <span className="text-white font-medium">{t("Season 2026")}</span> • Q3
         </div>
       </div>
     </header>
   );
 }
+

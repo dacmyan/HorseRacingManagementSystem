@@ -60,7 +60,7 @@ export function RegisterPage() {
         backgroundColor: '#0b101e',
         backgroundImage:
           'radial-gradient(ellipse at 0% 100%, rgba(212,175,55,0.15) 0%, transparent 50%), radial-gradient(ellipse at 100% 0%, rgba(212,175,55,0.1) 0%, transparent 40%)',
-        fontFamily: '"Inter", sans-serif',
+        fontFamily: '"Rajdhani", sans-serif',
         color: '#e2e8f0',
       }}
     >
@@ -83,7 +83,7 @@ export function RegisterPage() {
       <header className="absolute top-0 left-0 w-full px-12 py-8 z-20">
         <div
           className="tracking-widest font-semibold cursor-pointer"
-          style={{ fontFamily: '"Playfair Display", serif', color: '#d4af37', fontSize: '26px' }}
+          style={{ fontFamily: '"Orbitron", sans-serif', color: '#d4af37', fontSize: '26px' }}
           onClick={() => navigate('/')}
         >
           EQUESTRIA
@@ -126,7 +126,7 @@ export function RegisterPage() {
             <div className="mb-10">
               <h1
                 className="italic font-medium mb-6 leading-tight"
-                style={{ fontFamily: '"Playfair Display", serif', color: '#e9c46a', fontSize: '56px', lineHeight: '1.15' }}
+                style={{ fontFamily: '"Orbitron", sans-serif', color: '#e9c46a', fontSize: '56px', lineHeight: '1.15' }}
               >
                 "Join the Legacy."
               </h1>
@@ -138,7 +138,7 @@ export function RegisterPage() {
               {['Global', 'Elite', 'Secure'].map((s) => (
                 <span
                   key={s}
-                  className="px-5 py-2 rounded-full font-medium tracking-wide"
+                  className="px-5 py-2 rounded-full font-medium tracking-wide auth-badge"
                   style={{ border: '1px solid rgba(212,175,55,0.2)', color: '#d4af37', background: 'rgba(30,41,59,0.3)', fontSize: '13px' }}
                 >
                   {s}
@@ -146,7 +146,7 @@ export function RegisterPage() {
               ))}
             </div>
           </motion.section>
-
+ 
           {/* Right: Register form */}
           <section className="w-full flex justify-center">
             <div className="w-full max-w-md" style={{
@@ -156,7 +156,7 @@ export function RegisterPage() {
               boxShadow: '0 0 30px rgba(212,175,55,0.12), 0 0 60px rgba(212,175,55,0.06)',
             }}>
             <motion.div
-              className="rounded-2xl p-10 relative overflow-hidden"
+              className="rounded-2xl p-10 relative overflow-hidden auth-card"
               style={{
                 background: 'rgba(15,23,42,0.5)',
                 backdropFilter: 'blur(16px)',
@@ -178,7 +178,7 @@ export function RegisterPage() {
               <motion.div variants={fadeUp} className="text-center mb-7 relative z-10">
                 <h2
                   className="text-2xl tracking-widest mb-2"
-                  style={{ fontFamily: '"Playfair Display", serif', color: '#d4af37' }}
+                  style={{ fontFamily: '"Orbitron", sans-serif', color: '#d4af37' }}
                 >
                   EQUESTRIA
                 </h2>

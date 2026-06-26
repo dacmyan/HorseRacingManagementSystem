@@ -1,11 +1,14 @@
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Flag, Trophy, Calendar, BarChart3,
   Bell, LogOut, Users, ClipboardList,
   ShieldCheck, FileText, Target, Star, Activity,
   Megaphone, UserCheck, AlertTriangle, Wallet,
+  Settings, Sun, Moon,
 } from 'lucide-react';
 import { getCurrentUser, logout } from '../../api/authService';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface NavItem {
   icon: React.ElementType;
@@ -79,13 +82,31 @@ export function Sidebar() {
   const roleKey = toRoleKey(user?.role);
   const navItems = NAV_BY_ROLE[roleKey] ?? NAV_BY_ROLE.spectator;
 
+  const { language, setLanguage, t } = useLanguage();
+
+  const [showSettings, setShowSettings] = useState(false);
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    return (localStorage.getItem('theme') as 'dark' | 'light') || 'dark';
+  });
+
+  useEffect(() => {
+    if (theme === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+      document.documentElement.classList.add('light');
+    } else {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      document.documentElement.classList.remove('light');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
   function handleLogout() {
     logout();
     navigate('/login');
   }
 
   return (
-    <aside className="w-[280px] shrink-0 h-screen sticky top-0 border-r border-glass-border bg-[#0A1220] flex flex-col z-40">
+    <aside className="w-[280px] shrink-0 h-screen sticky top-0 border-r border-glass-border bg-[#0A1220] flex flex-col z-40 relative">
       {/* Logo */}
       <div className="px-6 h-16 flex items-center gap-2.5 border-b border-glass-border shrink-0">
         <div className="w-8 h-8 rounded-lg bg-gold/10 flex items-center justify-center border border-gold/30">
@@ -98,44 +119,133 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 overflow-y-auto">
-        <div className="text-[10px] uppercase tracking-[0.15em] text-muted/50 font-bold px-3 mb-2">Menu</div>
+        <div className="text-[10px] uppercase tracking-[0.15em] text-muted/50 font-bold px-3 mb-2">{t("Menu")}</div>
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
           return (
             <button
               key={item.path}
               onClick={() => navigate(item.path)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium mb-0.5 transition-all duration-200 ${
-                isActive
-                  ? 'bg-gold/10 text-champagne border border-gold/20'
-                  : 'text-muted hover:text-white hover:bg-white/[0.04] border border-transparent'
-              }`}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium mb-0.5 transition-all duration-200 ${isActive
+                ? 'bg-gold/10 text-champagne border border-gold/20'
+                : 'text-muted hover:text-white hover:bg-white/[0.04] border border-transparent'
+                }`}
             >
               <item.icon size={18} className={isActive ? 'text-gold' : ''} />
-              {item.label}
+              {t(item.label)}
             </button>
           );
         })}
       </nav>
 
       {/* User Profile */}
-      <div className="px-4 py-4 border-t border-glass-border shrink-0">
+      <div className="px-4 py-4 border-t border-glass-border shrink-0 relative">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-gold/30 to-gold/10 border border-gold/30 flex items-center justify-center font-serif text-base font-bold text-champagne">
             {user?.fullName?.[0] ?? 'U'}
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-sm font-semibold text-white truncate">{user?.fullName ?? 'User'}</div>
-            <div className="text-[11px] text-gold font-medium">{ROLE_LABELS[roleKey] ?? user?.role}</div>
+            <div className="text-[11px] text-gold font-medium">{t(ROLE_LABELS[roleKey] ?? user?.role)}</div>
           </div>
           <button
-            onClick={handleLogout}
-            className="text-muted hover:text-white transition-colors p-1"
-            title="Sign Out"
+            onClick={() => setShowSettings(!showSettings)}
+            className={`text-muted hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/[0.04] ${showSettings ? 'text-gold bg-white/[0.04]' : ''
+              }`}
+            title="Settings"
           >
-            <LogOut size={16} />
+            <Settings size={18} />
           </button>
         </div>
+
+        {/* Click Outside Overlay Backdrop */}
+        {showSettings && (
+          <div
+            className="fixed inset-0 z-40 bg-transparent"
+            onClick={() => setShowSettings(false)}
+          />
+        )}
+
+        {/* Settings Popover */}
+        {showSettings && (
+          <div className="absolute bottom-20 left-4 right-4 z-50 glass-panel-elevated rounded-xl p-4 shadow-2xl border border-gold-border flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <div className="flex items-center justify-between border-b border-glass-border pb-2">
+              <span className="text-xs font-bold text-champagne uppercase tracking-wider">{t("Settings")}</span>
+              <button
+                onClick={() => setShowSettings(false)}
+                className="text-muted hover:text-white text-xs font-medium"
+              >
+                {t("Close")}
+              </button>
+            </div>
+
+            {/* Theme Selector */}
+            <div className="space-y-2">
+              <span className="text-xs text-muted font-medium block">{t("Giao diện (Theme)")}</span>
+              <div className="grid grid-cols-2 gap-2 bg-black/25 p-1 rounded-lg border border-glass-border">
+                <button
+                  onClick={() => setTheme('dark')}
+                  className={`flex items-center justify-center gap-1.5 py-1.5 rounded text-xs font-semibold transition-all ${theme === 'dark'
+                    ? 'bg-gold/20 text-champagne border border-gold/20 shadow'
+                    : 'text-muted hover:text-white'
+                    }`}
+                >
+                  <Moon size={13} />
+                  <span>{t("Dark")}</span>
+                </button>
+                <button
+                  onClick={() => setTheme('light')}
+                  className={`flex items-center justify-center gap-1.5 py-1.5 rounded text-xs font-semibold transition-all ${theme === 'light'
+                    ? 'bg-gold/20 text-champagne border border-gold/20 shadow'
+                    : 'text-muted hover:text-white'
+                    }`}
+                >
+                  <Sun size={13} />
+                  <span>{t("Light")}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Language Selector */}
+            <div className="space-y-2">
+              <span className="text-xs text-muted font-medium block">{t("Ngôn ngữ (Language)")}</span>
+              <div className="grid grid-cols-2 gap-2 bg-black/25 p-1 rounded-lg border border-glass-border">
+                <button
+                  onClick={() => setLanguage('vi')}
+                  className={`flex items-center justify-center gap-1.5 py-1.5 rounded text-xs font-semibold transition-all ${language === 'vi'
+                    ? 'bg-gold/20 text-champagne border border-gold/20 shadow'
+                    : 'text-muted hover:text-white'
+                    }`}
+                >
+                  <span>Tiếng Việt</span>
+                </button>
+                <button
+                  onClick={() => setLanguage('en')}
+                  className={`flex items-center justify-center gap-1.5 py-1.5 rounded text-xs font-semibold transition-all ${language === 'en'
+                    ? 'bg-gold/20 text-champagne border border-gold/20 shadow'
+                    : 'text-muted hover:text-white'
+                    }`}
+                >
+                  <span>English</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Logout Action */}
+            <div className="border-t border-glass-border pt-3">
+              <button
+                onClick={() => {
+                  setShowSettings(false);
+                  handleLogout();
+                }}
+                className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/25 hover:border-red-500/40 text-xs font-bold transition-all cursor-pointer"
+              >
+                <LogOut size={14} />
+                {t("Logout")}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </aside>
   );

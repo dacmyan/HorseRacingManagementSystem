@@ -38,12 +38,28 @@ public class TournamentService : ITournamentService
             throw new ArgumentException("End date must be after start date.", nameof(request.EndDate));
         }
 
+        if (request.StartDate < DateTime.UtcNow.AddMinutes(-5))
+        {
+            throw new ArgumentException("Start date cannot be in the past.", nameof(request.StartDate));
+        }
+
+        var now = DateTime.UtcNow;
+        var status = "Upcoming";
+        if (request.StartDate <= now && now <= request.EndDate)
+        {
+            status = "Active";
+        }
+        else if (now > request.EndDate)
+        {
+            status = "Completed";
+        }
+
         var tournament = new Tournament
         {
             Name = request.Name,
             StartDate = request.StartDate,
             EndDate = request.EndDate,
-            Status = "Upcoming"
+            Status = status
         };
 
         for (int i = 1; i <= request.NumberOfRounds; i++)
@@ -87,6 +103,11 @@ public class TournamentService : ITournamentService
             throw new ArgumentException("End date must be after start date.", nameof(request.EndDate));
         }
 
+        if (request.StartDate < DateTime.UtcNow.AddMinutes(-5))
+        {
+            throw new ArgumentException("Start date cannot be in the past.", nameof(request.StartDate));
+        }
+
         int currentRoundsCount = tournament.Rounds.Count;
         if (request.NumberOfRounds < currentRoundsCount)
         {
@@ -98,10 +119,17 @@ public class TournamentService : ITournamentService
         tournament.StartDate = request.StartDate;
         tournament.EndDate = request.EndDate;
 
-        if (!string.IsNullOrWhiteSpace(request.Status))
+        var now = DateTime.UtcNow;
+        var status = "Upcoming";
+        if (request.StartDate <= now && now <= request.EndDate)
         {
-            tournament.Status = request.Status;
+            status = "Active";
         }
+        else if (now > request.EndDate)
+        {
+            status = "Completed";
+        }
+        tournament.Status = status;
 
         // Add new rounds if NumberOfRounds has increased
         if (request.NumberOfRounds > currentRoundsCount)
@@ -212,13 +240,32 @@ public class TournamentService : ITournamentService
 
     private static TournamentResponse MapToResponse(Tournament tournament)
     {
+        var now = DateTime.UtcNow;
+        var calculatedStatus = tournament.Status;
+
+        if (tournament.StartDate.HasValue && tournament.EndDate.HasValue)
+        {
+            if (now < tournament.StartDate.Value)
+            {
+                calculatedStatus = "Upcoming";
+            }
+            else if (now >= tournament.StartDate.Value && now <= tournament.EndDate.Value)
+            {
+                calculatedStatus = "Active";
+            }
+            else if (now > tournament.EndDate.Value)
+            {
+                calculatedStatus = "Completed";
+            }
+        }
+
         return new TournamentResponse
         {
             TournamentId = tournament.TournamentId,
             Name = tournament.Name,
             StartDate = tournament.StartDate,
             EndDate = tournament.EndDate,
-            Status = tournament.Status,
+            Status = calculatedStatus,
             Rounds = tournament.Rounds
                 .OrderBy(r => r.RoundNumber)
                 .Select(r => new RoundResponse

@@ -7,6 +7,7 @@ import { Topbar } from '../../components/layout/Topbar';
 import { PageAmbience } from '../../components/layout/PageAmbience';
 import { getTournamentDetail, getRaceSchedule } from '../../api/publicService';
 import { formatDateTime } from '../../utils/format';
+import { useLanguage } from '../../context/LanguageContext';
 
 const RACE_STATUS_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
   live: { label: 'Đang diễn ra', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', dot: 'bg-emerald-400' },
@@ -18,6 +19,7 @@ const RACE_STATUS_CONFIG: Record<string, { label: string; color: string; dot: st
 export function SpectatorTournamentDetailPage() {
   const { tournamentId } = useParams();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [tournament, setTournament] = useState<any>(null);
   const [races, setRaces] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,7 +42,7 @@ export function SpectatorTournamentDetailPage() {
     })
     .catch(err => {
       console.error(err);
-      setError('Không thể tải thông tin giải đấu.');
+      setError(t('Không thể tải thông tin giải đấu.'));
     })
     .finally(() => setLoading(false));
   }, [tournamentId]);
@@ -54,15 +56,15 @@ export function SpectatorTournamentDetailPage() {
         
         <main className="relative z-10 max-w-[1200px] mx-auto px-8 py-6 space-y-6">
           <Link to="/spectator/tournaments" className="inline-flex items-center gap-2 text-sm text-muted hover:text-white transition-colors">
-            <ArrowLeft size={16} /> Quay lại danh sách giải đấu
+            <ArrowLeft size={16} /> {t("Quay lại danh sách giải đấu")}
           </Link>
 
           {loading ? (
-             <div className="text-center py-12 text-muted">Đang tải thông tin...</div>
+             <div className="text-center py-12 text-muted">{t("Đang tải thông tin...")}</div>
           ) : error ? (
              <div className="glass-panel p-8 text-center text-red-400">{error}</div>
           ) : !tournament ? (
-             <div className="glass-panel p-8 text-center text-muted">Không tìm thấy giải đấu.</div>
+             <div className="glass-panel p-8 text-center text-muted">{t("Không tìm thấy giải đấu.")}</div>
           ) : (
             <>
               {/* Tournament Header */}
@@ -72,22 +74,22 @@ export function SpectatorTournamentDetailPage() {
                 <div className="flex items-center gap-6 text-sm text-muted mt-4">
                   <div className="flex items-center gap-2">
                     <Calendar size={16} className="text-gold" />
-                    Bắt đầu: {formatDateTime(tournament.startDate)}
+                    {t("Bắt đầu:")} {formatDateTime(tournament.startDate)}
                   </div>
                   <div className="flex items-center gap-2">
                     <Flag size={16} className="text-gold" />
-                    Kết thúc: {formatDateTime(tournament.endDate)}
+                    {t("Kết thúc:")} {formatDateTime(tournament.endDate)}
                   </div>
                 </div>
               </div>
 
               {/* Races List */}
-              <h2 className="text-xl font-serif font-bold text-white">Danh sách Cuộc Đua ({races.length})</h2>
+              <h2 className="text-xl font-serif font-bold text-white">{t("Danh sách Cuộc Đua")} ({races.length})</h2>
               
               {races.length === 0 ? (
                 <div className="glass-panel rounded-xl p-12 text-center">
                   <div className="text-4xl opacity-40 mb-3">🏁</div>
-                  <div className="text-muted text-sm">Chưa có cuộc đua nào trong giải đấu này.</div>
+                  <div className="text-muted text-sm">{t("Chưa có cuộc đua nào trong giải đấu này.")}</div>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -106,22 +108,22 @@ export function SpectatorTournamentDetailPage() {
                       >
                         <div className="flex justify-between items-start mb-3">
                           <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${config.color} flex items-center gap-1.5`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${config.dot}`} /> {config.label}
+                            <span className={`w-1.5 h-1.5 rounded-full ${config.dot}`} /> {t(config.label)}
                           </span>
-                          <span className="text-xs text-gold font-bold">Vòng {r.roundNumber}</span>
+                          <span className="text-xs text-gold font-bold">{t("Vòng")} {r.roundNumber}</span>
                         </div>
                         <h3 className="text-lg font-serif font-bold text-white mb-3">{r.name}</h3>
                         <div className="space-y-2 text-xs text-muted mb-4 flex-1">
                           <div className="flex justify-between">
-                            <span>Bắt đầu lúc:</span>
+                            <span>{t("Bắt đầu lúc:")}</span>
                             <span className="text-white">{formatDateTime(r.raceDate)}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span>Đường đua:</span>
+                            <span>{t("Đường đua:")}</span>
                             <span className="text-white">{r.distanceMeter}m</span>
                           </div>
                           <div className="flex justify-between">
-                            <span>Làn tối đa:</span>
+                            <span>{t("Làn tối đa:")}</span>
                             <span className="text-white">{r.maxLanes}</span>
                           </div>
                         </div>
@@ -131,14 +133,14 @@ export function SpectatorTournamentDetailPage() {
                             onClick={() => navigate(`/spectator/races/${r.raceId}`)}
                             className="flex-1 text-center text-xs font-bold bg-white/5 hover:bg-white/10 text-white px-4 py-2 rounded-lg transition-colors border border-glass-border"
                           >
-                            Xem Chi Tiết
+                            {t("Xem Chi Tiết")}
                           </button>
                           {canBet && (
                             <button 
                               onClick={() => navigate(`/spectator/races/${r.raceId}`)}
                               className="flex-1 text-center text-xs font-bold bg-gold hover:bg-gold-light text-navy px-4 py-2 rounded-lg transition-colors"
                             >
-                              Cược Ngay
+                              {t("Cược Ngay")}
                             </button>
                           )}
                         </div>
