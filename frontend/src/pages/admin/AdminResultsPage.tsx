@@ -6,7 +6,7 @@ import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
 import { createPrizes, triggerPayout, publishRaceResult } from '../../api/adminService';
-import { getRaceSchedule } from '../../api/publicService';
+import { getRaceSchedule, getTournaments } from '../../api/publicService';
 import { parseApiError } from '../../api/authService';
 
 const INPUT = 'w-full bg-navy/50 border border-glass-border rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-muted/60 outline-none focus:border-gold/40 transition-colors';
@@ -32,10 +32,23 @@ export function AdminResultsPage() {
   const [races, setRaces] = useState<any[]>([]);
   const [loadingRaces, setLoadingRaces] = useState(true);
 
+  // Tournaments
+  const [tournaments, setTournaments] = useState<any[]>([]);
+
   // Initialize
   useEffect(() => {
     fetchRaces();
+    fetchTournaments();
   }, []);
+
+  function fetchTournaments() {
+    getTournaments()
+      .then((data: any) => {
+        const raw = Array.isArray(data) ? data : Array.isArray(data?.result) ? data.result : [];
+        setTournaments(raw);
+      })
+      .catch(() => setTournaments([]));
+  }
 
   function fetchRaces() {
     setLoadingRaces(true);
@@ -63,6 +76,34 @@ export function AdminResultsPage() {
     setPrizes(prev => ({ ...prev, [field]: value }));
   }
 
+  function handleTournamentChange(tournamentIdStr: string) {
+    setP('tournamentId', tournamentIdStr);
+    setPrizesError('');
+    setPrizesSuccess('');
+    
+    if (!tournamentIdStr) {
+      setP('firstPlacePrize', '');
+      setP('secondPlacePrize', '');
+      setP('thirdPlacePrize', '');
+      return;
+    }
+    
+    const selectedTour = tournaments.find(t => t.tournamentId.toString() === tournamentIdStr);
+    if (selectedTour && selectedTour.prizes && selectedTour.prizes.length > 0) {
+      const p1 = selectedTour.prizes.find((p: any) => p.rankPosition === 1)?.amount ?? '';
+      const p2 = selectedTour.prizes.find((p: any) => p.rankPosition === 2)?.amount ?? '';
+      const p3 = selectedTour.prizes.find((p: any) => p.rankPosition === 3)?.amount ?? '';
+      
+      setP('firstPlacePrize', p1.toString());
+      setP('secondPlacePrize', p2.toString());
+      setP('thirdPlacePrize', p3.toString());
+    } else {
+      setP('firstPlacePrize', '');
+      setP('secondPlacePrize', '');
+      setP('thirdPlacePrize', '');
+    }
+  }
+
   async function handleCreatePrizes() {
     setPrizesError(''); setPrizesSuccess('');
     if (!prizes.tournamentId || !prizes.firstPlacePrize || !prizes.secondPlacePrize || !prizes.thirdPlacePrize) {
@@ -80,6 +121,7 @@ export function AdminResultsPage() {
       const newId = data?.result?.id;
       setPrizesSuccess(`Thiết lập giải thưởng thành công cho giải đấu #${prizes.tournamentId}!${newId != null ? ` (Prize ID = ${newId})` : ''}`);
       setPrizes(INIT_PRIZES);
+      fetchTournaments();
     } catch (err: unknown) {
       setPrizesError(parseApiError(err as Error));
     } finally {
@@ -156,20 +198,25 @@ export function AdminResultsPage() {
                 </div>
                 <div>
                   <div className="text-sm font-semibold text-white">Kích hoạt chi trả</div>
-                  {/* TODO: cần BE bổ sung GET danh sách race đã kết thúc để thay ô nhập tay bằng dropdown */}
-                  <div className="text-xs text-muted">Nhập Race ID (BE chưa có API danh sách race đã kết thúc)</div>
+                  <div className="text-xs text-muted">Chọn trận đấu đã công bố kết quả để chi trả tiền cược</div>
                 </div>
               </div>
               <div className="relative z-10 flex gap-2">
-                <input
+                <select
                   value={payoutRaceId}
                   onChange={e => { setPayoutRaceId(e.target.value); setPayoutError(''); setPayoutSuccess(''); }}
-                  type="number"
-                  min="1"
-                  placeholder="Race ID"
-                  className="flex-1 bg-navy/50 border border-glass-border rounded-lg px-3 py-2 text-sm text-white placeholder:text-muted/60 outline-none focus:border-gold/40 transition-colors"
-                  onKeyDown={e => e.key === 'Enter' && handleTriggerPayout()}
-                />
+                  className="flex-1 bg-navy/50 border border-glass-border rounded-lg px-3 py-2 text-sm text-white placeholder:text-muted/60 outline-none focus:border-gold/40 transition-colors cursor-pointer"
+                  style={{ colorScheme: 'dark' }}
+                >
+                  <option value="" className="text-muted/60">-- Chọn trận đấu --</option>
+                  {races
+                    .filter((r: any) => r.status === 'Published' || r.status === 'Finished')
+                    .map((r: any) => (
+                      <option key={r.raceId} value={r.raceId} className="bg-navy text-white">
+                        {r.raceName || r.name} (ID: {r.raceId})
+                      </option>
+                    ))}
+                </select>
                 <button
                   onClick={handleTriggerPayout}
                   disabled={payoutLoading}
@@ -280,11 +327,36 @@ export function AdminResultsPage() {
             </div>
 
             <div className="space-y-4">
-              {/* TODO: cần BE bổ sung GET danh sách tournaments để thay ô nhập tay bằng dropdown */}
               <div>
-                <label className={LABEL}>Tournament ID * <span className="text-muted/50 normal-case font-normal">— nhập ID (BE chưa có API danh sách giải đấu)</span></label>
-                <input value={prizes.tournamentId} onChange={e => setP('tournamentId', e.target.value)} type="number" min="1" placeholder="ID giải đấu vừa tạo ở trang Giải đấu" className={INPUT} />
+                <label className={LABEL}>Chọn giải đấu *</label>
+                <select
+                  value={prizes.tournamentId}
+                  onChange={e => handleTournamentChange(e.target.value)}
+                  className={INPUT + ' cursor-pointer'}
+                  style={{ colorScheme: 'dark' }}
+                >
+                  <option value="" className="text-muted/60">-- Chọn giải đấu --</option>
+                  {tournaments.map((t: any) => (
+                    <option key={t.tournamentId} value={t.tournamentId} className="bg-navy text-white">
+                      {t.name} (ID: {t.tournamentId})
+                    </option>
+                  ))}
+                </select>
               </div>
+
+              {prizes.tournamentId && (() => {
+                const tour = tournaments.find(t => t.tournamentId.toString() === prizes.tournamentId);
+                const hasPrizes = tour && tour.prizes && tour.prizes.length > 0;
+                return hasPrizes ? (
+                  <div className="text-xs px-3 py-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-medium leading-relaxed">
+                    ✓ Giải đấu đã được cấu hình giải thưởng. Số tiền cấu hình trước đó đã được tự động hiển thị bên dưới. Bạn có thể sửa đổi nếu muốn.
+                  </div>
+                ) : (
+                  <div className="text-xs px-3 py-2 rounded bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 font-medium leading-relaxed">
+                    ⚠ Giải đấu này chưa được cấu hình giải thưởng. Vui lòng thiết lập mới bên dưới.
+                  </div>
+                );
+              })()}
               <div>
                 <label className={LABEL}>Giải nhất (VNĐ) *</label>
                 <input value={prizes.firstPlacePrize} onChange={e => setP('firstPlacePrize', e.target.value)} type="number" min="0" placeholder="VD: 85000000" className={INPUT} />

@@ -270,6 +270,24 @@ export function AdminTournamentsPage() {
                         <span>{t("Cuộc đua đã tạo:")}</span>
                         <span className="text-white font-medium">{raceState.totalRaces}</span>
                       </div>
+                      <div className="flex flex-col gap-1 pt-2.5 mt-2 border-t border-glass-border/30">
+                        <span className="font-bold text-white text-[11px] uppercase tracking-wider">{t("Giải thưởng:")}</span>
+                        {tour.prizes && tour.prizes.length > 0 ? (
+                          <div className="grid grid-cols-3 gap-1.5 text-center mt-1">
+                            {tour.prizes
+                              .slice()
+                              .sort((a: any, b: any) => a.rankPosition - b.rankPosition)
+                              .map((p: any) => (
+                                <div key={p.id} className="bg-white/[0.03] border border-glass-border/40 rounded px-1 py-1">
+                                  <div className="text-[9px] text-muted font-semibold">Hạng {p.rankPosition}</div>
+                                  <div className="text-gold font-bold text-[10px] whitespace-nowrap">{Number(p.amount).toLocaleString('vi-VN')} đ</div>
+                                </div>
+                              ))}
+                          </div>
+                        ) : (
+                          <span className="text-red-400 font-semibold italic text-[11px] mt-0.5">{t("Chưa cấu hình giải thưởng")}</span>
+                        )}
+                      </div>
                     </div>
                     <div className="mt-4 flex flex-wrap gap-2">
                       {raceState.canGeneratePre && (

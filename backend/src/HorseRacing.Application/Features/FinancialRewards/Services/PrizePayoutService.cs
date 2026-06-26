@@ -56,30 +56,7 @@ public class PrizePayoutService : IPrizePayoutService
             throw new ArgumentException($"Tournament with ID {request.TournamentId} not found.");
         }
 
-        var finalRace = await _betRepository.GetFinalRaceInTournamentAsync(request.TournamentId);
-        if (finalRace == null)
-        {
-            throw new InvalidOperationException($"No finished races found for tournament ID {request.TournamentId}. Cannot distribute prizes without results.");
-        }
-
-        var result = await _betRepository.GetRaceResultAsync(finalRace.RaceId);
-        if (result == null || string.IsNullOrWhiteSpace(result.Winner))
-        {
-            throw new InvalidOperationException($"No published results or winner found for the final race (ID {finalRace.RaceId}) of tournament ID {request.TournamentId}.");
-        }
-
-        var winningHorse = await _betRepository.GetHorseByIdOrNameAsync(result.Winner);
-        if (winningHorse == null)
-        {
-            throw new InvalidOperationException($"Winning horse '{result.Winner}' from final race results could not be found.");
-        }
-
-        var winningEntry = await _betRepository.GetRaceEntryAsync(finalRace.RaceId, (int)winningHorse.HorseId);
-        if (winningEntry == null)
-        {
-            throw new InvalidOperationException($"Could not find the race entry matching horse '{winningHorse.Name}' in final race ID {finalRace.RaceId}.");
-        }
-
+        // 1. Configure and save First, Second, Third place prizes
         var firstPrize = await _prizeRepository.GetByTournamentAndRankAsync(request.TournamentId, 1);
         if (firstPrize == null)
         {
@@ -98,7 +75,71 @@ public class PrizePayoutService : IPrizePayoutService
             firstPrize.Amount = request.FirstPlacePrize;
         }
 
+        var secondPrize = await _prizeRepository.GetByTournamentAndRankAsync(request.TournamentId, 2);
+        if (secondPrize == null)
+        {
+            secondPrize = new Prize
+            {
+                TournamentId = request.TournamentId,
+                RankPosition = 2,
+                Amount = request.SecondPlacePrize > 0 ? request.SecondPlacePrize : 5000m,
+                OwnerPercentage = 70m,
+                JockeyPercentage = 30m
+            };
+            await _prizeRepository.AddAsync(secondPrize);
+        }
+        else if (request.SecondPlacePrize > 0)
+        {
+            secondPrize.Amount = request.SecondPlacePrize;
+        }
+
+        var thirdPrize = await _prizeRepository.GetByTournamentAndRankAsync(request.TournamentId, 3);
+        if (thirdPrize == null)
+        {
+            thirdPrize = new Prize
+            {
+                TournamentId = request.TournamentId,
+                RankPosition = 3,
+                Amount = request.ThirdPlacePrize > 0 ? request.ThirdPlacePrize : 2500m,
+                OwnerPercentage = 70m,
+                JockeyPercentage = 30m
+            };
+            await _prizeRepository.AddAsync(thirdPrize);
+        }
+        else if (request.ThirdPlacePrize > 0)
+        {
+            thirdPrize.Amount = request.ThirdPlacePrize;
+        }
+
         await _prizeRepository.SaveChangesAsync();
+
+        // 2. Try to get finished final race and published result. If not ready, just exit with configurations saved.
+        var finalRace = await _betRepository.GetFinalRaceInTournamentAsync(request.TournamentId);
+        if (finalRace == null)
+        {
+            // Prizes saved, but no finished races to process payouts for. Return gracefully.
+            return;
+        }
+
+        var result = await _betRepository.GetRaceResultAsync(finalRace.RaceId);
+        if (result == null || string.IsNullOrWhiteSpace(result.Winner))
+        {
+            // Prizes saved, but winner result not published. Return gracefully.
+            return;
+        }
+
+        // 3. Process payout for the tournament winner (First Place)
+        var winningHorse = await _betRepository.GetHorseByIdOrNameAsync(result.Winner);
+        if (winningHorse == null)
+        {
+            throw new InvalidOperationException($"Winning horse '{result.Winner}' from final race results could not be found.");
+        }
+
+        var winningEntry = await _betRepository.GetRaceEntryAsync(finalRace.RaceId, (int)winningHorse.HorseId);
+        if (winningEntry == null)
+        {
+            throw new InvalidOperationException($"Could not find the race entry matching horse '{winningHorse.Name}' in final race ID {finalRace.RaceId}.");
+        }
 
         decimal ownerAmount = Math.Round(firstPrize.Amount * (firstPrize.OwnerPercentage / 100m), 2);
         decimal jockeyAmount = Math.Round(firstPrize.Amount * (firstPrize.JockeyPercentage / 100m), 2);
