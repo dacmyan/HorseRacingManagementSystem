@@ -16,4 +16,9 @@ public interface ITournamentRepository
     Task<List<HorseRacing.Domain.Entities.Registration>> GetApprovedRegistrationsAsync(long tournamentId);
     Task AddRacesAsync(IEnumerable<HorseRacing.Domain.Entities.Tournaments.Race> races);
     Task AddRaceEntriesAsync(IEnumerable<HorseRacing.Domain.Entities.RaceEntry> entries);
+    Task<List<Race>> GetRacesByRoundIdAsync(long roundId);
+    Task<List<HorseRacing.Domain.Entities.RaceEntry>> GetRaceEntriesByRaceIdAsync(long raceId);
+    Task<Dictionary<long, int>> GetActiveJockeyProfileIdsByHorseAsync(long tournamentId, IEnumerable<long> horseIds);
+    Task<List<HorseRacing.Domain.Entities.Registration>> GetTopHorsesFromPrefinalAsync(long tournamentId, long prefinalRoundId);
 }
+

@@ -10,4 +10,5 @@ public interface IJockeyContractService
     Task<IEnumerable<JockeyContractResponse>> GetContractsForJockeyAsync(int jockeyUserId);
     Task<IEnumerable<JockeyContractResponse>> GetContractsForOwnerAsync(int ownerUserId);
     Task<JockeyContractResponse> RespondToContractAsync(int jockeyUserId, int contractId, RespondToContractRequest request);
+    Task<JockeyContractResponse> CancelContractAsync(int ownerUserId, int contractId);
 }

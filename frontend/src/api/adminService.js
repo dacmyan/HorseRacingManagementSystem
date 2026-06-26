@@ -8,7 +8,11 @@ export const getAccounts = () => api.get('/admin/accounts');
 
 export const createTournament = (data) => api.post('/admin/tournaments', data);
 
+export const generateTournamentRaces = (tournamentId) => api.post(`/admin/tournaments/${tournamentId}/generate-races`);
+
 export const createRace = (data) => api.post('/admin/races', data);
+
+export const deleteRace = (raceId) => api.delete(`/admin/races/${raceId}`);
 
 export const createRaceEntry = (raceId, data) => api.post(`/admin/races/${raceId}/entries`, data);
 
@@ -23,6 +27,7 @@ export const createPrizes = (data) => api.post('/admin/payouts/prizes', data);
 export const triggerPayout = (raceId) => api.post(`/admin/payouts/trigger/${raceId}`);
 
 export const getRegistrations = () => api.get('/admin/registrations');
+export const updateRegistrationStatus = (id, status) => api.put(`/admin/registrations/${id}/status`, { status });
 
 export const getReferees = () => api.get('/admin/referees');
 
@@ -39,3 +44,7 @@ export const publishRaceResult = (raceId) => api.post(`/admin/races/${raceId}/pu
 export const getRaceResults = (raceId) => api.get(`/admin/races/${raceId}/results`);
 
 export const getDashboardStats = () => api.get('/admin/dashboard');
+
+export const updateViolationStatus = (id, status) => api.put(`/admin/violations/${id}/status`, { status });
+
+export const getRacesRefereeAssignments = () => api.get('/admin/races/referee-assignments');

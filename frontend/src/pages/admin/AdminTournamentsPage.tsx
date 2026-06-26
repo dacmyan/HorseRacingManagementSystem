@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Trophy, Search } from 'lucide-react';
+import { Loader, Plus, Search, Shuffle, Trophy } from 'lucide-react';
 import { Sidebar } from '../../components/layout/Sidebar';
 import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
-import { createTournament } from '../../api/adminService';
-import { getTournaments } from '../../api/publicService';
+import { createTournament, generateTournamentRaces } from '../../api/adminService';
+import { getRaceSchedule, getTournaments } from '../../api/publicService';
 import { parseApiError } from '../../api/authService';
 import { formatDateTime } from '../../utils/format';
 import { useLanguage } from '../../context/LanguageContext';
@@ -22,7 +22,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string 
 const INPUT = 'w-full bg-navy/50 border border-glass-border rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-muted/60 outline-none focus:border-gold/40 transition-colors';
 const LABEL = 'block text-xs font-bold text-muted uppercase tracking-wider mb-1.5';
 
-const INIT_FORM = { name: '', startDate: '', endDate: '', numberOfRounds: '' };
+const INIT_FORM = { name: '', startDate: '', endDate: '' };
 
 export function AdminTournamentsPage() {
   const { t } = useLanguage();
@@ -36,16 +36,23 @@ export function AdminTournamentsPage() {
   const [success, setSuccess] = useState('');
 
   const [tournaments, setTournaments] = useState<any[]>([]);
+  const [races, setRaces] = useState<any[]>([]);
   const [loadingTournaments, setLoadingTournaments] = useState(true);
+  const [generatingForTournament, setGeneratingForTournament] = useState<number | null>(null);
 
   async function loadTournaments() {
     setLoadingTournaments(true);
     try {
-      const data: any = await getTournaments();
+      const [data, raceData]: any[] = await Promise.all([
+        getTournaments(),
+        getRaceSchedule().catch(() => ({ result: [] })),
+      ]);
       setTournaments(data?.result ?? (Array.isArray(data) ? data : []));
+      setRaces(raceData?.result ?? (Array.isArray(raceData) ? raceData : []));
     } catch (err) {
       console.error(err);
       setTournaments([]);
+      setRaces([]);
     } finally {
       setLoadingTournaments(false);
     }
@@ -62,7 +69,7 @@ export function AdminTournamentsPage() {
 
   async function handleCreate() {
     setError(''); setSuccess('');
-    if (!form.name || !form.startDate || !form.endDate || !form.numberOfRounds) {
+    if (!form.name || !form.startDate || !form.endDate) {
       setError(t('Vui lòng điền đầy đủ tất cả các trường.'));
       return;
     }
@@ -86,11 +93,10 @@ export function AdminTournamentsPage() {
         name: form.name,
         startDate: form.startDate,
         endDate: form.endDate,
-        numberOfRounds: Number(form.numberOfRounds),
       });
       const newId = data?.result?.id ?? data?.result?.tournamentId;
       setSuccess(newId != null
-        ? `${t('Tạo giải đấu thành công!')} ID = ${newId} — dùng ID này cho bước tạo giải thưởng / đăng ký thi đấu.`
+        ? `${t('Tạo giải đấu thành công!')} ID = ${newId}. ${t('Hệ thống đã tạo sẵn 2 vòng Pre, Final và 1 Final Race.')}`
         : t('Tạo giải đấu thành công!'));
       setForm(INIT_FORM);
       loadTournaments();
@@ -105,6 +111,21 @@ export function AdminTournamentsPage() {
     setShowModal(false);
     setError(''); setSuccess('');
     setForm(INIT_FORM);
+  }
+
+  async function handleGenerateRaces(tournamentId: number) {
+    setGeneratingForTournament(tournamentId);
+    setError('');
+    setSuccess('');
+    try {
+      await generateTournamentRaces(tournamentId);
+      setSuccess(t('Đã tự động sắp xếp cuộc đua cho giải đấu.'));
+      await loadTournaments();
+    } catch (err: unknown) {
+      setError(parseApiError(err as Error));
+    } finally {
+      setGeneratingForTournament(null);
+    }
   }
 
   const statsCounts: Record<StatusFilter, number> = {
@@ -122,6 +143,33 @@ export function AdminTournamentsPage() {
     if (filter === 'completed') return matchesSearch && t.status === 'Completed';
     return matchesSearch;
   });
+
+  function getTournamentRaceState(tour: any) {
+    const tournamentRaces = races.filter(r => r.tournamentId === tour.tournamentId);
+    const rounds = tour.rounds ?? [];
+    const preRound = rounds.find((r: any) => r.roundNumber === 1);
+    const finalRound = rounds.find((r: any) => r.roundNumber === 2);
+    const preRaces = preRound ? tournamentRaces.filter(r => r.roundId === preRound.roundId) : [];
+    const finalRaces = finalRound ? tournamentRaces.filter(r => r.roundId === finalRound.roundId) : [];
+    const hasPre = preRaces.length > 0;
+    const preFinished = hasPre && preRaces.every(r => r.status === 'Finished');
+    const canGeneratePre = !hasPre;
+    const canGenerateFinal = preFinished && finalRaces.length === 1;
+    const waitingLabel = hasPre && !preFinished
+      ? 'Chờ hoàn thành Pre'
+      : hasPre && preFinished && finalRaces.length === 0
+        ? 'Thiếu Final Race'
+        : '';
+
+    return {
+      totalRaces: tournamentRaces.length,
+      preRaces,
+      finalRaces,
+      canGeneratePre,
+      canGenerateFinal,
+      waitingLabel,
+    };
+  }
 
   return (
 
@@ -166,6 +214,13 @@ export function AdminTournamentsPage() {
             </div>
           </div>
 
+          {!showModal && error && (
+            <div className="text-sm px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400">{error}</div>
+          )}
+          {!showModal && success && (
+            <div className="text-sm px-4 py-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">{success}</div>
+          )}
+
           {/* Tournament Cards */}
           {loadingTournaments ? (
             <div className="text-center py-12 text-muted text-sm">{t("Đang tải danh sách giải đấu...")}</div>
@@ -180,6 +235,8 @@ export function AdminTournamentsPage() {
               {filteredTournaments.map((tour, i) => {
                 const s = tour.status?.toLowerCase() ?? 'upcoming';
                 const config = STATUS_CONFIG[s] ?? STATUS_CONFIG.upcoming;
+                const raceState = getTournamentRaceState(tour);
+                const isGenerating = generatingForTournament === tour.tournamentId;
                 return (
                   <motion.div
                     key={tour.tournamentId ?? i}
@@ -206,9 +263,43 @@ export function AdminTournamentsPage() {
                         <span className="text-white font-medium">{formatDateTime(tour.endDate)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span>{t("Số vòng đấu:")}</span>
-                        <span className="text-gold font-bold">{tour.numberOfRounds ?? '—'}</span>
+                        <span>{t("Vòng thi đấu:")}</span>
+                        <span className="text-gold font-bold">Pre + Final</span>
                       </div>
+                      <div className="flex justify-between">
+                        <span>{t("Cuộc đua đã tạo:")}</span>
+                        <span className="text-white font-medium">{raceState.totalRaces}</span>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {raceState.canGeneratePre && (
+                        <button
+                          onClick={() => handleGenerateRaces(tour.tournamentId)}
+                          disabled={isGenerating}
+                          className="px-3 py-2 rounded-lg text-xs font-bold text-blue-400 border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 disabled:opacity-60 transition-colors flex items-center gap-1.5"
+                        >
+                          {isGenerating ? <Loader size={13} className="animate-spin" /> : <Shuffle size={13} />}
+                          {isGenerating ? t('Đang sắp xếp…') : t('Auto xếp làn đua')}
+                        </button>
+                      )}
+                      {raceState.canGenerateFinal && (
+                        <button
+                          onClick={() => handleGenerateRaces(tour.tournamentId)}
+                          disabled={isGenerating}
+                          className="px-3 py-2 rounded-lg text-xs font-bold text-gold border border-gold/30 bg-gold/10 hover:bg-gold/20 disabled:opacity-60 transition-colors flex items-center gap-1.5"
+                        >
+                          {isGenerating ? <Loader size={13} className="animate-spin" /> : <Trophy size={13} />}
+                          {isGenerating ? t('Đang sắp xếp…') : t('Auto xếp Final')}
+                        </button>
+                      )}
+                      {!raceState.canGeneratePre && !raceState.canGenerateFinal && raceState.waitingLabel && (
+                        <button
+                          disabled
+                          className="px-3 py-2 rounded-lg text-xs font-bold text-muted border border-glass-border bg-white/[0.04] cursor-not-allowed"
+                        >
+                          {t(raceState.waitingLabel)}
+                        </button>
+                      )}
                     </div>
                   </motion.div>
                 );
@@ -265,18 +356,6 @@ export function AdminTournamentsPage() {
                     style={{ colorScheme: 'dark' }}
                   />
                 </div>
-              </div>
-
-              <div>
-                <label className={LABEL}>{t("Số vòng đua *")}</label>
-                <input
-                  value={form.numberOfRounds}
-                  onChange={e => set('numberOfRounds', e.target.value)}
-                  type="number"
-                  min="1"
-                  placeholder={t("VD: 5")}
-                  className={INPUT}
-                />
               </div>
 
               {error && <div className="text-sm px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400">{error}</div>}

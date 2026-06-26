@@ -99,8 +99,106 @@ public class RaceRepository : IRaceRepository
                 && jc.Status == "Active");
     }
 
+    public async Task<(int JockeyProfileId, string JockeyName)?> GetActiveJockeyForHorseAsync(long tournamentId, long horseId)
+    {
+        if (horseId < int.MinValue || horseId > int.MaxValue)
+        {
+            return null;
+        }
+
+        var intHorseId = (int)horseId;
+        var assignment = await (
+            from contract in _context.JockeyContracts.AsNoTracking()
+            join profile in _context.JockeyProfiles.AsNoTracking()
+                on contract.JockeyId equals profile.UserId
+            join user in _context.Users.AsNoTracking()
+                on profile.UserId equals user.UserId
+            where contract.TournamentId == tournamentId
+                && contract.HorseId == intHorseId
+                && contract.Status == "Active"
+                && profile.Status == "Active"
+            select new
+            {
+                profile.JockeyId,
+                user.FullName
+            })
+            .FirstOrDefaultAsync();
+
+        return assignment == null
+            ? null
+            : (assignment.JockeyId, assignment.FullName);
+    }
+
     public async Task AddRaceEntryAsync(RaceEntry raceEntry)
     {
         await _context.RaceEntries.AddAsync(raceEntry);
+    }
+
+    public async Task DeleteRaceAsync(long raceId)
+    {
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
+        var raceEntryIds = await _context.RaceEntries
+            .Where(re => re.RaceId == raceId)
+            .Select(re => re.RaceEntryId)
+            .ToListAsync();
+
+        var betIds = await _context.Bets
+            .Where(b => b.RaceId == raceId)
+            .Select(b => b.Id)
+            .ToListAsync();
+
+        var payoutIds = await _context.Payouts
+            .Where(p => betIds.Contains(p.BetId))
+            .Select(p => p.Id)
+            .ToListAsync();
+
+        var assignmentIds = await _context.RaceRefereeAssignments
+            .Where(a => a.RaceId == raceId)
+            .Select(a => a.AssignmentId)
+            .ToListAsync();
+
+        await _context.Transactions
+            .Where(t => (t.BetId.HasValue && betIds.Contains(t.BetId.Value))
+                || (t.PayoutId.HasValue && payoutIds.Contains(t.PayoutId.Value)))
+            .ExecuteDeleteAsync();
+
+        await _context.Payouts
+            .Where(p => payoutIds.Contains(p.Id))
+            .ExecuteDeleteAsync();
+
+        await _context.Predictions
+            .Where(p => p.RaceId == raceId || raceEntryIds.Contains(p.RaceEntryId))
+            .ExecuteDeleteAsync();
+
+        await _context.RefereeReports
+            .Where(r => assignmentIds.Contains(r.AssignmentId))
+            .ExecuteDeleteAsync();
+
+        await _context.Violations
+            .Where(v => v.RaceId == raceId)
+            .ExecuteDeleteAsync();
+
+        await _context.RaceRefereeAssignments
+            .Where(a => assignmentIds.Contains(a.AssignmentId))
+            .ExecuteDeleteAsync();
+
+        await _context.RaceResults
+            .Where(r => r.RaceId == raceId)
+            .ExecuteDeleteAsync();
+
+        await _context.RaceEntries
+            .Where(re => re.RaceId == raceId)
+            .ExecuteDeleteAsync();
+
+        await _context.Bets
+            .Where(b => b.RaceId == raceId)
+            .ExecuteDeleteAsync();
+
+        await _context.Races
+            .Where(r => r.RaceId == raceId)
+            .ExecuteDeleteAsync();
+
+        await transaction.CommitAsync();
     }
 }

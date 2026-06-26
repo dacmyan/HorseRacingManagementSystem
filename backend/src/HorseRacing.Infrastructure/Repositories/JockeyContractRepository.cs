@@ -49,6 +49,17 @@ public class JockeyContractRepository : IJockeyContractRepository
             .FirstOrDefaultAsync(jc => jc.HorseId == horseId && jc.Status == "Active");
     }
 
+    public async Task<JockeyContract?> GetByTournamentHorseAndJockeyAsync(long tournamentId, long horseId, int jockeyUserId)
+    {
+        return await _context.JockeyContracts
+            .Include(jc => jc.Horse)
+            .Include(jc => jc.Jockey)
+            .FirstOrDefaultAsync(jc =>
+                jc.TournamentId == tournamentId &&
+                jc.HorseId == horseId &&
+                jc.JockeyId == jockeyUserId);
+    }
+
     public async Task AddAsync(JockeyContract contract)
     {
         await _context.JockeyContracts.AddAsync(contract);

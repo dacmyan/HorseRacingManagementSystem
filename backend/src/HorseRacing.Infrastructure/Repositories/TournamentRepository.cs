@@ -79,4 +79,118 @@ public class TournamentRepository : ITournamentRepository
     {
         await _context.RaceEntries.AddRangeAsync(entries);
     }
+
+    public async Task<List<Race>> GetRacesByRoundIdAsync(long roundId)
+    {
+        return await _context.Races
+            .Where(r => r.RoundId == roundId)
+            .ToListAsync();
+    }
+
+    public async Task<List<HorseRacing.Domain.Entities.RaceEntry>> GetRaceEntriesByRaceIdAsync(long raceId)
+    {
+        return await _context.RaceEntries
+            .Where(re => re.RaceId == raceId)
+            .ToListAsync();
+    }
+
+    public async Task<Dictionary<long, int>> GetActiveJockeyProfileIdsByHorseAsync(long tournamentId, IEnumerable<long> horseIds)
+    {
+        var intHorseIds = horseIds
+            .Where(id => id >= int.MinValue && id <= int.MaxValue)
+            .Select(id => (int)id)
+            .Distinct()
+            .ToList();
+
+        if (intHorseIds.Count == 0)
+        {
+            return new Dictionary<long, int>();
+        }
+
+        var assignments = await (
+            from contract in _context.JockeyContracts.AsNoTracking()
+            join profile in _context.JockeyProfiles.AsNoTracking()
+                on contract.JockeyId equals profile.UserId
+            where contract.TournamentId == tournamentId
+                && intHorseIds.Contains((int)contract.HorseId)
+                && contract.Status == "Active"
+                && profile.Status == "Active"
+            select new
+            {
+                contract.HorseId,
+                profile.JockeyId
+            })
+            .ToListAsync();
+
+        return assignments
+            .GroupBy(x => x.HorseId)
+            .ToDictionary(g => g.Key, g => g.First().JockeyId);
+    }
+
+    public async Task<List<HorseRacing.Domain.Entities.Registration>> GetTopHorsesFromPrefinalAsync(long tournamentId, long prefinalRoundId)
+    {
+        var races = await _context.Races
+            .Where(r => r.RoundId == prefinalRoundId)
+            .ToListAsync();
+
+        if (!races.Any())
+        {
+            return new List<HorseRacing.Domain.Entities.Registration>();
+        }
+
+        if (races.Any(r => r.Status != "Finished"))
+        {
+            throw new InvalidOperationException("Not all pre-final races are finished yet.");
+        }
+
+        var raceIds = races.Select(r => r.RaceId).ToList();
+        var results = await _context.RaceResults
+            .Where(rr => raceIds.Contains(rr.RaceId))
+            .ToListAsync();
+
+        var winnersList = new List<long>();
+        foreach (var result in results)
+        {
+            if (string.IsNullOrEmpty(result.Winner)) continue;
+            if (int.TryParse(result.Winner, out int id))
+            {
+                winnersList.Add(id);
+            }
+            else
+            {
+                var horse = await _context.Horses
+                    .FirstOrDefaultAsync(h => h.Name.ToLower() == result.Winner.ToLower());
+                if (horse != null)
+                {
+                    winnersList.Add(horse.HorseId);
+                }
+            }
+        }
+
+        winnersList = winnersList.Distinct().ToList();
+
+        var allPrefinalEntries = await _context.RaceEntries
+            .Include(re => re.Registration)
+            .Where(re => raceIds.Contains(re.RaceId))
+            .ToListAsync();
+
+        var selectedHorseIds = new List<long>(winnersList);
+
+        foreach (var entry in allPrefinalEntries)
+        {
+            if (entry.Registration == null) continue;
+            if (selectedHorseIds.Count >= 12) break;
+
+            if (!selectedHorseIds.Contains(entry.Registration.HorseId))
+            {
+                selectedHorseIds.Add(entry.Registration.HorseId);
+            }
+        }
+
+        return await _context.Registrations
+            .Include(r => r.Horse)
+            .Where(r => r.TournamentId == tournamentId && selectedHorseIds.Contains(r.HorseId))
+            .ToListAsync();
+    }
 }
+

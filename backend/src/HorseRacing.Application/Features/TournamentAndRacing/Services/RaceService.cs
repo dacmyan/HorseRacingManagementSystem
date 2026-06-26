@@ -46,6 +46,11 @@ public class RaceService : IRaceService
             throw new ArgumentException("Max lanes must be greater than zero.", nameof(request.MaxLanes));
         }
 
+        if (request.MaxLanes > 12)
+        {
+            throw new ArgumentException("Max lanes cannot exceed 12.", nameof(request.MaxLanes));
+        }
+
         if (request.RaceDate == default)
         {
             throw new ArgumentException("Race date is invalid.", nameof(request.RaceDate));
@@ -261,23 +266,63 @@ public class RaceService : IRaceService
         {
             return null;
         }
+        if (raceExists.Round == null)
+        {
+            throw new InvalidOperationException("Race is missing round information.");
+        }
 
         var entries = await _raceRepository.GetRaceEntriesAsync(raceId);
-        return entries
-            .OrderBy(e => e.LaneNo)
-            .Select(e => new RaceEntryResponse
+        var responses = new List<RaceEntryResponse>();
+        foreach (var entry in entries.OrderBy(e => e.LaneNo))
+        {
+            int? jockeyId = entry.JockeyId;
+            var jockeyName = entry.JockeyProfile?.User?.FullName ?? string.Empty;
+
+            if (!jockeyId.HasValue && entry.Registration != null)
             {
-                RaceEntryId = e.RaceEntryId,
-                RaceId = e.RaceId,
-                RegistrationId = e.RegistrationId,
-                HorseId = e.Registration?.HorseId ?? 0,
-                HorseName = e.Registration?.Horse?.Name ?? string.Empty,
-                JockeyId = e.JockeyId,
-                JockeyName = e.JockeyProfile?.User?.FullName ?? string.Empty,
-                LaneNo = e.LaneNo,
-                Status = e.Status,
-                WinningProbability = e.WinningProbability,
-                CurrentOdds = e.CurrentOdds
-            }).ToList();
+                var activeJockey = await _raceRepository.GetActiveJockeyForHorseAsync(
+                    raceExists.Round.TournamentId,
+                    entry.Registration.HorseId);
+
+                if (activeJockey.HasValue)
+                {
+                    jockeyId = activeJockey.Value.JockeyProfileId;
+                    jockeyName = activeJockey.Value.JockeyName;
+                }
+            }
+
+            responses.Add(new RaceEntryResponse
+            {
+                RaceEntryId = entry.RaceEntryId,
+                RaceId = entry.RaceId,
+                RegistrationId = entry.RegistrationId,
+                HorseId = entry.Registration?.HorseId ?? 0,
+                HorseName = entry.Registration?.Horse?.Name ?? string.Empty,
+                JockeyId = jockeyId,
+                JockeyName = jockeyName,
+                LaneNo = entry.LaneNo,
+                Status = entry.Status,
+                WinningProbability = entry.WinningProbability,
+                CurrentOdds = entry.CurrentOdds
+            });
+        }
+
+        return responses;
+    }
+
+    public async Task DeleteRaceAsync(long raceId)
+    {
+        if (raceId <= 0)
+        {
+            throw new ArgumentException("Race ID must be greater than zero.", nameof(raceId));
+        }
+
+        var race = await _raceRepository.GetByIdWithDetailsAsync(raceId);
+        if (race == null)
+        {
+            throw new KeyNotFoundException($"Race with ID {raceId} not found.");
+        }
+
+        await _raceRepository.DeleteRaceAsync(raceId);
     }
 }

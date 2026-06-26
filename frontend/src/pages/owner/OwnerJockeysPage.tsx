@@ -5,8 +5,8 @@ import { Sidebar } from '../../components/layout/Sidebar';
 import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
-import { getMyProposals, createJockeyContract, getMyHorses } from '../../api/ownerService';
-import { getJockeyRankings } from '../../api/publicService';
+import { getMyProposals, createJockeyContract, getMyHorses, cancelJockeyContract } from '../../api/ownerService';
+import { getJockeyRankings, getTournaments } from '../../api/publicService';
 import { parseApiError } from '../../api/authService';
 
 const STATUS_CFG: Record<string, { label: string; color: string; Icon: typeof Clock }> = {
@@ -16,6 +16,8 @@ const STATUS_CFG: Record<string, { label: string; color: string; Icon: typeof Cl
   pending:  { label: 'Chờ phản hồi', color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20',  Icon: Clock },
   Rejected: { label: 'Từ chối',      color: 'text-red-400 bg-red-500/10 border-red-500/20',            Icon: XCircle },
   rejected: { label: 'Từ chối',      color: 'text-red-400 bg-red-500/10 border-red-500/20',            Icon: XCircle },
+  Cancelled: { label: 'Đã hủy',      color: 'text-muted bg-white/5 border-glass-border',               Icon: XCircle },
+  cancelled: { label: 'Đã hủy',      color: 'text-muted bg-white/5 border-glass-border',               Icon: XCircle },
 };
 const DEFAULT_CFG = { label: 'Không rõ', color: 'text-muted bg-white/5 border-glass-border', Icon: Clock };
 
@@ -23,10 +25,25 @@ const INIT_FORM = { horseId: '', tournamentId: '', jockeyId: '', startDate: '', 
 const INPUT = 'w-full bg-navy/50 border border-glass-border rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-muted/60 outline-none focus:border-gold/40 transition-colors';
 const LABEL = 'block text-xs font-bold text-muted uppercase tracking-wider mb-1.5';
 
+const toDateInputValue = (value?: string) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toISOString().slice(0, 10);
+};
+
+const formatDate = (value?: string) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('vi-VN');
+};
+
 export function OwnerJockeysPage() {
   const [proposals, setProposals] = useState<any[]>([]);
   const [horses, setHorses] = useState<any[]>([]);
   const [jockeys, setJockeys] = useState<any[]>([]);
+  const [tournaments, setTournaments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showInvite, setShowInvite] = useState(false);
@@ -38,10 +55,23 @@ export function OwnerJockeysPage() {
   async function load() {
     setLoading(true); setError('');
     try {
-      const [propData, horseData, jockeyData] = await Promise.all([getMyProposals(), getMyHorses(), getJockeyRankings()]);
+      const [propData, horseData, jockeyData, tournamentData] = await Promise.all([
+        getMyProposals(),
+        getMyHorses(),
+        getJockeyRankings(),
+        getTournaments(),
+      ]);
       setProposals(propData?.result ?? (Array.isArray(propData) ? propData : []));
       setHorses(horseData?.result ?? (Array.isArray(horseData) ? horseData : []));
-      setJockeys(jockeyData?.result ?? (Array.isArray(jockeyData) ? jockeyData : []));
+      const fetchedJockeys = jockeyData?.result ?? (Array.isArray(jockeyData) ? jockeyData : []);
+      setJockeys(fetchedJockeys.map((j: any) => ({
+        ...j,
+        jockeyProfileId: j.jockeyId ?? j.JockeyId ?? j.id,
+        userId: j.userId ?? j.UserId,
+        fullName: j.fullName ?? j.FullName ?? j.name,
+        email: j.email ?? j.Email,
+      })));
+      setTournaments(tournamentData?.result ?? (Array.isArray(tournamentData) ? tournamentData : []));
     } catch (err: unknown) {
       setError(parseApiError(err as Error));
     } finally {
@@ -56,6 +86,22 @@ export function OwnerJockeysPage() {
     if (!form.horseId || !form.tournamentId || !form.jockeyId || !form.startDate || !form.endDate) {
       setSubmitError('Vui lòng điền đầy đủ thông tin.');
       return;
+    }
+    const selectedTournament = tournaments.find((t: any) => String(t.tournamentId) === String(form.tournamentId));
+    if (selectedTournament?.startDate && selectedTournament?.endDate) {
+      const start = new Date(`${form.startDate}T00:00:00`);
+      const end = new Date(`${form.endDate}T00:00:00`);
+      const tournamentStart = new Date(selectedTournament.startDate);
+      const tournamentEnd = new Date(selectedTournament.endDate);
+      tournamentStart.setHours(0, 0, 0, 0);
+      tournamentEnd.setHours(0, 0, 0, 0);
+
+      if (start < tournamentStart || end > tournamentEnd) {
+        setSubmitError(
+          `Ngày thuê phải nằm trong thời gian giải đấu: ${tournamentStart.toLocaleDateString('vi-VN')} - ${tournamentEnd.toLocaleDateString('vi-VN')}.`
+        );
+        return;
+      }
     }
     setSubmitLoading(true);
     try {
@@ -76,11 +122,26 @@ export function OwnerJockeysPage() {
     }
   }
 
+  async function handleCancelInvite(contractId: number) {
+    if (!window.confirm('Hủy lời mời Jockey này?')) return;
+
+    try {
+      await cancelJockeyContract(contractId);
+      await load();
+    } catch (err: unknown) {
+      alert(parseApiError(err as Error));
+    }
+  }
+
   function closeInvite() {
     setShowInvite(false);
     setSubmitError(''); setSubmitSuccess('');
     setForm(INIT_FORM);
   }
+
+  const selectedInviteTournament = tournaments.find((t: any) => String(t.tournamentId) === String(form.tournamentId));
+  const inviteMinDate = toDateInputValue(selectedInviteTournament?.startDate);
+  const inviteMaxDate = toDateInputValue(selectedInviteTournament?.endDate);
 
   return (
     <div className="min-h-screen text-body font-sans flex" style={{backgroundColor: '#0b101e'}}>
@@ -132,13 +193,23 @@ export function OwnerJockeysPage() {
                         <div className="text-base font-serif text-white mb-1 group-hover:text-champagne transition-colors">{p.jockeyName ?? `Jockey #${p.jockeyId}`}</div>
                         <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
                           <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/[0.04] border border-glass-border text-champagne">🐴 {p.horseName ?? `Ngựa #${p.horseId}`}</span>
-                          {p.startDate && <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/[0.04] border border-glass-border text-muted inline-flex items-center gap-1"><Calendar size={9} className="text-gold/60" /> Từ: {p.startDate}</span>}
-                          {p.endDate && <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/[0.04] border border-glass-border text-muted inline-flex items-center gap-1"><Calendar size={9} className="text-gold/60" /> Đến: {p.endDate}</span>}
+                          {p.startDate && <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/[0.04] border border-glass-border text-muted inline-flex items-center gap-1"><Calendar size={9} className="text-gold/60" /> Từ: {formatDate(p.startDate)}</span>}
+                          {p.endDate && <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/[0.04] border border-glass-border text-muted inline-flex items-center gap-1"><Calendar size={9} className="text-gold/60" /> Đến: {formatDate(p.endDate)}</span>}
                         </div>
                       </div>
-                      <span className={`relative z-10 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border shrink-0 ${cfg.color}`}>
-                        <Icon size={11} /> {cfg.label}
-                      </span>
+                      <div className="relative z-10 flex items-center gap-2 shrink-0">
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border ${cfg.color}`}>
+                          <Icon size={11} /> {cfg.label}
+                        </span>
+                        {String(p.status ?? '').toLowerCase() === 'pending' && (
+                          <button
+                            onClick={() => handleCancelInvite(p.id)}
+                            className="px-3 py-1 rounded-full text-[11px] font-bold text-red-400 border border-red-500/20 bg-red-500/10 hover:bg-red-500/20 transition-colors"
+                          >
+                            Hủy lời mời
+                          </button>
+                        )}
+                      </div>
                     </motion.div>
                   );
                 })}
@@ -178,27 +249,39 @@ export function OwnerJockeysPage() {
                 <select value={form.jockeyId} onChange={e => setForm(p => ({...p, jockeyId: e.target.value}))} className={INPUT}>
                   <option value="">-- Chọn jockey --</option>
                   {jockeys.map(j => (
-                    <option key={j.id ?? j.jockeyId} value={j.id ?? j.jockeyId}>
-                      {j.fullName ?? j.name ?? `Jockey #${j.id ?? j.jockeyId}`}
+                    <option key={j.jockeyProfileId ?? j.userId} value={j.userId}>
+                      {j.fullName ?? `Jockey #${j.userId}`}
                       {j.totalWins != null ? ` (${j.totalWins} thắng)` : ''}
                     </option>
                   ))}
                 </select>
                 {jockeys.length === 0 && <p className="text-[10px] text-muted/60 mt-1">Danh sách jockey đang tải hoặc trống.</p>}
               </div>
-              {/* TODO: cần BE bổ sung GET danh sách giải đấu để thay ô nhập tay bằng dropdown */}
               <div>
-                <label className={LABEL}>ID Giải đấu * <span className="text-muted/50 normal-case font-normal">— nhập ID (BE chưa có API danh sách giải đấu)</span></label>
-                <input type="number" value={form.tournamentId} onChange={e => setForm(p => ({...p, tournamentId: e.target.value}))} placeholder="ID giải đấu" className={INPUT} />
+                <label className={LABEL}>Chọn giải đấu *</label>
+                <select value={form.tournamentId} onChange={e => setForm(p => ({...p, tournamentId: e.target.value, startDate: '', endDate: ''}))} className={INPUT}>
+                  <option value="">-- Chọn giải đấu --</option>
+                  {tournaments.map(t => (
+                    <option key={t.tournamentId} value={t.tournamentId}>
+                      {t.name} #{t.tournamentId}
+                    </option>
+                  ))}
+                </select>
+                {tournaments.length === 0 && <p className="text-[10px] text-yellow-400 mt-1">Chưa có giải đấu nào — Admin cần tạo giải đấu trước.</p>}
+                {selectedInviteTournament?.startDate && selectedInviteTournament?.endDate && (
+                  <p className="text-[10px] text-muted/70 mt-1">
+                    Thời gian giải: {formatDate(selectedInviteTournament.startDate)} - {formatDate(selectedInviteTournament.endDate)}
+                  </p>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className={LABEL}>Ngày bắt đầu *</label>
-                  <input type="date" value={form.startDate} onChange={e => setForm(p => ({...p, startDate: e.target.value}))} className={INPUT} style={{colorScheme:'dark'}} />
+                  <input type="date" value={form.startDate} min={inviteMinDate} max={inviteMaxDate} onChange={e => setForm(p => ({...p, startDate: e.target.value}))} className={INPUT} style={{colorScheme:'dark'}} />
                 </div>
                 <div>
                   <label className={LABEL}>Ngày kết thúc *</label>
-                  <input type="date" value={form.endDate} onChange={e => setForm(p => ({...p, endDate: e.target.value}))} className={INPUT} style={{colorScheme:'dark'}} />
+                  <input type="date" value={form.endDate} min={form.startDate || inviteMinDate} max={inviteMaxDate} onChange={e => setForm(p => ({...p, endDate: e.target.value}))} className={INPUT} style={{colorScheme:'dark'}} />
                 </div>
               </div>
               {submitError && <div className="text-sm px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400">{submitError}</div>}

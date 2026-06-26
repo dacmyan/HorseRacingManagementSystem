@@ -7,6 +7,7 @@ using HorseRacing.Application.Features.ContractAndRegistration.Interfaces;
 using HorseRacing.Application.Features.HorseManagement.Interfaces;
 using HorseRacing.Application.Features.UserManagement.Interfaces;
 using HorseRacing.Application.Features.Notifications.Interfaces;
+using HorseRacing.Application.Features.TournamentAndRacing.Interfaces;
 using HorseRacing.Domain.Entities;
 
 namespace HorseRacing.Application.Features.ContractAndRegistration.Services;
@@ -17,17 +18,20 @@ public class JockeyContractService : IJockeyContractService
     private readonly IHorseRepository _horseRepository;
     private readonly IUserRepository _userRepository;
     private readonly INotificationRepository _notificationRepository;
+    private readonly ITournamentRepository _tournamentRepository;
 
     public JockeyContractService(
         IJockeyContractRepository contractRepository,
         IHorseRepository horseRepository,
         IUserRepository userRepository,
-        INotificationRepository notificationRepository)
+        INotificationRepository notificationRepository,
+        ITournamentRepository tournamentRepository)
     {
         _contractRepository = contractRepository;
         _horseRepository = horseRepository;
         _userRepository = userRepository;
         _notificationRepository = notificationRepository;
+        _tournamentRepository = tournamentRepository;
     }
 
     private JockeyContractResponse MapToResponse(JockeyContract contract)
@@ -83,19 +87,68 @@ public class JockeyContractService : IJockeyContractService
             throw new ArgumentException("Start date cannot be in the past.");
         }
 
-        // 4. Create JockeyContract
-        var contract = new JockeyContract
+        var tournament = await _tournamentRepository.GetByIdAsync(request.TournamentId);
+        if (tournament == null)
         {
-            TournamentId = request.TournamentId,
-            HorseId = request.HorseId,
-            JockeyId = request.JockeyId,
-            StartDate = request.StartDate,
-            EndDate = request.EndDate,
-            Status = "Pending",
-            CreatedAt = DateTime.UtcNow
-        };
+            throw new ArgumentException($"Tournament with ID {request.TournamentId} not found.");
+        }
+        if (!tournament.StartDate.HasValue || !tournament.EndDate.HasValue)
+        {
+            throw new InvalidOperationException("Tournament dates are not configured.");
+        }
 
-        await _contractRepository.AddAsync(contract);
+        var contractStart = request.StartDate.Date;
+        var contractEnd = request.EndDate.Date;
+        var tournamentStart = tournament.StartDate.Value.Date;
+        var tournamentEnd = tournament.EndDate.Value.Date;
+        if (contractStart < tournamentStart || contractEnd > tournamentEnd)
+        {
+            throw new ArgumentException(
+                $"Contract dates must be within the tournament period ({tournamentStart:yyyy-MM-dd} to {tournamentEnd:yyyy-MM-dd}).");
+        }
+
+        // 4. Create or reopen JockeyContract. The DB has a unique key on
+        // TournamentId + HorseId + JockeyId, so cancelled/rejected invitations
+        // are reused instead of inserting a duplicate row.
+        var existingContract = await _contractRepository.GetByTournamentHorseAndJockeyAsync(
+            request.TournamentId,
+            request.HorseId,
+            request.JockeyId);
+
+        JockeyContract contract;
+        if (existingContract != null)
+        {
+            if (existingContract.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("A pending invitation already exists for this jockey, horse, and tournament.");
+            }
+            if (existingContract.Status.Equals("Active", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("This jockey already has an active contract for this horse and tournament.");
+            }
+
+            existingContract.StartDate = request.StartDate;
+            existingContract.EndDate = request.EndDate;
+            existingContract.Status = "Pending";
+            existingContract.CreatedAt = DateTime.UtcNow;
+            contract = existingContract;
+        }
+        else
+        {
+            contract = new JockeyContract
+            {
+                TournamentId = request.TournamentId,
+                HorseId = request.HorseId,
+                JockeyId = request.JockeyId,
+                StartDate = request.StartDate,
+                EndDate = request.EndDate,
+                Status = "Pending",
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _contractRepository.AddAsync(contract);
+        }
+
         await _contractRepository.SaveChangesAsync();
 
         // 5. Send notification to Jockey
@@ -161,6 +214,38 @@ public class JockeyContractService : IJockeyContractService
         {
             UserId = contract.Horse?.OwnerId ?? 0,
             Message = $"Jockey '{contract.Jockey?.FullName ?? "Jockey"}' responded '{request.Status}' to contract ID {contract.ContractId} for horse '{contract.Horse?.Name ?? "Horse"}'.",
+            IsRead = false,
+            CreatedAt = DateTime.UtcNow
+        };
+        await _notificationRepository.AddAsync(notification);
+        await _notificationRepository.SaveChangesAsync();
+
+        return MapToResponse(contract);
+    }
+
+    public async Task<JockeyContractResponse> CancelContractAsync(int ownerUserId, int contractId)
+    {
+        var contract = await _contractRepository.GetByIdAsync(contractId);
+        if (contract == null)
+        {
+            throw new ArgumentException($"Jockey contract with ID {contractId} not found.");
+        }
+        if (contract.Horse?.OwnerId != ownerUserId)
+        {
+            throw new InvalidOperationException("Access denied. You cannot cancel this contract.");
+        }
+        if (!contract.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Only pending contract invitations can be cancelled.");
+        }
+
+        contract.Status = "Cancelled";
+        await _contractRepository.SaveChangesAsync();
+
+        var notification = new Notification
+        {
+            UserId = contract.JockeyId,
+            Message = $"Contract proposal for horse '{contract.Horse?.Name ?? "Horse"}' was cancelled by the owner.",
             IsRead = false,
             CreatedAt = DateTime.UtcNow
         };

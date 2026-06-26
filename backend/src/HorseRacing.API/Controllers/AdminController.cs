@@ -298,6 +298,28 @@ public class AdminController : ControllerBase
         }
     }
 
+    [HttpDelete("races/{raceId}")]
+    public async Task<IActionResult> DeleteRace([FromRoute] long raceId)
+    {
+        try
+        {
+            await _raceService.DeleteRaceAsync(raceId);
+            return Ok(new { message = "Race deleted successfully" });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred during race deletion", detail = ex.Message });
+        }
+    }
+
     [HttpPost("races/{raceId}/referees")]
     public async Task<IActionResult> AssignReferee([FromRoute] long raceId, [FromBody] AssignRefereeRequest request)
     {
@@ -432,6 +454,30 @@ public class AdminController : ControllerBase
         }
     }
 
+    [HttpPut("registrations/{id}/status")]
+    public async Task<IActionResult> ReviewRegistration(int id, [FromBody] ReviewRegistrationRequest request, [FromServices] AppDbContext context)
+    {
+        try
+        {
+            var registration = await context.Registrations.FindAsync((long)id);
+            if (registration == null)
+                return NotFound(new { message = $"Registration #{id} not found." });
+
+            var validStatuses = new[] { "Approved", "Rejected" };
+            if (!validStatuses.Contains(request.Status))
+                return BadRequest(new { message = "Status must be 'Approved' or 'Rejected'." });
+
+            registration.Status = request.Status;
+            await context.SaveChangesAsync();
+
+            return Ok(new { message = $"Registration #{id} has been {request.Status.ToLower()}.", result = new { registrationId = id, status = registration.Status } });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred reviewing registration", detail = ex.Message });
+        }
+    }
+
     [HttpGet("referees")]
     public async Task<IActionResult> GetReferees([FromServices] AppDbContext context)
     {
@@ -472,6 +518,7 @@ public class AdminController : ControllerBase
                     Type = v.Description.Contains(":") ? v.Description.Split(':', StringSplitOptions.None)[0] : "Vi phạm",
                     Note = v.Description,
                     Penalty = v.Penalty,
+                    Status = v.Status,
                     CreatedAt = DateTime.UtcNow
                 })
                 .ToListAsync();
@@ -750,4 +797,73 @@ public class AdminController : ControllerBase
             return StatusCode(500, new { message = "An error occurred retrieving dashboard stats", detail = ex.Message });
         }
     }
+
+    [HttpPut("violations/{id}/status")]
+    public async Task<IActionResult> UpdateViolationStatus(int id, [FromBody] UpdateViolationStatusRequest request, [FromServices] AppDbContext context)
+    {
+        try
+        {
+            var violation = await context.Violations.FindAsync(id);
+            if (violation == null)
+            {
+                return NotFound(new { message = $"Violation with ID {id} was not found." });
+            }
+
+            if (request.Status != "Pending" && request.Status != "Confirmed" && request.Status != "Rejected")
+            {
+                return BadRequest(new { message = "Invalid status. Must be 'Pending', 'Confirmed', or 'Rejected'." });
+            }
+
+            violation.Status = request.Status;
+            await context.SaveChangesAsync();
+
+            return Ok(new { message = "Violation status updated successfully", result = violation });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred updating violation status", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("races/referee-assignments")]
+    public async Task<IActionResult> GetRacesRefereeAssignments([FromServices] AppDbContext context)
+    {
+        try
+        {
+            var races = await context.Races
+                .Include(r => r.Round)
+                    .ThenInclude(rd => rd.Tournament)
+                .Include(r => r.RaceRefereeAssignments)
+                    .ThenInclude(ra => ra.RefereeProfile)
+                        .ThenInclude(rp => rp.User)
+                .Select(r => new
+                {
+                    RaceId = r.RaceId,
+                    RaceName = r.Name,
+                    RaceDate = r.RaceDate,
+                    Status = r.Status,
+                    RoundName = r.Round != null ? r.Round.Name : "",
+                    TournamentName = (r.Round != null && r.Round.Tournament != null) ? r.Round.Tournament.Name : "",
+                    Referees = r.RaceRefereeAssignments.Select(ra => new
+                    {
+                        RefereeId = ra.RefereeId,
+                        FullName = (ra.RefereeProfile != null && ra.RefereeProfile.User != null) ? ra.RefereeProfile.User.FullName : "",
+                        LicenseNumber = ra.RefereeProfile != null ? ra.RefereeProfile.LicenseNumber : "",
+                        Status = ra.Status
+                    }).ToList()
+                })
+                .ToListAsync();
+
+            return Ok(new { message = "Races and referee assignments retrieved successfully", result = races });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving races and referee assignments", detail = ex.Message });
+        }
+    }
+}
+
+public class UpdateViolationStatusRequest
+{
+    public string Status { get; set; } = string.Empty;
 }

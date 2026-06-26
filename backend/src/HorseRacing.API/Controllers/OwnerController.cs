@@ -205,6 +205,29 @@ public class OwnerController : ControllerBase
         }
     }
 
+    [HttpDelete("jockey-contracts/{id:int}")]
+    public async Task<IActionResult> CancelContract(int id)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var response = await _jockeyContractService.CancelContractAsync(userId, id);
+            return Ok(new { message = "Jockey contract invitation cancelled successfully", result = response });
+        }
+        catch (ArgumentException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred cancelling the contract", detail = ex.Message });
+        }
+    }
+
     [HttpPost("registrations")]
     public async Task<IActionResult> RegisterHorse([FromBody] CreateRegistrationRequest request)
     {

@@ -51,7 +51,7 @@ const TRANSLATIONS: Record<Language, Record<string, string>> = {
     "Người dùng": "Users",
     "Giải đấu": "Tournaments",
     "Lợi nhuận (VNĐ)": "Profit (VND)",
-    "Cuộc đua": "Races",
+    "Cuộc đua (số nhiều)": "Races",
     "Đăng ký chờ duyệt": "Pending registrations",
     "Cần xử lý trong 24h": "Needs processing within 24h",
     "Hoạt động gần đây": "Recent activity",
@@ -130,6 +130,7 @@ const TRANSLATIONS: Record<Language, Record<string, string>> = {
   },
   vi: {
     // English to Vietnamese
+    "Cuộc đua (số nhiều)": "Cuộc đua",
     "Dashboard": "Bảng điều khiển",
     "Accounts": "Tài khoản",
     "Tournaments": "Giải đấu",

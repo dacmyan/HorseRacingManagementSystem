@@ -7,6 +7,6 @@ public class UpdateTournamentRequest
     public string Name { get; set; } = string.Empty;
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }
-    public int NumberOfRounds { get; set; }
+    public int NumberOfRounds { get; set; } = 2;
     public string Status { get; set; } = string.Empty;
 }
