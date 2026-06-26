@@ -210,7 +210,28 @@ public async Task<IActionResult> GetTournaments()
     try
     {
         var tournaments = await _tournamentService.GetAllTournamentsAsync();
-        return Ok(new { message = "Tournaments retrieved successfully", result = tournaments });
+        
+        var tournamentIds = tournaments.Select(t => t.TournamentId).ToList();
+        var prizes = await _context.Prizes
+            .Where(p => tournamentIds.Contains(p.TournamentId))
+            .ToListAsync();
+
+        var prizesGrouped = prizes.GroupBy(p => p.TournamentId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var result = tournaments.Select(t => new {
+    t.TournamentId,
+    t.Name,
+    t.StartDate,
+    t.EndDate,
+    t.Status,
+    t.Rounds,
+    Prizes = prizesGrouped.ContainsKey(t.TournamentId)
+        ? prizesGrouped[t.TournamentId].Select(p => (object)new { p.Id, p.RankPosition, p.Amount }).ToList()
+        : new List<object>()
+}).ToList();
+
+        return Ok(new { message = "Tournaments retrieved successfully", result = result });
     }
     catch (Exception ex)
     {
@@ -230,7 +251,22 @@ public async Task<IActionResult> GetTournamentDetail(long id)
             return NotFound(new { message = $"Tournament with ID {id} was not found." });
         }
 
-        return Ok(new { message = "Tournament details retrieved successfully", result = tournament });
+        var prizes = await _context.Prizes
+            .Where(p => p.TournamentId == id)
+            .Select(p => new { p.Id, p.RankPosition, p.Amount })
+            .ToListAsync();
+
+        var result = new {
+            tournament.TournamentId,
+            tournament.Name,
+            tournament.StartDate,
+            tournament.EndDate,
+            tournament.Status,
+            tournament.Rounds,
+            Prizes = prizes
+        };
+
+        return Ok(new { message = "Tournament details retrieved successfully", result = result });
     }
     catch (Exception ex)
     {
