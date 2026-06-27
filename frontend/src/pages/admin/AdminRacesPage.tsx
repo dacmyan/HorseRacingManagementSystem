@@ -5,7 +5,7 @@ import { Sidebar } from '../../components/layout/Sidebar';
 import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
-import { createRace, deleteRace, createRaceEntry, assignReferee, getRaceReferees, removeReferee, generateTournamentRaces, getRegistrations, getReferees } from '../../api/adminService';
+import { createRace, deleteRace, createRaceEntry, assignReferee, getRaceReferees, removeReferee, generateTournamentRaces, generateFinalRace, getRegistrations, getReferees } from '../../api/adminService';
 import { getRaceSchedule, getTournaments, getRaceEntries } from '../../api/publicService';
 import { parseApiError } from '../../api/authService';
 
@@ -175,6 +175,19 @@ export function AdminRacesPage() {
       await loadAllData();
     } catch (err: any) {
       alert('Lỗi khi sinh cuộc đua: ' + parseApiError(err));
+    } finally {
+      setGeneratingForTournament(null);
+    }
+  }
+
+  async function handleGenerateFinal(tournamentId: number) {
+    setGeneratingForTournament(tournamentId);
+    try {
+      await generateFinalRace(tournamentId);
+      alert('Đã xếp bảng Chung kết (Top 12) thành công!');
+      await loadAllData();
+    } catch (err: any) {
+      alert('Lỗi khi xếp bảng Chung kết: ' + parseApiError(err));
     } finally {
       setGeneratingForTournament(null);
     }
@@ -359,7 +372,7 @@ export function AdminRacesPage() {
     const canGenerateFinal = 
       prefinalFinished &&
       finalRound &&
-      finalRound.races.length === 0;
+      finalRound.races.every((race: any) => race.status === 'Scheduled');
     const canGeneratePre = !prefinalFinished;
     const waitingLabel = hasPrefinalRaces && !prefinalFinished
       ? 'Chờ hoàn thành Pre'
@@ -490,7 +503,7 @@ export function AdminRacesPage() {
                       {/* Final generation */}
                       {t.canGenerateFinal && (
                         <button
-                          onClick={() => handleGenerateRaces(t.tournamentId)}
+                          onClick={() => handleGenerateFinal(t.tournamentId)}
                           disabled={generatingForTournament === t.tournamentId}
                           className="px-4 py-2 bg-gold/20 hover:bg-gold/30 text-gold border border-gold/30 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 animate-pulse"
                         >

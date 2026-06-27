@@ -300,14 +300,20 @@ public class OwnerController : ControllerBase
                 .Where(rr => raceIds.Contains(rr.RaceId))
                 .ToDictionaryAsync(rr => rr.RaceId, rr => rr.Winner);
 
+            // Fetch tournament prizes
+            var tournamentIds = results.Select(re => re.Race?.Round?.TournamentId).Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToList();
+            var prizes = await context.Prizes
+                .Where(p => tournamentIds.Contains(p.TournamentId))
+                .ToListAsync();
+
             var ownerResults = results.Select(re => {
                 var horseName = re.Registration?.Horse?.Name ?? "";
                 var horseIdStr = re.Registration?.HorseId.ToString() ?? "";
                 var raceStatus = re.Race?.Status ?? "Scheduled";
                 
                 // Determine finish position
-                int finishPosition = 0;
-                if (raceStatus.Equals("Finished", StringComparison.OrdinalIgnoreCase))
+                int finishPosition = re.FinishPosition ?? 0;
+                if (finishPosition == 0 && raceStatus.Equals("Finished", StringComparison.OrdinalIgnoreCase))
                 {
                     finishPosition = 2; // Default for finished
                     if (winners.TryGetValue(re.RaceId, out var winner))
@@ -316,6 +322,24 @@ public class OwnerController : ControllerBase
                         {
                             finishPosition = 1;
                         }
+                    }
+                }
+
+                decimal prizeAmount = 0;
+                if (raceStatus.Equals("Finished", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (re.Race?.Round?.RoundNumber == 2)
+                    {
+                        var prize = prizes.FirstOrDefault(p => p.TournamentId == re.Race.Round.TournamentId && p.RankPosition == finishPosition);
+                        if (prize != null)
+                        {
+                            prizeAmount = prize.Amount * (prize.OwnerPercentage / 100m);
+                        }
+                    }
+                    else if (finishPosition == 1)
+                    {
+                        // Fallback legacy support for pre-round winners showing a default win indicator
+                        prizeAmount = 1000000;
                     }
                 }
 
@@ -331,9 +355,7 @@ public class OwnerController : ControllerBase
                     Point = raceStatus.Equals("Finished", StringComparison.OrdinalIgnoreCase)
                         ? (finishPosition == 1 ? 10 : 5)
                         : 0,
-                    PrizeAmount = raceStatus.Equals("Finished", StringComparison.OrdinalIgnoreCase)
-                        ? (finishPosition == 1 ? 1000000 : 0)
-                        : 0,
+                    PrizeAmount = prizeAmount,
                     Status = raceStatus
                 };
             }).ToList();

@@ -14,5 +14,6 @@ public class RefereeReportResponse
     public string? ViolationNote { get; set; }
     public int? ReportedUserId { get; set; }
     public long? ReportedHorseId { get; set; }
+    public string? ReportedHorseName { get; set; }
     public DateTime CreatedAt { get; set; }
 }

@@ -219,6 +219,7 @@ public class RefereeService : IRefereeService
             ViolationNote = r.ViolationNote,
             ReportedUserId = r.ReportedUserId,
             ReportedHorseId = r.ReportedHorseId,
+            ReportedHorseName = r.ReportedHorse?.Name,
             CreatedAt = r.CreatedAt
         }).ToList();
     }

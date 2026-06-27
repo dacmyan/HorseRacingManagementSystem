@@ -11,6 +11,14 @@ using HorseRacing.Domain.Entities.Financials;
 
 namespace HorseRacing.Infrastructure.Persistence;
 
+public class DemoUserSeedDto
+{
+    public string Username { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public int RoleId { get; set; }
+}
+
 public class DemoDataSeeder
 {
     private readonly AppDbContext _context;
@@ -31,20 +39,61 @@ public class DemoDataSeeder
             var hasher = new PasswordHasher<AppUser>();
             var fixedDate = new DateTime(2026, 6, 9, 0, 0, 0, DateTimeKind.Utc);
 
+            _logger.LogInformation("Wiping old demo data to prepare a fresh clean slate...");
+
+            // Order of deletion to avoid FK violations:
+            _context.Predictions.RemoveRange(_context.Predictions);
+            _context.RefereeReports.RemoveRange(_context.RefereeReports);
+            _context.Violations.RemoveRange(_context.Violations);
+            _context.RaceResults.RemoveRange(_context.RaceResults);
+            _context.RaceRefereeAssignments.RemoveRange(_context.RaceRefereeAssignments);
+            _context.RaceEntries.RemoveRange(_context.RaceEntries);
+            _context.JockeyContracts.RemoveRange(_context.JockeyContracts);
+            _context.Registrations.RemoveRange(_context.Registrations);
+            _context.Races.RemoveRange(_context.Races);
+            _context.Rounds.RemoveRange(_context.Rounds);
+            _context.Tournaments.RemoveRange(_context.Tournaments);
+            _context.HorseDocuments.RemoveRange(_context.HorseDocuments);
+            _context.HorseStatistics.RemoveRange(_context.HorseStatistics);
+            _context.Horses.RemoveRange(_context.Horses);
+
+            _context.Payouts.RemoveRange(_context.Payouts);
+            _context.Bets.RemoveRange(_context.Bets);
+            _context.TournamentPrizePayouts.RemoveRange(_context.TournamentPrizePayouts);
+            _context.Prizes.RemoveRange(_context.Prizes);
+            _context.Transactions.RemoveRange(_context.Transactions);
+            _context.Notifications.RemoveRange(_context.Notifications);
+
+            _context.RefereeProfiles.RemoveRange(_context.RefereeProfiles);
+            _context.JockeyProfiles.RemoveRange(_context.JockeyProfiles);
+            _context.Wallets.RemoveRange(_context.Wallets);
+
+            // Remove all users except admin@gmail.com
+            var nonAdminUsers = _context.Users.Where(u => u.Email != "admin@gmail.com");
+            _context.Users.RemoveRange(nonAdminUsers);
+
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Wipe complete. Starting clean seeding of new test data...");
+
             // 1. Seed Demo Users & Wallets & Profiles
-            var demoUsers = new[]
+            var demoUsersList = new List<DemoUserSeedDto>
             {
-                new { Username = "owner",      Email = "owner@gmail.com",      FullName = "Nguyễn Văn Hùng", RoleId = 2 },
-                new { Username = "owner2",     Email = "owner2@gmail.com",     FullName = "Trần Thị Mai",     RoleId = 2 },
-                new { Username = "owner3",     Email = "owner3@gmail.com",     FullName = "Lê Minh Tuấn",     RoleId = 2 },
-                new { Username = "jockey",     Email = "jockey@gmail.com",     FullName = "Jockey Nguyễn",    RoleId = 3 },
-                new { Username = "referee",    Email = "referee@gmail.com",    FullName = "Trọng tài Nam",    RoleId = 4 },
-                new { Username = "spectator",  Email = "spectator@gmail.com",  FullName = "Khán giả Bình",    RoleId = 5 },
-                new { Username = "spectator2", Email = "spectator2@gmail.com", FullName = "Khán giả Hoàng",   RoleId = 5 },
-                new { Username = "spectator3", Email = "spectator3@gmail.com", FullName = "Khán giả Dung",    RoleId = 5 }
+                new() { Username = "owner",     Email = "owner@gmail.com",     FullName = "Nguyễn Văn Hùng", RoleId = 2 },
+                new() { Username = "owner2",    Email = "owner2@gmail.com",    FullName = "Trần Thị Mai",     RoleId = 2 },
+                new() { Username = "owner3",    Email = "owner3@gmail.com",    FullName = "Lê Minh Tuấn",     RoleId = 2 },
+                new() { Username = "jockey",    Email = "jockey@gmail.com",    FullName = "Jockey Nguyễn",    RoleId = 3 },
+                new() { Username = "referee",   Email = "referee@gmail.com",   FullName = "Trọng tài Nam",    RoleId = 4 },
+                new() { Username = "spectator", Email = "spectator@gmail.com", FullName = "Khán giả Bình",    RoleId = 5 },
+                new() { Username = "spectator2", Email = "spectator2@gmail.com", FullName = "Khán giả Hoàng",   RoleId = 5 },
+                new() { Username = "spectator3", Email = "spectator3@gmail.com", FullName = "Khán giả Dung",    RoleId = 5 }
             };
 
-            foreach (var item in demoUsers)
+            for (int i = 1; i <= 10; i++)
+            {
+                demoUsersList.Add(new DemoUserSeedDto { Username = $"jockey{i}", Email = $"jockey{i}@gmail.com", FullName = $"Jockey Số {i}", RoleId = 3 });
+            }
+
+            foreach (var item in demoUsersList)
             {
                 if (!await _context.Users.AnyAsync(u => u.Username == item.Username || u.Email == item.Email))
                 {
@@ -66,8 +115,8 @@ public class DemoDataSeeder
                         _context.JockeyProfiles.Add(new JockeyProfile
                         {
                             UserId = user.UserId,
-                            ExperienceYears = 5,
-                            RankingPoint = 150,
+                            ExperienceYears = 3 + (user.UserId % 7),
+                            RankingPoint = 100 + (user.UserId % 100),
                             Status = "Active"
                         });
                     }
@@ -76,7 +125,7 @@ public class DemoDataSeeder
                         _context.RefereeProfiles.Add(new RefereeProfile
                         {
                             UserId = user.UserId,
-                            LicenseNumber = "LIC-REF-DEMO",
+                            LicenseNumber = $"LIC-REF-{user.UserId:D3}",
                             ExperienceYears = 7,
                             Status = "Active"
                         });
@@ -132,6 +181,8 @@ public class DemoDataSeeder
             var ownerUser = await _context.Users.FirstAsync(u => u.Username == "owner");
             var owner2User = await _context.Users.FirstAsync(u => u.Username == "owner2");
             var owner3User = await _context.Users.FirstAsync(u => u.Username == "owner3");
+            var jockeys = await _context.JockeyProfiles.Include(jp => jp.User).ToListAsync();
+            var refereeProfile = await _context.RefereeProfiles.Include(rp => rp.User).FirstAsync(rp => rp.User.Username == "referee");
             var jockeyUser = await _context.Users.FirstAsync(u => u.Username == "jockey");
             var jockeyProf = await _context.JockeyProfiles.FirstAsync(jp => jp.UserId == jockeyUser.UserId);
             var refereeUser = await _context.Users.FirstAsync(u => u.Username == "referee");
@@ -139,49 +190,131 @@ public class DemoDataSeeder
             var spectator2User = await _context.Users.FirstAsync(u => u.Username == "spectator2");
             var spectator3User = await _context.Users.FirstAsync(u => u.Username == "spectator3");
 
-            // 2. Seed Horses
-            var baseDate = new DateTime(2026, 6, 9, 0, 0, 0, DateTimeKind.Utc);
-            var horseData = new[]
+            // 2. Seed 30 Horses
+            var horseNames = new[]
             {
-                new { Name = "Red Rum", Age = baseDate.AddYears(-6), Gender = "Stallion", Breed = "Thoroughbred", OwnerId = ownerUser.UserId, AvgTime = 68.50m, RecentAvgTime = 68.50m, WinRate = 0.25m },
-                new { Name = "Secretariat", Age = baseDate.AddYears(-5), Gender = "Stallion", Breed = "Thoroughbred", OwnerId = ownerUser.UserId, AvgTime = 67.20m, RecentAvgTime = 67.20m, WinRate = 0.80m },
-                new { Name = "Seattle Slew", Age = baseDate.AddYears(-5), Gender = "Stallion", Breed = "Thoroughbred", OwnerId = ownerUser.UserId, AvgTime = 70.00m, RecentAvgTime = 70.00m, WinRate = 0.50m },
-                new { Name = "Spectacular Bid", Age = baseDate.AddYears(-5), Gender = "Stallion", Breed = "Thoroughbred", OwnerId = ownerUser.UserId, AvgTime = 67.90m, RecentAvgTime = 67.90m, WinRate = 0.65m },
-                new { Name = "Zenyatta", Age = baseDate.AddYears(-6), Gender = "Mare", Breed = "Thoroughbred", OwnerId = ownerUser.UserId, AvgTime = 69.00m, RecentAvgTime = 69.00m, WinRate = 0.85m },
-
-                new { Name = "Shergar", Age = baseDate.AddYears(-6), Gender = "Colt", Breed = "Irish Draught", OwnerId = owner2User.UserId, AvgTime = 71.10m, RecentAvgTime = 71.10m, WinRate = 0.40m },
-                new { Name = "Eclipse", Age = baseDate.AddYears(-7), Gender = "Gelding", Breed = "Arabian", OwnerId = owner2User.UserId, AvgTime = 69.80m, RecentAvgTime = 69.80m, WinRate = 0.35m },
-                new { Name = "Affirmed", Age = baseDate.AddYears(-6), Gender = "Stallion", Breed = "Thoroughbred", OwnerId = owner2User.UserId, AvgTime = 69.50m, RecentAvgTime = 69.50m, WinRate = 0.45m },
-                new { Name = "Ruffian", Age = baseDate.AddYears(-4), Gender = "Filly", Breed = "Thoroughbred", OwnerId = owner2User.UserId, AvgTime = 67.50m, RecentAvgTime = 67.50m, WinRate = 0.90m },
-                new { Name = "Frankel", Age = baseDate.AddYears(-5), Gender = "Stallion", Breed = "Thoroughbred", OwnerId = owner2User.UserId, AvgTime = 66.80m, RecentAvgTime = 66.80m, WinRate = 0.95m },
-
-                new { Name = "Man o' War", Age = baseDate.AddYears(-5), Gender = "Stallion", Breed = "Thoroughbred", OwnerId = owner3User.UserId, AvgTime = 68.00m, RecentAvgTime = 68.00m, WinRate = 0.75m },
-                new { Name = "Phar Lap", Age = baseDate.AddYears(-6), Gender = "Gelding", Breed = "Thoroughbred", OwnerId = owner3User.UserId, AvgTime = 69.10m, RecentAvgTime = 69.10m, WinRate = 0.60m },
-                new { Name = "Citation", Age = baseDate.AddYears(-7), Gender = "Stallion", Breed = "Thoroughbred", OwnerId = owner3User.UserId, AvgTime = 68.90m, RecentAvgTime = 68.90m, WinRate = 0.70m },
-                new { Name = "War Admiral", Age = baseDate.AddYears(-6), Gender = "Stallion", Breed = "Thoroughbred", OwnerId = owner3User.UserId, AvgTime = 68.40m, RecentAvgTime = 68.40m, WinRate = 0.70m }
+                "Red Rum", "Secretariat", "Seattle Slew", "Spectacular Bid", "Zenyatta",
+                "Shergar", "Eclipse", "Affirmed", "Ruffian", "Frankel",
+                "Man o' War", "Phar Lap", "Citation", "War Admiral", "Black Caviar",
+                "Winx", "Kauto Star", "Desert Orchid", "Arkle", "Pegasus",
+                "Silver Charm", "Thunder Gulch", "Smarty Jones", "Barbaro", "American Pharoah",
+                "Justify", "Cigar", "Easy Goer", "Sunday Silence", "Deep Impact"
             };
 
-            foreach (var h in horseData)
+            var random = new Random();
+            for (int i = 0; i < horseNames.Length; i++)
             {
-                if (!await _context.Horses.AnyAsync(horse => horse.Name == h.Name))
+                int horseOwnerId = (i % 3) switch
                 {
-                    _context.Horses.Add(new Horse
-                    {
-                        Name = h.Name,
-                        Age = h.Age,
-                        Gender = h.Gender,
-                        Breed = h.Breed,
-                        HealthStatus = "Healthy",
-                        OwnerId = h.OwnerId,
-                        AverageTime = h.AvgTime,
-                        RecentAverageTime = h.RecentAvgTime,
-                        WinRate = h.WinRate
-                    });
-                }
+                    0 => ownerUser.UserId,
+                    1 => owner2User.UserId,
+                    _ => owner3User.UserId
+                };
+
+                _context.Horses.Add(new Horse
+                {
+                    Name = horseNames[i],
+                    Age = fixedDate.AddYears(-3 - (i % 5)),
+                    Gender = (i % 2 == 0) ? "Stallion" : "Mare",
+                    Breed = "Thoroughbred",
+                    HealthStatus = "Healthy",
+                    OwnerId = horseOwnerId,
+                    AverageTime = Math.Round(65m + (decimal)random.NextDouble() * 8m, 2),
+                    RecentAverageTime = Math.Round(65m + (decimal)random.NextDouble() * 8m, 2),
+                    WinRate = Math.Round((decimal)random.NextDouble() * 0.9m, 2)
+                });
             }
             await _context.SaveChangesAsync();
             var allHorses = await _context.Horses.ToListAsync();
 
+            // 3. Seed Tournament "Giải Đua Ngựa Mùa Đông 2026"
+            var tournamentName = "Giải Đua Ngựa Mùa Đông 2026";
+            var tournament = new Tournament
+            {
+                Name = tournamentName,
+                StartDate = new DateTime(2026, 12, 1, 0, 0, 0, DateTimeKind.Utc),
+                EndDate = new DateTime(2026, 12, 10, 0, 0, 0, DateTimeKind.Utc),
+                Status = "Upcoming"
+            };
+            _context.Tournaments.Add(tournament);
+            await _context.SaveChangesAsync();
+
+            // 4. Seed Tournament Rounds (Pre & Final)
+            var preRound = new Round
+            {
+                TournamentId = tournament.TournamentId,
+                Name = "Pre",
+                RoundNumber = 1,
+                StartDate = new DateTime(2026, 12, 1, 0, 0, 0, DateTimeKind.Utc),
+                EndDate = new DateTime(2026, 12, 5, 0, 0, 0, DateTimeKind.Utc),
+                Status = "Scheduled"
+            };
+            var finalRound = new Round
+            {
+                TournamentId = tournament.TournamentId,
+                Name = "Final",
+                RoundNumber = 2,
+                StartDate = new DateTime(2026, 12, 6, 0, 0, 0, DateTimeKind.Utc),
+                EndDate = new DateTime(2026, 12, 10, 0, 0, 0, DateTimeKind.Utc),
+                Status = "Scheduled"
+            };
+            _context.Rounds.AddRange(preRound, finalRound);
+            await _context.SaveChangesAsync();
+
+            // 5. Seed Races (Pre Race 1, Pre Race 2, Pre Race 3, Chung Kết Mùa Đông)
+            var preRace1 = new Race
+            {
+                RoundId = preRound.RoundId,
+                Name = "Pre Race 1",
+                RaceDate = new DateTime(2026, 12, 2, 9, 0, 0, DateTimeKind.Utc),
+                DistanceMeter = 1200,
+                MaxLanes = 12,
+                Status = "Scheduled"
+            };
+            var preRace2 = new Race
+            {
+                RoundId = preRound.RoundId,
+                Name = "Pre Race 2",
+                RaceDate = new DateTime(2026, 12, 3, 9, 0, 0, DateTimeKind.Utc),
+                DistanceMeter = 1200,
+                MaxLanes = 12,
+                Status = "Scheduled"
+            };
+            var preRace3 = new Race
+            {
+                RoundId = preRound.RoundId,
+                Name = "Pre Race 3",
+                RaceDate = new DateTime(2026, 12, 4, 9, 0, 0, DateTimeKind.Utc),
+                DistanceMeter = 1200,
+                MaxLanes = 12,
+                Status = "Scheduled"
+            };
+            var finalRace = new Race
+            {
+                RoundId = finalRound.RoundId,
+                Name = "Chung Kết Mùa Đông",
+                RaceDate = new DateTime(2026, 12, 9, 15, 0, 0, DateTimeKind.Utc),
+                DistanceMeter = 1600,
+                MaxLanes = 12,
+                Status = "Scheduled"
+            };
+            _context.Races.AddRange(preRace1, preRace2, preRace3, finalRace);
+            await _context.SaveChangesAsync();
+
+            // 6. Seed Registrations for tournament (Register all 30 horses)
+            var horses = await _context.Horses.ToListAsync();
+            var registrations = new List<Registration>();
+
+            foreach (var horse in horses)
+            {
+                var registration = new Registration
+                {
+                    TournamentId = tournament.TournamentId,
+                    HorseId = horse.HorseId,
+                    Status = "Approved",
+                    RegisteredAt = DateTime.UtcNow
+                };
+                registrations.Add(registration);
             // 3. Seed Tournament 1: "Giải Đua Ngựa Mùa Xuân 2026" (FINISHED)
             var t1Name = "Giải Đua Ngựa Mùa Xuân 2026";
             var t1 = await _context.Tournaments.FirstOrDefaultAsync(t => t.Name == t1Name);
@@ -584,7 +717,104 @@ public class DemoDataSeeder
                 }
                 await _context.SaveChangesAsync();
             }
+            _context.Registrations.AddRange(registrations);
+            await _context.SaveChangesAsync();
 
+            // 7. Seed Jockey Contracts (Distribute 11 jockeys dynamically to 30 horses)
+            var jockeyContracts = new List<JockeyContract>();
+            for (int i = 0; i < registrations.Count; i++)
+            {
+                var reg = registrations[i];
+                var assignedJockey = jockeys[i % jockeys.Count];
+
+                var contract = new JockeyContract
+                {
+                    TournamentId = tournament.TournamentId,
+                    HorseId = reg.HorseId,
+                    JockeyId = assignedJockey.UserId,
+                    StartDate = new DateTime(2026, 12, 1, 0, 0, 0, DateTimeKind.Utc),
+                    EndDate = new DateTime(2026, 12, 10, 0, 0, 0, DateTimeKind.Utc),
+                    Status = "Approved",
+                    CreatedAt = DateTime.UtcNow
+                };
+                jockeyContracts.Add(contract);
+            }
+            _context.JockeyContracts.AddRange(jockeyContracts);
+            await _context.SaveChangesAsync();
+
+            // 8. Seed Race Entries (Pre Race 1: 12 lanes, Pre Race 2: 12 lanes, Pre Race 3: 6 lanes)
+            var raceEntries = new List<RaceEntry>();
+            for (int i = 0; i < registrations.Count; i++)
+            {
+                var reg = registrations[i];
+                var assignedJockey = jockeys[i % jockeys.Count];
+
+                long targetRaceId;
+                int laneNo;
+
+                if (i < 12)
+                {
+                    targetRaceId = preRace1.RaceId;
+                    laneNo = i + 1;
+                }
+                else if (i < 24)
+                {
+                    targetRaceId = preRace2.RaceId;
+                    laneNo = (i - 12) + 1;
+                }
+                else
+                {
+                    targetRaceId = preRace3.RaceId;
+                    laneNo = (i - 24) + 1;
+                }
+
+                raceEntries.Add(new RaceEntry
+                {
+                    RaceId = targetRaceId,
+                    RegistrationId = reg.RegistrationId,
+                    JockeyId = assignedJockey.JockeyId,
+                    LaneNo = laneNo,
+                    Status = "Ready",
+                    WinningProbability = 8.33m,
+                    CurrentOdds = 2.0m
+                });
+            }
+            _context.RaceEntries.AddRange(raceEntries);
+            await _context.SaveChangesAsync();
+
+            // 9. Referee Assignments to races
+            _context.RaceRefereeAssignments.Add(new RaceRefereeAssignment
+            {
+                RaceId = preRace1.RaceId,
+                RefereeId = refereeProfile.RefereeId,
+                AssignedAt = DateTime.UtcNow,
+                Status = "Active"
+            });
+            _context.RaceRefereeAssignments.Add(new RaceRefereeAssignment
+            {
+                RaceId = preRace2.RaceId,
+                RefereeId = refereeProfile.RefereeId,
+                AssignedAt = DateTime.UtcNow,
+                Status = "Active"
+            });
+            _context.RaceRefereeAssignments.Add(new RaceRefereeAssignment
+            {
+                RaceId = preRace3.RaceId,
+                RefereeId = refereeProfile.RefereeId,
+                AssignedAt = DateTime.UtcNow,
+                Status = "Active"
+            });
+            _context.RaceRefereeAssignments.Add(new RaceRefereeAssignment
+            {
+                RaceId = finalRace.RaceId,
+                RefereeId = refereeProfile.RefereeId,
+                AssignedAt = DateTime.UtcNow,
+                Status = "Active"
+            });
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Seeded Giải Đua Ngựa Mùa Đông 2026 with 30 horses, 11 jockeys, and 3 pre races.");
+            _logger.LogInformation("Demo data seeding completed successfully.");
             // Always recalculate and force update Odds for Summer Race on every startup
             var summerRace = await _context.Races.Include(r => r.Round).FirstOrDefaultAsync(r => r.Name == "Trận Đua Khai Mạc Mùa Hè");
             if (summerRace != null)
