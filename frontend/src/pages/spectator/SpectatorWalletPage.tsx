@@ -77,8 +77,8 @@ export function SpectatorWalletPage() {
     if (effectiveUsd <= 0) return;
     setDepositLoading(true); setDepositErr(''); setDepositMsg('');
     try {
-      await deposit(effectiveUsd);
-      setDepositMsg(`Nạp $${effectiveUsd} thành công!`);
+      await deposit(coinsPreview);
+      setDepositMsg(`Nạp $${effectiveUsd} USD (${coinsPreview.toLocaleString()} coins) thành công!`);
       setUsdInput(''); setQuickAmt(null);
       loadAll();
     } catch (err: unknown) {
@@ -92,10 +92,11 @@ export function SpectatorWalletPage() {
   async function handleWithdraw() {
     const amt = parseFloat(withdrawInput);
     if (!amt || amt <= 0) { setWithdrawErr('Nhập số tiền hợp lệ.'); return; }
+    const coinsToWithdraw = amt * COINS_PER_USD;
     setWithdrawLoading(true); setWithdrawErr(''); setWithdrawMsg('');
     try {
-      await withdraw(amt);
-      setWithdrawMsg(`Rút $${amt} thành công!`);
+      await withdraw(coinsToWithdraw);
+      setWithdrawMsg(`Rút $${amt} USD (${coinsToWithdraw.toLocaleString()} coins) thành công!`);
       setWithdrawInput('');
       loadAll();
     } catch (err: unknown) {
@@ -250,12 +251,21 @@ export function SpectatorWalletPage() {
                     className="w-full bg-white/[0.04] border border-glass-border rounded-lg pl-8 pr-4 py-2.5 text-sm text-white placeholder:text-muted/50 outline-none focus:border-blue-400/40 transition-colors" />
                 </div>
 
+                {parseFloat(withdrawInput) > 0 && (
+                  <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="mb-4 p-3 rounded-lg bg-blue-500/5 border border-blue-500/20">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted">Số coins sẽ bị trừ</span>
+                      <span className="text-sm font-bold text-blue-400">{(parseFloat(withdrawInput) * COINS_PER_USD).toLocaleString()} coins</span>
+                    </div>
+                  </motion.div>
+                )}
+
                 {withdrawErr && <div className="mb-3 text-xs text-red-400 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20">{withdrawErr}</div>}
                 {withdrawMsg && <div className="mb-3 text-xs text-emerald-400 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">{withdrawMsg}</div>}
 
-                <button onClick={handleWithdraw} disabled={withdrawLoading || !withdrawInput}
+                <button onClick={handleWithdraw} disabled={withdrawLoading || !withdrawInput || parseFloat(withdrawInput) <= 0}
                   className="w-full py-2.5 rounded-lg text-sm font-bold bg-blue-500/10 border border-blue-500/25 text-blue-300 hover:bg-blue-500/20 transition-all disabled:opacity-50">
-                  {withdrawLoading ? 'Đang rút…' : 'Rút tiền'}
+                  {withdrawLoading ? 'Đang rút…' : parseFloat(withdrawInput) > 0 ? `Rút $${withdrawInput} → ${(parseFloat(withdrawInput) * COINS_PER_USD).toLocaleString()} coins` : 'Rút tiền'}
                 </button>
               </motion.div>
             </div>

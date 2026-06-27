@@ -53,7 +53,7 @@ Trước khi bắt đầu, hãy đảm bảo máy tính của bạn đã cài đ
    ```
 3. Chạy backend API trên cổng mặc định (ví dụ: cổng 5001):
    ```bash
-   dotnet run --project src/HorseRacing.API -- --urls http://localhost:5001
+   dotnet run --project src/HorseRacing.API -- --urls http://localhost:5000
    ```
    *(Nếu cổng 5001 đã bị chương trình khác chiếm dụng, bạn có thể chạy trên cổng 5002 bằng cách thay URL ở cuối: `--urls http://localhost:5002`)*
 
