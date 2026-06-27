@@ -128,92 +128,95 @@ public class PrizePayoutService : IPrizePayoutService
             return;
         }
 
-        // 3. Process payout for the tournament winner (First Place)
-        var winningHorse = await _betRepository.GetHorseByIdOrNameAsync(result.Winner);
-        if (winningHorse == null)
+        // 3. Process payouts for all top 3 ranks
+        var finalEntries = (await _betRepository.GetRaceEntriesWithHorseAsync(finalRace.RaceId))
+            .Where(re => re.FinishPosition.HasValue)
+            .OrderBy(re => re.FinishPosition.Value)
+            .ToList();
+
+        foreach (var entry in finalEntries)
         {
-            throw new InvalidOperationException($"Winning horse '{result.Winner}' from final race results could not be found.");
-        }
+            int rank = entry.FinishPosition.Value;
+            if (rank < 1 || rank > 3) continue;
 
-        var winningEntry = await _betRepository.GetRaceEntryAsync(finalRace.RaceId, (int)winningHorse.HorseId);
-        if (winningEntry == null)
-        {
-            throw new InvalidOperationException($"Could not find the race entry matching horse '{winningHorse.Name}' in final race ID {finalRace.RaceId}.");
-        }
+            var prize = await _prizeRepository.GetByTournamentAndRankAsync(request.TournamentId, rank);
+            if (prize == null) continue;
 
-        decimal ownerAmount = Math.Round(firstPrize.Amount * (firstPrize.OwnerPercentage / 100m), 2);
-        decimal jockeyAmount = Math.Round(firstPrize.Amount * (firstPrize.JockeyPercentage / 100m), 2);
+            var horse = entry.Registration?.Horse;
+            if (horse == null) continue;
 
-        var ownerWallet = await GetOrCreateWalletAsync(winningHorse.OwnerId);
-        ownerWallet.Balance += ownerAmount;
+            decimal ownerAmount = Math.Round(prize.Amount * (prize.OwnerPercentage / 100m), 2);
+            decimal jockeyAmount = Math.Round(prize.Amount * (prize.JockeyPercentage / 100m), 2);
 
-        var ownerTransaction = new WalletTransaction
-        {
-            WalletId = ownerWallet.WalletId,
-            Amount = ownerAmount,
-            Type = "PrizePayout",
-            CreatedAt = DateTime.UtcNow
-        };
-        await _transactionRepository.AddAsync(ownerTransaction);
+            // Pay Owner
+            var ownerWallet = await GetOrCreateWalletAsync(horse.OwnerId);
+            ownerWallet.Balance += ownerAmount;
 
-        var ownerPayoutRecord = new TournamentPrizePayout
-        {
-            TournamentId = request.TournamentId,
-            UserId = winningHorse.OwnerId,
-            Amount = ownerAmount,
-            Role = "HorseOwner",
-            CreatedAt = DateTime.UtcNow
-        };
-        await _prizeRepository.AddTournamentPrizePayoutAsync(ownerPayoutRecord);
-
-        var ownerNotification = new Notification
-        {
-            UserId = winningHorse.OwnerId,
-            Message = $"Congratulations! Your horse '{winningHorse.Name}' won the tournament '{tournament.Name}'. You have been awarded the Owner's Prize share of {ownerAmount:N2}. New balance: {ownerWallet.Balance:N2}.",
-            IsRead = false,
-            CreatedAt = DateTime.UtcNow
-        };
-        await _notificationRepository.AddAsync(ownerNotification);
-
-        int jockeyUserId = 0;
-        if (winningEntry.JockeyId.HasValue)
-        {
-            if (winningEntry.JockeyProfile == null)
+            var ownerTransaction = new WalletTransaction
             {
-                throw new InvalidOperationException($"Jockey Profile with ID {winningEntry.JockeyId.Value} is not loaded.");
+                WalletId = ownerWallet.WalletId,
+                Amount = ownerAmount,
+                Type = "PrizePayout",
+                CreatedAt = DateTime.UtcNow
+            };
+            await _transactionRepository.AddAsync(ownerTransaction);
+
+            var ownerPayoutRecord = new TournamentPrizePayout
+            {
+                TournamentId = request.TournamentId,
+                UserId = horse.OwnerId,
+                Amount = ownerAmount,
+                Role = "HorseOwner",
+                CreatedAt = DateTime.UtcNow
+            };
+            await _prizeRepository.AddTournamentPrizePayoutAsync(ownerPayoutRecord);
+
+            var ownerNotification = new Notification
+            {
+                UserId = horse.OwnerId,
+                Message = $"Congratulations! Your horse '{horse.Name}' won Rank {rank} in the tournament '{tournament.Name}'. You have been awarded the Owner's Prize share of {ownerAmount:N2}. New balance: {ownerWallet.Balance:N2}.",
+                IsRead = false,
+                CreatedAt = DateTime.UtcNow
+            };
+            await _notificationRepository.AddAsync(ownerNotification);
+
+            // Pay Jockey
+            int jockeyUserId = 0;
+            if (entry.JockeyId.HasValue && entry.JockeyProfile != null)
+            {
+                jockeyUserId = entry.JockeyProfile.UserId;
+                var jockeyWallet = await GetOrCreateWalletAsync(jockeyUserId);
+                jockeyWallet.Balance += jockeyAmount;
+
+                var jockeyTransaction = new WalletTransaction
+                {
+                    WalletId = jockeyWallet.WalletId,
+                    Amount = jockeyAmount,
+                    Type = "PrizePayout",
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _transactionRepository.AddAsync(jockeyTransaction);
+
+                var jockeyPayoutRecord = new TournamentPrizePayout
+                {
+                    TournamentId = request.TournamentId,
+                    UserId = jockeyUserId,
+                    Amount = jockeyAmount,
+                    Role = "Jockey",
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _prizeRepository.AddTournamentPrizePayoutAsync(jockeyPayoutRecord);
+
+                var jockeyNotification = new Notification
+                {
+                    UserId = jockeyUserId,
+                    Message = $"Congratulations! You won Rank {rank} in the tournament '{tournament.Name}' riding '{horse.Name}'. You have been awarded the Jockey's Prize share of {jockeyAmount:N2}. New balance: {jockeyWallet.Balance:N2}.",
+                    IsRead = false,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _notificationRepository.AddAsync(jockeyNotification);
             }
-            jockeyUserId = winningEntry.JockeyProfile.UserId;
         }
-        var jockeyWallet = await GetOrCreateWalletAsync(jockeyUserId);
-        jockeyWallet.Balance += jockeyAmount;
-
-        var jockeyTransaction = new WalletTransaction
-        {
-            WalletId = jockeyWallet.WalletId,
-            Amount = jockeyAmount,
-            Type = "PrizePayout",
-            CreatedAt = DateTime.UtcNow
-        };
-        await _transactionRepository.AddAsync(jockeyTransaction);
-
-        var jockeyPayoutRecord = new TournamentPrizePayout
-        {
-            TournamentId = request.TournamentId,
-            UserId = jockeyUserId,
-            Amount = jockeyAmount,
-            Role = "Jockey",
-            CreatedAt = DateTime.UtcNow
-        };
-        await _prizeRepository.AddTournamentPrizePayoutAsync(jockeyPayoutRecord);
-
-        var jockeyNotification = new Notification
-        {
-            UserId = jockeyUserId,
-            Message = $"Congratulations! You won the tournament '{tournament.Name}' riding '{winningHorse.Name}'. You have been awarded the Jockey's Prize share of {jockeyAmount:N2}. New balance: {jockeyWallet.Balance:N2}.",
-            IsRead = false,
-            CreatedAt = DateTime.UtcNow
-        };
-        await _notificationRepository.AddAsync(jockeyNotification);
 
         tournament.Status = "Completed";
 
