@@ -499,6 +499,43 @@ public class DemoDataSeeder
                     Point = 0
                 });
                 await _context.SaveChangesAsync();
+
+                // 4.1 Seed 15 extra registrations and pending jockey contracts (invitations) for Summer 2026
+                var extraRegistrations = new List<Registration>();
+                for (int i = 10; i < 25; i++)
+                {
+                    var horse = allHorses[i];
+                    var reg = new Registration
+                    {
+                        TournamentId = t2.TournamentId,
+                        HorseId = horse.HorseId,
+                        Status = "Approved",
+                        RegisteredAt = new DateTime(2026, 6, 12, 0, 0, 0, DateTimeKind.Utc)
+                    };
+                    extraRegistrations.Add(reg);
+                }
+                _context.Registrations.AddRange(extraRegistrations);
+                await _context.SaveChangesAsync();
+
+                var allJockeys = await _context.JockeyProfiles.ToListAsync();
+                var extraContracts = new List<JockeyContract>();
+                for (int i = 0; i < extraRegistrations.Count; i++)
+                {
+                    var assignedJockey = allJockeys[i % allJockeys.Count];
+                    var contract = new JockeyContract
+                    {
+                        TournamentId = t2.TournamentId,
+                        HorseId = extraRegistrations[i].HorseId,
+                        JockeyId = assignedJockey.UserId,
+                        StartDate = new DateTime(2026, 6, 15, 0, 0, 0, DateTimeKind.Utc),
+                        EndDate = new DateTime(2026, 7, 5, 0, 0, 0, DateTimeKind.Utc),
+                        Status = "Pending", // Invitation status
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    extraContracts.Add(contract);
+                }
+                _context.JockeyContracts.AddRange(extraContracts);
+                await _context.SaveChangesAsync();
             }
 
             // 5. Seed Tournament 3: "Giải Đua Ngựa Mùa Đông 2026" (UPCOMING)
