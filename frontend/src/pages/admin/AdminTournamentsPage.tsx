@@ -5,7 +5,7 @@ import { Sidebar } from '../../components/layout/Sidebar';
 import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
-import { createTournament, generateTournamentRaces } from '../../api/adminService';
+import { createTournament, generateTournamentRaces, generateFinalRace } from '../../api/adminService';
 import { getRaceSchedule, getTournaments } from '../../api/publicService';
 import { parseApiError } from '../../api/authService';
 import { formatDateTime } from '../../utils/format';
@@ -120,6 +120,21 @@ export function AdminTournamentsPage() {
     try {
       await generateTournamentRaces(tournamentId);
       setSuccess(t('Đã tự động sắp xếp cuộc đua cho giải đấu.'));
+      await loadTournaments();
+    } catch (err: unknown) {
+      setError(parseApiError(err as Error));
+    } finally {
+      setGeneratingForTournament(null);
+    }
+  }
+
+  async function handleGenerateFinal(tournamentId: number) {
+    setGeneratingForTournament(tournamentId);
+    setError('');
+    setSuccess('');
+    try {
+      await generateFinalRace(tournamentId);
+      setSuccess(t('Đã tự động sắp xếp bảng Chung kết (Top 12) thành công.'));
       await loadTournaments();
     } catch (err: unknown) {
       setError(parseApiError(err as Error));
@@ -302,7 +317,7 @@ export function AdminTournamentsPage() {
                       )}
                       {raceState.canGenerateFinal && (
                         <button
-                          onClick={() => handleGenerateRaces(tour.tournamentId)}
+                          onClick={() => handleGenerateFinal(tour.tournamentId)}
                           disabled={isGenerating}
                           className="px-3 py-2 rounded-lg text-xs font-bold text-gold border border-gold/30 bg-gold/10 hover:bg-gold/20 disabled:opacity-60 transition-colors flex items-center gap-1.5"
                         >
