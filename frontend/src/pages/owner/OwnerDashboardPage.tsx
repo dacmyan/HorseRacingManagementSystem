@@ -12,6 +12,7 @@ import { PageHero } from '../../components/layout/PageHero';
 import { getCurrentUser, parseApiError } from '../../api/authService';
 import { getMyHorses } from '../../api/ownerService';
 import { getRaceSchedule } from '../../api/publicService';
+import { calculateAge } from '../../utils/format';
 
 const child = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { duration: 0.35 } } };
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.08 } } };
@@ -144,7 +145,7 @@ export function OwnerDashboardPage() {
                       <div className="text-sm font-semibold text-white group-hover:text-champagne transition-colors truncate">{h.name}</div>
                       <div className="text-[11px] text-muted flex items-center gap-1.5 mt-0.5">
                         <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/[0.04] border border-glass-border text-muted">{h.breed}</span>
-                        <span>{h.age} tuổi</span>
+                        <span>{calculateAge(h.age)} tuổi</span>
                       </div>
                     </div>
                     <div className="text-right shrink-0 hidden sm:block">

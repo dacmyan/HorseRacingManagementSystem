@@ -201,6 +201,14 @@ public class TournamentServiceTests
             .ReturnsAsync(tournament);
         _tournamentRepoMock.Setup(r => r.GetRacesByRoundIdAsync(101))
             .ReturnsAsync(prefinalRaces);
+        _tournamentRepoMock.Setup(r => r.GetApprovedRegistrationsAsync(tournament.TournamentId))
+            .ReturnsAsync(topRegistrations);
+
+        var entriesForRace1 = topRegistrations.Take(6).Select(r => new RaceEntry { RegistrationId = r.RegistrationId }).ToList();
+        var entriesForRace2 = topRegistrations.Skip(6).Select(r => new RaceEntry { RegistrationId = r.RegistrationId }).ToList();
+        _tournamentRepoMock.Setup(r => r.GetRaceEntriesByRaceIdAsync(1)).ReturnsAsync(entriesForRace1);
+        _tournamentRepoMock.Setup(r => r.GetRaceEntriesByRaceIdAsync(2)).ReturnsAsync(entriesForRace2);
+
         _tournamentRepoMock.Setup(r => r.GetRacesByRoundIdAsync(102))
             .ReturnsAsync(new List<Race> { existingFinalRace });
         _tournamentRepoMock.Setup(r => r.GetRaceEntriesByRaceIdAsync(existingFinalRace.RaceId))
@@ -238,6 +246,10 @@ public class TournamentServiceTests
             .ReturnsAsync(tournament);
         _tournamentRepoMock.Setup(r => r.GetRacesByRoundIdAsync(101))
             .ReturnsAsync(new List<Race> { new() { RaceId = 1, RoundId = 101 } });
+        _tournamentRepoMock.Setup(r => r.GetApprovedRegistrationsAsync(tournament.TournamentId))
+            .ReturnsAsync(new List<Registration> { new() { RegistrationId = 1, HorseId = 1 } });
+        _tournamentRepoMock.Setup(r => r.GetRaceEntriesByRaceIdAsync(1))
+            .ReturnsAsync(new List<RaceEntry> { new() { RegistrationId = 1 } });
         _tournamentRepoMock.Setup(r => r.GetRacesByRoundIdAsync(102))
             .ReturnsAsync(new List<Race> { new() { RaceId = 2, RoundId = 102, Name = "Final Race" } });
         _tournamentRepoMock.Setup(r => r.GetRaceEntriesByRaceIdAsync(2))

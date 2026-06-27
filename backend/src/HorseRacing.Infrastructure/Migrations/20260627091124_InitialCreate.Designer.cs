@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HorseRacing.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260612025302_AddRefereeReport")]
-    partial class AddRefereeReport
+    [Migration("20260627091124_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -64,63 +64,6 @@ namespace HorseRacing.Infrastructure.Migrations
                     b.HasIndex("RoleId");
 
                     b.ToTable("AppUser", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            UserId = 1,
-                            CreatedAt = new DateTime(2026, 6, 9, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Email = "admin@gmail.com",
-                            FullName = "Admin",
-                            PasswordHash = "AQAAAAIAAYagAAAAEL3MNWtRhvfQxwwwIqhshbFLU07YLYFvXEUG66I7640i3DJ4x1GfHVWHTyt5JhDkvg==",
-                            RoleId = 1,
-                            Status = "Active",
-                            Username = "admin"
-                        },
-                        new
-                        {
-                            UserId = 2,
-                            CreatedAt = new DateTime(2026, 6, 9, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Email = "owner@gmail.com",
-                            FullName = "HorseOwner",
-                            PasswordHash = "AQAAAAIAAYagAAAAEGyQeVxp9OVePd4lUW2yUnlaIslc2Hb1UqZouwu1xjOlZgLmdErHbODNrBy9QAk7Fg==",
-                            RoleId = 2,
-                            Status = "Active",
-                            Username = "owner"
-                        },
-                        new
-                        {
-                            UserId = 3,
-                            CreatedAt = new DateTime(2026, 6, 9, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Email = "jockey@gmail.com",
-                            FullName = "Jockey",
-                            PasswordHash = "AQAAAAIAAYagAAAAEG7QrTR2HaVVSpLEoFY6nOXiEX/NozyjPG00YA6FAebngMyKqLiQ72/SXsHxSwGLmA==",
-                            RoleId = 3,
-                            Status = "Active",
-                            Username = "jockey"
-                        },
-                        new
-                        {
-                            UserId = 4,
-                            CreatedAt = new DateTime(2026, 6, 9, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Email = "referee@gmail.com",
-                            FullName = "Referee",
-                            PasswordHash = "AQAAAAIAAYagAAAAEAdQI0nKh2I0WQ5tIG7x7PcS/FtpxA2nTEzJmsOIfzFlBOZM0COQr0/xSZll9vhcwQ==",
-                            RoleId = 4,
-                            Status = "Active",
-                            Username = "referee"
-                        },
-                        new
-                        {
-                            UserId = 5,
-                            CreatedAt = new DateTime(2026, 6, 9, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Email = "spectator@gmail.com",
-                            FullName = "Spectator",
-                            PasswordHash = "AQAAAAIAAYagAAAAELF89zW+xZNN798lwcDM2PkiAZJVpjK8/S+59Yst+SzV3QlCb5IuBvLXib+/BFmcqA==",
-                            RoleId = 5,
-                            Status = "Active",
-                            Username = "spectator"
-                        });
                 });
 
             modelBuilder.Entity("HorseRacing.Domain.Entities.Bet", b =>
@@ -132,6 +75,7 @@ namespace HorseRacing.Infrastructure.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("CreatedAt")
@@ -141,7 +85,11 @@ namespace HorseRacing.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     b.Property<decimal>("Odds")
-                        .HasColumnType("decimal(18,2)");
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<long?>("RaceEntryId")
+                        .HasColumnType("bigint");
 
                     b.Property<long>("RaceId")
                         .HasColumnType("bigint");
@@ -157,6 +105,8 @@ namespace HorseRacing.Infrastructure.Migrations
 
                     b.HasIndex("HorseId");
 
+                    b.HasIndex("RaceEntryId");
+
                     b.HasIndex("RaceId");
 
                     b.HasIndex("UserId");
@@ -164,7 +114,7 @@ namespace HorseRacing.Infrastructure.Migrations
                     b.ToTable("Bet", (string)null);
                 });
 
-            modelBuilder.Entity("HorseRacing.Domain.Entities.Horse", b =>
+            modelBuilder.Entity("HorseRacing.Domain.Entities.Financials.Prize", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -172,8 +122,47 @@ namespace HorseRacing.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("Age")
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("JockeyPercentage")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("OwnerPercentage")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<int>("RankPosition")
                         .HasColumnType("int");
+
+                    b.Property<long>("TournamentId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TournamentId", "RankPosition")
+                        .IsUnique();
+
+                    b.ToTable("Prize", (string)null);
+                });
+
+            modelBuilder.Entity("HorseRacing.Domain.Entities.Horse", b =>
+                {
+                    b.Property<int>("HorseId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("Id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("HorseId"));
+
+                    b.Property<DateTime>("Age")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("AverageTime")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
 
                     b.Property<string>("Breed")
                         .IsRequired()
@@ -194,14 +183,17 @@ namespace HorseRacing.Infrastructure.Migrations
                     b.Property<int>("OwnerId")
                         .HasColumnType("int");
 
-                    b.Property<int?>("RegistrationId")
-                        .HasColumnType("int");
+                    b.Property<decimal?>("RecentAverageTime")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
 
-                    b.HasKey("Id");
+                    b.Property<decimal?>("WinRate")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.HasKey("HorseId");
 
                     b.HasIndex("OwnerId");
-
-                    b.HasIndex("RegistrationId");
 
                     b.ToTable("Horse", (string)null);
                 });
@@ -244,7 +236,8 @@ namespace HorseRacing.Infrastructure.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<decimal>("AverageSpeed")
-                        .HasColumnType("decimal(18,2)");
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
 
                     b.Property<int>("HorseId")
                         .HasColumnType("int");
@@ -274,11 +267,11 @@ namespace HorseRacing.Infrastructure.Migrations
 
             modelBuilder.Entity("HorseRacing.Domain.Entities.JockeyContract", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<int>("ContractId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ContractId"));
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -292,9 +285,6 @@ namespace HorseRacing.Infrastructure.Migrations
                     b.Property<int>("JockeyId")
                         .HasColumnType("int");
 
-                    b.Property<int>("OwnerId")
-                        .HasColumnType("int");
-
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("datetime2");
 
@@ -302,13 +292,17 @@ namespace HorseRacing.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.HasKey("Id");
+                    b.Property<long>("TournamentId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("ContractId");
 
                     b.HasIndex("HorseId");
 
                     b.HasIndex("JockeyId");
 
-                    b.HasIndex("OwnerId");
+                    b.HasIndex("TournamentId", "HorseId", "JockeyId")
+                        .IsUnique();
 
                     b.ToTable("JockeyContract", (string)null);
                 });
@@ -340,16 +334,6 @@ namespace HorseRacing.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("JockeyProfile", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            JockeyId = 1,
-                            ExperienceYears = 3,
-                            RankingPoint = 100,
-                            Status = "Active",
-                            UserId = 3
-                        });
                 });
 
             modelBuilder.Entity("HorseRacing.Domain.Entities.Notification", b =>
@@ -389,6 +373,7 @@ namespace HorseRacing.Infrastructure.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("BetId")
@@ -406,73 +391,23 @@ namespace HorseRacing.Infrastructure.Migrations
 
             modelBuilder.Entity("HorseRacing.Domain.Entities.Prediction", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<int>("PredictionId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PredictionId"));
 
-                    b.Property<string>("PredictedWinner")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<bool?>("IsCorrect")
+                        .HasColumnType("bit");
 
-                    b.Property<long>("RaceId")
+                    b.Property<int>("Point")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("PredictedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("RaceEntryId")
                         .HasColumnType("bigint");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Prediction", (string)null);
-                });
-
-            modelBuilder.Entity("HorseRacing.Domain.Entities.Prize", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<decimal>("Amount")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("JockeyPercentage")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("OwnerPercentage")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<int>("Rank")
-                        .HasColumnType("int");
-
-                    b.Property<long>("TournamentId")
-                        .HasColumnType("bigint");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TournamentId");
-
-                    b.ToTable("Prize", (string)null);
-                });
-
-            modelBuilder.Entity("HorseRacing.Domain.Entities.RaceEntry", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("HorseId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("HorseId1")
-                        .HasColumnType("int");
-
-                    b.Property<int>("JockeyId")
-                        .HasColumnType("int");
 
                     b.Property<long>("RaceId")
                         .HasColumnType("bigint");
@@ -481,15 +416,71 @@ namespace HorseRacing.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.HasKey("Id");
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
 
-                    b.HasIndex("HorseId");
+                    b.HasKey("PredictionId");
 
-                    b.HasIndex("HorseId1");
+                    b.HasIndex("RaceEntryId");
+
+                    b.HasIndex("RaceId");
+
+                    b.HasIndex("UserId", "RaceId")
+                        .IsUnique();
+
+                    b.ToTable("Prediction", (string)null);
+                });
+
+            modelBuilder.Entity("HorseRacing.Domain.Entities.RaceEntry", b =>
+                {
+                    b.Property<long>("RaceEntryId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("RaceEntryId"));
+
+                    b.Property<decimal?>("CurrentOdds")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int?>("FinishPosition")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("FinishTime")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int?>("JockeyId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("LaneNo")
+                        .HasColumnType("int");
+
+                    b.Property<long>("RaceId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("RegistrationId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal?>("WinningProbability")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.HasKey("RaceEntryId");
 
                     b.HasIndex("JockeyId");
 
-                    b.HasIndex("RaceId");
+                    b.HasIndex("RegistrationId");
+
+                    b.HasIndex("RaceId", "LaneNo")
+                        .IsUnique();
+
+                    b.HasIndex("RaceId", "RegistrationId")
+                        .IsUnique();
 
                     b.ToTable("RaceEntry", (string)null);
                 });
@@ -502,8 +493,14 @@ namespace HorseRacing.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<long>("RaceId")
                         .HasColumnType("bigint");
+
+                    b.Property<DateTime>("ResultRecordedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Winner")
                         .IsRequired()
@@ -532,6 +529,10 @@ namespace HorseRacing.Infrastructure.Migrations
 
                     b.Property<long>("RaceId")
                         .HasColumnType("bigint");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -568,25 +569,18 @@ namespace HorseRacing.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("RefereeProfile", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            RefereeId = 1,
-                            ExperienceYears = 5,
-                            LicenseNumber = "LIC-REF-001",
-                            Status = "Active",
-                            UserId = 4
-                        });
                 });
 
             modelBuilder.Entity("HorseRacing.Domain.Entities.RefereeReport", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<long>("ReportId")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("bigint");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ReportId"));
+
+                    b.Property<long>("AssignmentId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Content")
                         .IsRequired()
@@ -595,23 +589,18 @@ namespace HorseRacing.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<long>("RaceId")
-                        .HasColumnType("bigint");
-
-                    b.Property<int>("RefereeId")
-                        .HasColumnType("int");
-
                     b.Property<int?>("ReportedHorseId")
                         .HasColumnType("int");
 
                     b.Property<int?>("ReportedUserId")
                         .HasColumnType("int");
 
-                    b.HasKey("Id");
+                    b.Property<string>("ViolationNote")
+                        .HasColumnType("nvarchar(max)");
 
-                    b.HasIndex("RaceId");
+                    b.HasKey("ReportId");
 
-                    b.HasIndex("RefereeId");
+                    b.HasIndex("AssignmentId");
 
                     b.HasIndex("ReportedHorseId");
 
@@ -622,17 +611,20 @@ namespace HorseRacing.Infrastructure.Migrations
 
             modelBuilder.Entity("HorseRacing.Domain.Entities.Registration", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<int>("RegistrationId")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("int")
+                        .HasColumnName("Id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RegistrationId"));
 
                     b.Property<int>("HorseId")
-                        .HasColumnType("int");
+                        .HasColumnType("int")
+                        .HasColumnName("HorseId");
+
+                    b.Property<DateTime>("RegisteredAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("CreatedAt");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -641,11 +633,12 @@ namespace HorseRacing.Infrastructure.Migrations
                     b.Property<long>("TournamentId")
                         .HasColumnType("bigint");
 
-                    b.HasKey("Id");
+                    b.HasKey("RegistrationId");
 
                     b.HasIndex("HorseId");
 
-                    b.HasIndex("TournamentId");
+                    b.HasIndex("TournamentId", "HorseId")
+                        .IsUnique();
 
                     b.ToTable("Registration", (string)null);
                 });
@@ -703,6 +696,7 @@ namespace HorseRacing.Infrastructure.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("CreatedAt")
@@ -784,9 +778,10 @@ namespace HorseRacing.Infrastructure.Migrations
 
                     b.HasKey("AssignmentId");
 
-                    b.HasIndex("RaceId");
-
                     b.HasIndex("RefereeId");
+
+                    b.HasIndex("RaceId", "RefereeId")
+                        .IsUnique();
 
                     b.ToTable("RaceRefereeAssignment", (string)null);
                 });
@@ -820,7 +815,8 @@ namespace HorseRacing.Infrastructure.Migrations
 
                     b.HasKey("RoundId");
 
-                    b.HasIndex("TournamentId");
+                    b.HasIndex("TournamentId", "RoundNumber")
+                        .IsUnique();
 
                     b.ToTable("Round", (string)null);
                 });
@@ -861,6 +857,7 @@ namespace HorseRacing.Infrastructure.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("WalletId"));
 
                     b.Property<decimal>("Balance")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("UserId")
@@ -872,29 +869,43 @@ namespace HorseRacing.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("Wallet", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            WalletId = 1,
-                            Balance = 0m,
-                            UserId = 5
-                        });
                 });
 
             modelBuilder.Entity("HorseRacing.Domain.Entities.WalletTransaction", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<int>("TransactionId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TransactionId"));
 
                     b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("BetId")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("GatewayTransactionId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PaymentMethod")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("PayoutId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("PrizePayoutId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Type")
                         .IsRequired()
@@ -903,7 +914,13 @@ namespace HorseRacing.Infrastructure.Migrations
                     b.Property<int>("WalletId")
                         .HasColumnType("int");
 
-                    b.HasKey("Id");
+                    b.HasKey("TransactionId");
+
+                    b.HasIndex("BetId");
+
+                    b.HasIndex("PayoutId");
+
+                    b.HasIndex("PrizePayoutId");
 
                     b.HasIndex("WalletId");
 
@@ -929,6 +946,11 @@ namespace HorseRacing.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("HorseRacing.Domain.Entities.RaceEntry", "RaceEntry")
+                        .WithMany()
+                        .HasForeignKey("RaceEntryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("HorseRacing.Domain.Entities.Tournaments.Race", "Race")
                         .WithMany()
                         .HasForeignKey("RaceId")
@@ -945,7 +967,20 @@ namespace HorseRacing.Infrastructure.Migrations
 
                     b.Navigation("Race");
 
+                    b.Navigation("RaceEntry");
+
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("HorseRacing.Domain.Entities.Financials.Prize", b =>
+                {
+                    b.HasOne("HorseRacing.Domain.Entities.Tournaments.Tournament", "Tournament")
+                        .WithMany()
+                        .HasForeignKey("TournamentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Tournament");
                 });
 
             modelBuilder.Entity("HorseRacing.Domain.Entities.Horse", b =>
@@ -955,10 +990,6 @@ namespace HorseRacing.Infrastructure.Migrations
                         .HasForeignKey("OwnerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.HasOne("HorseRacing.Domain.Entities.Registration", null)
-                        .WithMany("Horses")
-                        .HasForeignKey("RegistrationId");
 
                     b.Navigation("Owner");
                 });
@@ -999,9 +1030,9 @@ namespace HorseRacing.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("HorseRacing.Domain.Entities.AppUser", "Owner")
+                    b.HasOne("HorseRacing.Domain.Entities.Tournaments.Tournament", "Tournament")
                         .WithMany()
-                        .HasForeignKey("OwnerId")
+                        .HasForeignKey("TournamentId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
@@ -1009,7 +1040,7 @@ namespace HorseRacing.Infrastructure.Migrations
 
                     b.Navigation("Jockey");
 
-                    b.Navigation("Owner");
+                    b.Navigation("Tournament");
                 });
 
             modelBuilder.Entity("HorseRacing.Domain.Entities.JockeyProfile", b =>
@@ -1045,46 +1076,57 @@ namespace HorseRacing.Infrastructure.Migrations
                     b.Navigation("Bet");
                 });
 
-            modelBuilder.Entity("HorseRacing.Domain.Entities.Prize", b =>
+            modelBuilder.Entity("HorseRacing.Domain.Entities.Prediction", b =>
                 {
-                    b.HasOne("HorseRacing.Domain.Entities.Tournaments.Tournament", "Tournament")
+                    b.HasOne("HorseRacing.Domain.Entities.RaceEntry", "RaceEntry")
                         .WithMany()
-                        .HasForeignKey("TournamentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Tournament");
-                });
-
-            modelBuilder.Entity("HorseRacing.Domain.Entities.RaceEntry", b =>
-                {
-                    b.HasOne("HorseRacing.Domain.Entities.Horse", "Horse")
-                        .WithMany()
-                        .HasForeignKey("HorseId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("HorseRacing.Domain.Entities.Horse", null)
-                        .WithMany("RaceEntries")
-                        .HasForeignKey("HorseId1");
-
-                    b.HasOne("HorseRacing.Domain.Entities.AppUser", "Jockey")
-                        .WithMany()
-                        .HasForeignKey("JockeyId")
+                        .HasForeignKey("RaceEntryId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("HorseRacing.Domain.Entities.Tournaments.Race", "Race")
                         .WithMany()
                         .HasForeignKey("RaceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HorseRacing.Domain.Entities.AppUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Horse");
+                    b.Navigation("Race");
 
-                    b.Navigation("Jockey");
+                    b.Navigation("RaceEntry");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("HorseRacing.Domain.Entities.RaceEntry", b =>
+                {
+                    b.HasOne("HorseRacing.Domain.Entities.JockeyProfile", "JockeyProfile")
+                        .WithMany()
+                        .HasForeignKey("JockeyId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("HorseRacing.Domain.Entities.Tournaments.Race", "Race")
+                        .WithMany()
+                        .HasForeignKey("RaceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HorseRacing.Domain.Entities.Registration", "Registration")
+                        .WithMany()
+                        .HasForeignKey("RegistrationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("JockeyProfile");
 
                     b.Navigation("Race");
+
+                    b.Navigation("Registration");
                 });
 
             modelBuilder.Entity("HorseRacing.Domain.Entities.RaceViolation", b =>
@@ -1111,16 +1153,10 @@ namespace HorseRacing.Infrastructure.Migrations
 
             modelBuilder.Entity("HorseRacing.Domain.Entities.RefereeReport", b =>
                 {
-                    b.HasOne("HorseRacing.Domain.Entities.Tournaments.Race", "Race")
+                    b.HasOne("HorseRacing.Domain.Entities.Tournaments.RaceRefereeAssignment", "Assignment")
                         .WithMany()
-                        .HasForeignKey("RaceId")
+                        .HasForeignKey("AssignmentId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("HorseRacing.Domain.Entities.RefereeProfile", "RefereeProfile")
-                        .WithMany()
-                        .HasForeignKey("RefereeId")
-                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("HorseRacing.Domain.Entities.Horse", "ReportedHorse")
@@ -1133,9 +1169,7 @@ namespace HorseRacing.Infrastructure.Migrations
                         .HasForeignKey("ReportedUserId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.Navigation("Race");
-
-                    b.Navigation("RefereeProfile");
+                    b.Navigation("Assignment");
 
                     b.Navigation("ReportedHorse");
 
@@ -1234,11 +1268,32 @@ namespace HorseRacing.Infrastructure.Migrations
 
             modelBuilder.Entity("HorseRacing.Domain.Entities.WalletTransaction", b =>
                 {
+                    b.HasOne("HorseRacing.Domain.Entities.Bet", "Bet")
+                        .WithMany()
+                        .HasForeignKey("BetId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("HorseRacing.Domain.Entities.Payout", "Payout")
+                        .WithMany()
+                        .HasForeignKey("PayoutId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("HorseRacing.Domain.Entities.TournamentPrizePayout", "TournamentPrizePayout")
+                        .WithMany()
+                        .HasForeignKey("PrizePayoutId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("HorseRacing.Domain.Entities.Wallet", "Wallet")
                         .WithMany()
                         .HasForeignKey("WalletId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Bet");
+
+                    b.Navigation("Payout");
+
+                    b.Navigation("TournamentPrizePayout");
 
                     b.Navigation("Wallet");
                 });
@@ -1252,16 +1307,9 @@ namespace HorseRacing.Infrastructure.Migrations
                 {
                     b.Navigation("Documents");
 
-                    b.Navigation("RaceEntries");
-
                     b.Navigation("Registrations");
 
                     b.Navigation("Statistic");
-                });
-
-            modelBuilder.Entity("HorseRacing.Domain.Entities.Registration", b =>
-                {
-                    b.Navigation("Horses");
                 });
 
             modelBuilder.Entity("HorseRacing.Domain.Entities.Tournaments.Race", b =>
