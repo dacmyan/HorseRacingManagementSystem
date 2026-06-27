@@ -234,13 +234,13 @@ public class BettingService : IBettingService
                 winRate = winRate / 100m;
             }
 
-            var averageTimeScore = 1m / (averageTime.Value * averageTime.Value);
-            var recentTimeScore = 1m / (recentAverageTime.Value * recentAverageTime.Value);
-            var winRateScore = winRate.Value;
+            var averageTimeScore = Math.Max(1m, 100m - (averageTime.Value - 60m) * 5m);
+            var recentTimeScore = Math.Max(1m, 100m - (recentAverageTime.Value - 60m) * 5m);
+            var winRateScore = winRate.Value * 100m;
 
             var horseScore =
-                averageTimeScore * 0.5m
-                + recentTimeScore * 0.3m
+                averageTimeScore * 0.4m
+                + recentTimeScore * 0.4m
                 + winRateScore * 0.2m;
 
             scores.Add((entry, horseScore));
@@ -265,7 +265,7 @@ public class BettingService : IBettingService
                 var winProbability = item.score / totalScore;
                 var winPercentage = winProbability * 100m;
                 var odds = 1m / winProbability;
-                var finalOdds = odds * 0.9m;
+                var finalOdds = Math.Max(odds * 0.9m, 1.05m);
 
                 item.entry.WinningProbability = Math.Round(winPercentage, 2);
                 item.entry.CurrentOdds = Math.Round(finalOdds, 2);

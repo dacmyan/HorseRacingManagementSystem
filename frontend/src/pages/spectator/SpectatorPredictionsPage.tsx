@@ -96,12 +96,12 @@ export function SpectatorPredictionsPage() {
     setSubmitLoading(true);
     try {
       if (addMode === 'bet') {
-        const selectedHorse = horses.find(h => String(h.horseId) === form.horseId);
+        const selectedHorse = horses.find(h => String(h.horseId ?? h.id) === form.horseId);
         if (!selectedHorse || !selectedHorse.raceEntryId) throw new Error("Không tìm thấy thông tin lượt đua.");
         await placeBet({ raceEntryId: selectedHorse.raceEntryId, amount: Number(form.amount) });
         setSubmitSuccess('Đặt cược thành công!');
       } else {
-        const selectedHorse = horses.find(h => String(h.horseId) === form.horseId);
+        const selectedHorse = horses.find(h => String(h.horseId ?? h.id) === form.horseId);
         if (!selectedHorse || !selectedHorse.raceEntryId) throw new Error("Không tìm thấy thông tin lượt đua.");
         await createPrediction({ raceId: Number(form.raceId), raceEntryId: selectedHorse.raceEntryId });
         setSubmitSuccess('Gửi dự đoán thành công!');
@@ -265,9 +265,12 @@ export function SpectatorPredictionsPage() {
                     <label className="block text-xs text-muted font-medium mb-1.5">Cuộc đua *</label>
                     <select value={form.raceId} onChange={e => setForm(p => ({...p, raceId: e.target.value}))} className={INPUT}>
                       <option value="">-- Chọn cuộc đua --</option>
-                      {races.map(r => (
-                        <option key={r.id} value={r.id}>{(r.name ?? `Cuộc đua #${r.id}`)}{r.raceDate ? ` — ${r.raceDate}` : ''}</option>
-                      ))}
+                      {races.map(r => {
+                        const rId = r.raceId ?? r.id;
+                        return (
+                          <option key={rId} value={rId}>{(r.name ?? `Cuộc đua #${rId}`)}{r.raceDate ? ` — ${new Date(r.raceDate).toLocaleDateString()}` : ''}</option>
+                        );
+                      })}
                     </select>
                     {races.length === 0 && <p className="text-[10px] text-muted/60 mt-1">Chưa có cuộc đua nào trong lịch.</p>}
                   </div>
@@ -275,9 +278,13 @@ export function SpectatorPredictionsPage() {
                     <label className="block text-xs text-muted font-medium mb-1.5">Ngựa chọn *</label>
                     <select value={form.horseId} onChange={e => setForm(p => ({...p, horseId: e.target.value}))} disabled={!form.raceId || loadingHorses} className={INPUT}>
                       <option value="">-- Chọn ngựa --</option>
-                      {horses.map(h => (
-                        <option key={h.horseId} value={h.horseId}>{h.laneNo ? `Lane ${h.laneNo} - ` : ''}{h.horseName ?? h.name ?? `Ngựa #${h.horseId}`}</option>
-                      ))}
+                      {horses.map(h => {
+                        const hId = h.horseId ?? h.id;
+                        const oddsVal = h.currentOdds ? Number(h.currentOdds).toFixed(2) : '2.00';
+                        return (
+                          <option key={hId} value={hId}>{h.laneNo ? `Làn ${h.laneNo} - ` : ''}{h.horseName ?? h.name ?? `Ngựa #${hId}`} (Tỷ lệ cược x{oddsVal})</option>
+                        );
+                      })}
                     </select>
                     {form.raceId && horses.length === 0 && !loadingHorses && <p className="text-[10px] text-muted/60 mt-1">Trận này chưa có ngựa nào.</p>}
                   </div>
@@ -285,6 +292,25 @@ export function SpectatorPredictionsPage() {
                     <div>
                       <label className="block text-xs text-muted font-medium mb-1.5">Số coins cược *</label>
                       <input type="number" min="1" value={form.amount} onChange={e => setForm(p => ({...p, amount: e.target.value}))} placeholder="VD: 100" className={INPUT} />
+                      
+                      {form.horseId && Number(form.amount) > 0 && (() => {
+                        const sel = horses.find(h => String(h.horseId ?? h.id) === form.horseId);
+                        const oddsNum = sel?.currentOdds ? Number(sel.currentOdds) : 2.0;
+                        const amt = Number(form.amount);
+                        const totalReturn = amt * oddsNum;
+                        return (
+                          <div className="mt-3 p-3 rounded-lg bg-gold/10 border border-gold/20 text-xs space-y-1">
+                            <div className="flex justify-between text-muted">
+                              <span>Tỷ lệ nhân cược:</span>
+                              <span className="text-gold font-bold">x{oddsNum.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between text-white font-medium">
+                              <span>Tổng nhận về nếu thắng:</span>
+                              <span className="text-emerald-400 font-bold">{totalReturn.toLocaleString()} coins</span>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
                   {submitError && <div className="text-xs text-red-400 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20">{submitError}</div>}
