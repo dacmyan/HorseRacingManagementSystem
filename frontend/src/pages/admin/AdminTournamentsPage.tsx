@@ -153,8 +153,8 @@ export function AdminTournamentsPage() {
     const finalRaces = finalRound ? tournamentRaces.filter(r => r.roundId === finalRound.roundId) : [];
     const hasPre = preRaces.length > 0;
     const preFinished = hasPre && preRaces.every(r => r.status === 'Finished');
-    const canGeneratePre = !hasPre;
-    const canGenerateFinal = preFinished && finalRaces.length === 1;
+    const canGeneratePre = !preFinished;
+    const canGenerateFinal = preFinished && finalRaces.length === 0;
     const waitingLabel = hasPre && !preFinished
       ? 'Chờ hoàn thành Pre'
       : hasPre && preFinished && finalRaces.length === 0

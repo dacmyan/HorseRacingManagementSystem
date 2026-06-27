@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Megaphone, CheckCircle, DollarSign, Zap } from 'lucide-react';
+import { Megaphone, CheckCircle, DollarSign, Zap, X } from 'lucide-react';
 import { Sidebar } from '../../components/layout/Sidebar';
 import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
 import { createPrizes, triggerPayout, publishRaceResult } from '../../api/adminService';
-import { getRaceSchedule, getTournaments } from '../../api/publicService';
+import { getRaceSchedule, getTournaments, getRaceEntries } from '../../api/publicService';
 import { parseApiError } from '../../api/authService';
 
 const INPUT = 'w-full bg-navy/50 border border-glass-border rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-muted/60 outline-none focus:border-gold/40 transition-colors';
@@ -34,6 +34,36 @@ export function AdminResultsPage() {
 
   // Tournaments
   const [tournaments, setTournaments] = useState<any[]>([]);
+
+  // Expanded race standings details
+  const [expandedRaceId, setExpandedRaceId] = useState<number | null>(null);
+  const [raceEntries, setRaceEntries] = useState<any[]>([]);
+  const [loadingEntries, setLoadingEntries] = useState(false);
+
+  async function toggleExpandRace(raceId: number) {
+    if (expandedRaceId === raceId) {
+      setExpandedRaceId(null);
+      return;
+    }
+    setExpandedRaceId(raceId);
+    setLoadingEntries(true);
+    setRaceEntries([]);
+    try {
+      const res = await getRaceEntries(raceId);
+      const data = res?.result ?? (Array.isArray(res) ? res : []);
+      // Sort entries by FinishPosition, nulls at the end
+      const sorted = [...data].sort((a: any, b: any) => {
+        if (a.finishPosition === null || a.finishPosition === undefined) return 1;
+        if (b.finishPosition === null || b.finishPosition === undefined) return -1;
+        return a.finishPosition - b.finishPosition;
+      });
+      setRaceEntries(sorted);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingEntries(false);
+    }
+  }
 
   // Initialize
   useEffect(() => {
@@ -112,15 +142,14 @@ export function AdminResultsPage() {
     }
     setPrizesLoading(true);
     try {
-      const data: any = await createPrizes({
+      await createPrizes({
         tournamentId: Number(prizes.tournamentId),
         firstPlacePrize: Number(prizes.firstPlacePrize),
         secondPlacePrize: Number(prizes.secondPlacePrize),
         thirdPlacePrize: Number(prizes.thirdPlacePrize),
       });
-      const newId = data?.result?.id;
-      setPrizesSuccess(`Thiết lập giải thưởng thành công cho giải đấu #${prizes.tournamentId}!${newId != null ? ` (Prize ID = ${newId})` : ''}`);
-      setPrizes(INIT_PRIZES);
+      alert(`Thiết lập giải thưởng thành công cho giải đấu #${prizes.tournamentId}!`);
+      closePrizesModal();
       fetchTournaments();
     } catch (err: unknown) {
       setPrizesError(parseApiError(err as Error));
@@ -254,17 +283,72 @@ export function AdminResultsPage() {
               );
               return (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {pendingRaces.map((race: any) => (
-                    <div key={race.raceId} className="glass-panel p-5 rounded-xl border border-glass-border flex items-center justify-between">
-                      <div>
-                        <div className="font-bold text-white mb-1">{race.raceName} (ID: {race.raceId})</div>
-                        <div className="text-xs text-muted">Giải: {race.tournamentName || 'N/A'} • {new Date(race.raceDate || race.startTime).toLocaleString('vi-VN')}</div>
+                  {pendingRaces.map((race: any) => {
+                    const isExpanded = expandedRaceId === race.raceId;
+                    return (
+                      <div key={race.raceId} className="glass-panel rounded-xl border border-glass-border overflow-hidden flex flex-col justify-between">
+                        <div className="p-5 flex items-center justify-between gap-4">
+                          <div>
+                            <div className="font-bold text-white mb-1">{race.name ?? race.raceName} (ID: {race.raceId})</div>
+                            <div className="text-xs text-muted">Giải: {race.tournamentName || 'N/A'} • {new Date(race.raceDate || race.startTime).toLocaleString('vi-VN')}</div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              onClick={() => toggleExpandRace(race.raceId)}
+                              className="px-2.5 py-1.5 rounded-lg border border-glass-border text-xs text-muted hover:text-white hover:bg-white/5 transition-all"
+                            >
+                              {isExpanded ? 'Ẩn' : 'Chi tiết'}
+                            </button>
+                            <button onClick={() => handlePublish(race.raceId)} className="btn-gold px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-gold/20">
+                              Công bố
+                            </button>
+                          </div>
+                        </div>
+
+                        {isExpanded && (
+                          <div className="border-t border-glass-border/30 bg-navy/60 p-4 text-xs space-y-3">
+                            <div className="font-bold text-[10px] text-muted uppercase tracking-wider">
+                              Kết quả ghi nhận từ hệ thống (Dùng để xác thực):
+                            </div>
+                            {loadingEntries ? (
+                              <div className="text-muted py-2">Đang tải kết quả...</div>
+                            ) : raceEntries.length === 0 ? (
+                              <div className="text-muted/60 italic py-2">Không có dữ liệu lượt đua</div>
+                            ) : (
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                  <thead>
+                                    <tr className="border-b border-glass-border/30 text-[10px] text-muted uppercase">
+                                      <th className="py-2 pr-3">Hạng</th>
+                                      <th className="py-2 pr-3">Làn</th>
+                                      <th className="py-2 pr-3">Ngựa</th>
+                                      <th className="py-2 pr-3">Kỵ sĩ</th>
+                                      <th className="py-2 text-right">Thời gian</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-glass-border/20 text-white/90">
+                                    {raceEntries.map((entry: any) => (
+                                      <tr key={entry.raceEntryId}>
+                                        <td className="py-2 pr-3 font-bold text-gold">
+                                          {entry.finishPosition ? `${entry.finishPosition}` : '-'}
+                                        </td>
+                                        <td className="py-2 pr-3 text-muted">L{entry.laneNo}</td>
+                                        <td className="py-2 pr-3 font-medium">🐎 {entry.horseName}</td>
+                                        <td className="py-2 pr-3 text-muted">{entry.jockeyName || 'N/A'}</td>
+                                        <td className="py-2 text-right font-mono">
+                                          {entry.finishTime ? `${entry.finishTime}s` : '-'}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      <button onClick={() => handlePublish(race.raceId)} className="btn-gold px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-gold/20">
-                        Công bố
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               );
             })()}
@@ -293,17 +377,72 @@ export function AdminResultsPage() {
               );
               return (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {publishedRaces.map((race: any) => (
-                    <div key={race.raceId} className="glass-panel p-5 rounded-xl border border-glass-border flex items-center justify-between">
-                      <div>
-                        <div className="font-bold text-white mb-1">{race.raceName} (ID: {race.raceId})</div>
-                        <div className="text-xs text-muted">Giải: {race.tournamentName || 'N/A'}</div>
+                  {publishedRaces.map((race: any) => {
+                    const isExpanded = expandedRaceId === race.raceId;
+                    return (
+                      <div key={race.raceId} className="glass-panel rounded-xl border border-glass-border overflow-hidden flex flex-col justify-between">
+                        <div className="p-5 flex items-center justify-between gap-4">
+                          <div>
+                            <div className="font-bold text-white mb-1">{race.name ?? race.raceName} (ID: {race.raceId})</div>
+                            <div className="text-xs text-muted">Giải: {race.tournamentName || 'N/A'}</div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              onClick={() => toggleExpandRace(race.raceId)}
+                              className="px-2.5 py-1.5 rounded-lg border border-glass-border text-xs text-muted hover:text-white hover:bg-white/5 transition-all"
+                            >
+                              {isExpanded ? 'Ẩn' : 'Chi tiết'}
+                            </button>
+                            <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-bold flex items-center gap-1.5">
+                              <CheckCircle size={12} /> Đã công bố
+                            </span>
+                          </div>
+                        </div>
+
+                        {isExpanded && (
+                          <div className="border-t border-glass-border/30 bg-navy/60 p-4 text-xs space-y-3">
+                            <div className="font-bold text-[10px] text-muted uppercase tracking-wider">
+                              Kết quả chính thức:
+                            </div>
+                            {loadingEntries ? (
+                              <div className="text-muted py-2">Đang tải kết quả...</div>
+                            ) : raceEntries.length === 0 ? (
+                              <div className="text-muted/60 italic py-2">Không có dữ liệu lượt đua</div>
+                            ) : (
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                  <thead>
+                                    <tr className="border-b border-glass-border/30 text-[10px] text-muted uppercase">
+                                      <th className="py-2 pr-3">Hạng</th>
+                                      <th className="py-2 pr-3">Làn</th>
+                                      <th className="py-2 pr-3">Ngựa</th>
+                                      <th className="py-2 pr-3">Kỵ sĩ</th>
+                                      <th className="py-2 text-right">Thời gian</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-glass-border/20 text-white/90">
+                                    {raceEntries.map((entry: any) => (
+                                      <tr key={entry.raceEntryId}>
+                                        <td className="py-2 pr-3 font-bold text-gold">
+                                          {entry.finishPosition ? `${entry.finishPosition}` : '-'}
+                                        </td>
+                                        <td className="py-2 pr-3 text-muted">L{entry.laneNo}</td>
+                                        <td className="py-2 pr-3 font-medium">🐎 {entry.horseName}</td>
+                                        <td className="py-2 pr-3 text-muted">{entry.jockeyName || 'N/A'}</td>
+                                        <td className="py-2 text-right font-mono">
+                                          {entry.finishTime ? `${entry.finishTime}s` : '-'}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-bold flex items-center gap-1.5">
-                        <CheckCircle size={12} /> Đã công bố
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               );
             })()}
@@ -316,6 +455,13 @@ export function AdminResultsPage() {
       {showPrizesModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-panel rounded-2xl p-8 w-full max-w-lg border border-gold/20 relative overflow-hidden">
+            <button 
+              onClick={closePrizesModal} 
+              className="absolute top-4 right-4 p-1 rounded-lg text-muted hover:text-white hover:bg-white/5 transition-all z-20"
+              title="Đóng"
+            >
+              <X size={18} />
+            </button>
             <div className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
             <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-gradient-to-br from-gold/10 to-transparent blur-[40px] pointer-events-none" />
             <div className="relative flex items-center gap-3 mb-6">

@@ -359,7 +359,8 @@ export function AdminRacesPage() {
     const canGenerateFinal = 
       prefinalFinished &&
       finalRound &&
-      finalRound.races.length === 1;
+      finalRound.races.length === 0;
+    const canGeneratePre = !prefinalFinished;
     const waitingLabel = hasPrefinalRaces && !prefinalFinished
       ? 'Chờ hoàn thành Pre'
       : hasPrefinalRaces && prefinalFinished && (!finalRound || finalRound.races.length === 0)
@@ -369,6 +370,7 @@ export function AdminRacesPage() {
     return {
       ...t,
       rounds,
+      canGeneratePre,
       canGenerateFinal,
       waitingLabel
     };
@@ -468,7 +470,7 @@ export function AdminRacesPage() {
 
                     <div className="flex items-center gap-3">
                       {/* Prefinal generation */}
-                      {t.rounds?.[0]?.races?.length === 0 && (
+                      {t.canGeneratePre && (
                         <button
                           onClick={() => handleGenerateRaces(t.tournamentId)}
                           disabled={generatingForTournament === t.tournamentId}
@@ -632,7 +634,7 @@ export function AdminRacesPage() {
                                               <div className="flex flex-wrap gap-1.5">
                                                 {expandedRaceDetails.referees.map((ref: any) => (
                                                   <div key={ref.id ?? ref.refereeId} className="flex items-center gap-1.5 px-2 py-1 rounded bg-white/5 border border-glass-border text-white text-[11px]">
-                                                    <span>👤 {ref.fullName ?? ref.name ?? `Trọng tài #${ref.id ?? ref.refereeId}`}</span>
+                                                     <span>👤 {ref.refereeName ?? ref.fullName ?? ref.name ?? `Trọng tài #${ref.refereeId ?? ref.id}`}</span>
                                                     <button
                                                       onClick={() => handleRemoveReferee(String(race.raceId), ref.id ?? ref.refereeId)}
                                                       className="text-red-400 hover:text-red-300 font-bold ml-1 text-xs"
@@ -923,7 +925,7 @@ export function AdminRacesPage() {
                     {referees.map((r, i) => (
                       <div key={r.id ?? r.refereeId ?? i} className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg bg-white/[0.02] border border-glass-border">
                         <div>
-                          <div className="text-sm text-white">{r.fullName ?? r.name ?? `Trọng tài #${r.id ?? r.refereeId}`}</div>
+                           <div className="text-sm text-white">{r.refereeName ?? r.fullName ?? r.name ?? `Trọng tài #${r.refereeId ?? r.id}`}</div>
                           {r.email && <div className="text-[11px] text-muted">{r.email}</div>}
                         </div>
                         <button

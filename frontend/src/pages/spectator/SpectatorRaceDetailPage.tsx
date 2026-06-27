@@ -5,7 +5,7 @@ import { ArrowLeft, Clock, MapPin, CheckCircle, AlertTriangle, ShieldCheck } fro
 import { Sidebar } from '../../components/layout/Sidebar';
 import { Topbar } from '../../components/layout/Topbar';
 import { PageAmbience } from '../../components/layout/PageAmbience';
-import { getRaceDetail, getRaceEntries } from '../../api/publicService';
+import { getRaceDetail } from '../../api/publicService';
 import { getBalance, placeBet, getRaceBettingInfo } from '../../api/spectatorService';
 import { formatCurrencyVND, formatDateTime, formatWinProbability } from '../../utils/format';
 
@@ -114,7 +114,7 @@ export function SpectatorRaceDetailPage() {
   const tournamentStatusKey = race.round?.tournament?.status?.toLowerCase() ?? 'upcoming';
   const config = RACE_STATUS_CONFIG[statusKey] ?? RACE_STATUS_CONFIG.scheduled;
 
-  const validRaceStatuses = ['upcoming', 'scheduled', 'ongoing', 'running', 'live'];
+
   const invalidTournamentStatuses = ['finished', 'completed', 'cancelled', 'ended'];
   
   const isBettingAllowed = canBet;

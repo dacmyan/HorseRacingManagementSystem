@@ -15,5 +15,5 @@ public interface IResultRepository
     Task AddResultAsync(RaceResult result);
     Task SaveChangesAsync();
     Task<IEnumerable<RaceEntry>> GetRaceEntriesAsync(long raceId);
-    Task UpdateHorseStatsAsync(int horseId);
+    Task UpdateHorseStatsAsync(long horseId);
 }

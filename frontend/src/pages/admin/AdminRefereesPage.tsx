@@ -20,14 +20,10 @@ export function AdminRefereesPage() {
         getRacesRefereeAssignments()
       ]);
 
-      const refereesData = Array.isArray(refereesRes.data) ? refereesRes.data
-        : Array.isArray(refereesRes.data?.result) ? refereesRes.data.result
-        : [];
+      const refereesData = refereesRes?.result ?? (Array.isArray(refereesRes) ? refereesRes : []);
       setReferees(refereesData);
 
-      const racesData = Array.isArray(racesRes.data) ? racesRes.data
-        : Array.isArray(racesRes.data?.result) ? racesRes.data.result
-        : [];
+      const racesData = racesRes?.result ?? (Array.isArray(racesRes) ? racesRes : []);
       setRaces(racesData);
     } catch (err) {
       console.error('Error fetching data:', err);

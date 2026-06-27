@@ -82,7 +82,7 @@ public class ResultRepository : IResultRepository
             .ToListAsync();
     }
 
-    public async Task UpdateHorseStatsAsync(int horseId)
+    public async Task UpdateHorseStatsAsync(long horseId)
     {
         var horseObj = await _context.Horses.FindAsync(horseId);
         if (horseObj == null) return;

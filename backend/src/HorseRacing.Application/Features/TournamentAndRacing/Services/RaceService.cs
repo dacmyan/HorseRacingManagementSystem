@@ -303,7 +303,9 @@ public class RaceService : IRaceService
                 LaneNo = entry.LaneNo,
                 Status = entry.Status,
                 WinningProbability = entry.WinningProbability,
-                CurrentOdds = entry.CurrentOdds
+                CurrentOdds = entry.CurrentOdds,
+                FinishPosition = entry.FinishPosition,
+                FinishTime = entry.FinishTime
             });
         }
 

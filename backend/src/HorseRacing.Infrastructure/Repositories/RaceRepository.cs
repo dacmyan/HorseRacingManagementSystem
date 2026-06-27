@@ -96,7 +96,7 @@ public class RaceRepository : IRaceRepository
             .AsNoTracking()
             .AnyAsync(jc => jc.HorseId == intHorseId 
                 && jc.JockeyId == jockeyProfile.UserId 
-                && jc.Status == "Active");
+                && (jc.Status == "Active" || jc.Status == "Accepted"));
     }
 
     public async Task<(int JockeyProfileId, string JockeyName)?> GetActiveJockeyForHorseAsync(long tournamentId, long horseId)
@@ -115,7 +115,7 @@ public class RaceRepository : IRaceRepository
                 on profile.UserId equals user.UserId
             where contract.TournamentId == tournamentId
                 && contract.HorseId == intHorseId
-                && contract.Status == "Active"
+                && (contract.Status == "Active" || contract.Status == "Accepted")
                 && profile.Status == "Active"
             select new
             {

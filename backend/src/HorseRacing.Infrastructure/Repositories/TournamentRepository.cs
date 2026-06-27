@@ -113,7 +113,7 @@ public class TournamentRepository : ITournamentRepository
                 on contract.JockeyId equals profile.UserId
             where contract.TournamentId == tournamentId
                 && intHorseIds.Contains((int)contract.HorseId)
-                && contract.Status == "Active"
+                && (contract.Status == "Active" || contract.Status == "Accepted")
                 && profile.Status == "Active"
             select new
             {

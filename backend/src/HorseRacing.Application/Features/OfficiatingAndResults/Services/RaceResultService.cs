@@ -109,6 +109,8 @@ public class RaceResultService : IRaceResultService
             Winner = request.Winner
         };
 
+        race.Status = "Completed";
+
         await _repository.AddResultAsync(result);
         await _repository.SaveChangesAsync();
 
@@ -159,7 +161,7 @@ public class RaceResultService : IRaceResultService
                 var horseId = entryItem.Registration?.HorseId;
                 if (horseId == null) continue;
 
-                await _repository.UpdateHorseStatsAsync((int)horseId);
+                await _repository.UpdateHorseStatsAsync(horseId.Value);
             }
         }
         await _repository.SaveChangesAsync();

@@ -13,4 +13,6 @@ public class RaceEntryResponse
     public string Status { get; set; } = string.Empty;
     public decimal? WinningProbability { get; set; }
     public decimal? CurrentOdds { get; set; }
+    public int? FinishPosition { get; set; }
+    public decimal? FinishTime { get; set; }
 }
