@@ -529,7 +529,7 @@ public class DemoDataSeeder
                         JockeyId = assignedJockey.UserId,
                         StartDate = new DateTime(2026, 6, 15, 0, 0, 0, DateTimeKind.Utc),
                         EndDate = new DateTime(2026, 7, 5, 0, 0, 0, DateTimeKind.Utc),
-                        Status = "Pending", // Invitation status
+                        Status = "Accepted", // Confirmed invitation status
                         CreatedAt = DateTime.UtcNow
                     };
                     extraContracts.Add(contract);
