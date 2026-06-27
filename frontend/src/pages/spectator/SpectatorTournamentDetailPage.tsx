@@ -11,6 +11,8 @@ import { useLanguage } from '../../context/LanguageContext';
 
 const RACE_STATUS_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
   live: { label: 'Đang diễn ra', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', dot: 'bg-emerald-400' },
+  ongoing: { label: 'Đang diễn ra', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', dot: 'bg-emerald-400' },
+  running: { label: 'Đang diễn ra', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', dot: 'bg-emerald-400' },
   scheduled: { label: 'Sắp diễn ra', color: 'text-blue-400 bg-blue-500/10 border-blue-500/20', dot: 'bg-blue-400' },
   finished: { label: 'Đã kết thúc', color: 'text-muted bg-white/5 border-glass-border', dot: 'bg-muted' },
   cancelled: { label: 'Đã hủy', color: 'text-red-400 bg-red-500/10 border-red-500/20', dot: 'bg-red-400' },
@@ -96,7 +98,7 @@ export function SpectatorTournamentDetailPage() {
                   {races.map((r, i) => {
                     const s = r.status?.toLowerCase() ?? 'scheduled';
                     const config = RACE_STATUS_CONFIG[s] ?? RACE_STATUS_CONFIG.scheduled;
-                    const canBet = s === 'scheduled' || s === 'live';
+                    const canBet = s === 'scheduled' || s === 'live' || s === 'ongoing' || s === 'running';
 
                     return (
                       <motion.div

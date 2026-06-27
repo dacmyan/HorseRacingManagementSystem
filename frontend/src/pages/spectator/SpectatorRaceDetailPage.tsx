@@ -11,6 +11,8 @@ import { formatCurrencyVND, formatDateTime, formatWinProbability } from '../../u
 
 const RACE_STATUS_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
   live: { label: 'Đang diễn ra', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', dot: 'bg-emerald-400' },
+  ongoing: { label: 'Đang diễn ra', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', dot: 'bg-emerald-400' },
+  running: { label: 'Đang diễn ra', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', dot: 'bg-emerald-400' },
   scheduled: { label: 'Sắp diễn ra', color: 'text-blue-400 bg-blue-500/10 border-blue-500/20', dot: 'bg-blue-400' },
   finished: { label: 'Đã kết thúc', color: 'text-muted bg-white/5 border-glass-border', dot: 'bg-muted' },
   cancelled: { label: 'Đã hủy', color: 'text-red-400 bg-red-500/10 border-red-500/20', dot: 'bg-red-400' },
@@ -283,14 +285,14 @@ export function SpectatorRaceDetailPage() {
 
                   <div className="space-y-4 mb-6">
                     <div>
-                      <label className="block text-xs font-bold text-muted uppercase tracking-wider mb-2">Số tiền cược (VND)</label>
+                      <label className="block text-xs font-bold text-muted uppercase tracking-wider mb-2">Số tiền cược (Coins)</label>
                       <input 
                         type="number"
                         min="0"
-                        step="1000"
+                        step="100"
                         value={amountStr}
                         onChange={e => setAmountStr(e.target.value)}
-                        placeholder="Ví dụ: 100000"
+                        placeholder="Ví dụ: 1000"
                         disabled={!isBettingAllowed}
                         className="w-full bg-navy/50 border border-glass-border rounded-lg px-4 py-3 text-white placeholder:text-muted/60 outline-none focus:border-gold/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       />
@@ -299,7 +301,7 @@ export function SpectatorRaceDetailPage() {
                     <div className="flex justify-between items-center px-1">
                       <span className="text-xs text-muted">Số dư ví:</span>
                       <span className={`text-sm font-bold tabular-nums ${amount > balance ? 'text-red-400' : 'text-emerald-400'}`}>
-                        {formatCurrencyVND(balance)}
+                        {balance.toLocaleString()} coins
                       </span>
                     </div>
                   </div>
@@ -307,15 +309,15 @@ export function SpectatorRaceDetailPage() {
                   <div className="space-y-3 pt-4 border-t border-glass-border/40 mb-6">
                     <div className="flex justify-between text-sm">
                       <span className="text-muted">Tiền cược:</span>
-                      <span className="text-white tabular-nums">{formatCurrencyVND(amount)}</span>
+                      <span className="text-white tabular-nums">{amount.toLocaleString()} coins</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted">Lợi nhuận dự kiến:</span>
-                      <span className="text-emerald-400 font-medium tabular-nums">+{formatCurrencyVND(potentialProfit)}</span>
+                      <span className="text-emerald-400 font-medium tabular-nums">+{potentialProfit.toLocaleString()} coins</span>
                     </div>
                     <div className="flex justify-between text-base font-bold">
                       <span className="text-white">Tổng nhận về:</span>
-                      <span className="text-gold tabular-nums">{formatCurrencyVND(totalReturn)}</span>
+                      <span className="text-gold tabular-nums">{totalReturn.toLocaleString()} coins</span>
                     </div>
                   </div>
 
