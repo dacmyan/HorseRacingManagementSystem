@@ -57,48 +57,95 @@ export function RefereeConfirmResultsPage() {
         if (b.finishPosition === null || b.finishPosition === undefined) return -1;
         return a.finishPosition - b.finishPosition;
       });
+
+      // If the race doesn't have results yet, pre-populate default simulated results
+      const hasResults = sorted.some((e: any) => e.finishPosition != null);
+      if (!hasResults) {
+        const baseWinnerTime = Math.round(55 + Math.random() * 10);
+        sorted.forEach((e: any, index: number) => {
+          e.finishPosition = index + 1;
+          e.finishTime = index === 0 
+            ? baseWinnerTime 
+            : Number((baseWinnerTime + (index * 1.5) + Math.random() * 2).toFixed(2));
+        });
+      }
+
       setRaceEntries(sorted);
 
       const winnerEntry = sorted.find((e: any) => e.finishPosition === 1);
       if (winnerEntry) {
         setF('winner', winnerEntry.horseName || winnerEntry.horseId.toString());
-        
-        let formattedTime = '';
-        if (winnerEntry.finishTime != null) {
-          const totalSeconds = Number(winnerEntry.finishTime);
-          const minutes = Math.floor(totalSeconds / 60);
-          const seconds = (totalSeconds % 60).toFixed(2);
-          const minutesStr = minutes.toString().padStart(2, '0');
-          const secondsStr = seconds.padStart(5, '0'); // SS.SS
-          formattedTime = `${minutesStr}:${secondsStr}`;
-        }
-        setF('winningTime', formattedTime);
-        setF('remarks', 'Tự động ghi nhận từ kết quả cuộc đua hoàn thành.');
+        setF('winningTime', String(winnerEntry.finishTime));
+        setF('remarks', 'Đã ghi nhận kết quả.');
       } else {
-        setError('Cuộc đua này chưa hoàn thành hoặc chưa có kết quả mô phỏng.');
+        setF('remarks', 'Trọng tài ghi nhận kết quả thủ công.');
       }
     } catch (err) {
       console.error(err);
-      setError('Không thể tự động tải kết quả mô phỏng cho cuộc đua.');
+      setError('Không thể tải danh sách ngựa cho cuộc đua.');
     } finally {
       setLoadingEntries(false);
     }
   }
 
+  function handleEntryChange(raceEntryId: number, field: string, value: string) {
+    setRaceEntries(prev => prev.map(entry => {
+      if (entry.raceEntryId === raceEntryId) {
+        const val = value === '' ? null : Number(value);
+        return { ...entry, [field]: val };
+      }
+      return entry;
+    }));
+  }
+
+  useEffect(() => {
+    const winnerEntry = raceEntries.find(e => Number(e.finishPosition) === 1);
+    if (winnerEntry) {
+      setForm(p => ({
+        ...p,
+        winner: winnerEntry.horseName || String(winnerEntry.horseId),
+        winningTime: winnerEntry.finishTime != null ? String(winnerEntry.finishTime) : ''
+      }));
+    }
+  }, [raceEntries]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(''); setSuccess('');
-    if (!form.raceId || !form.winner || !form.winningTime) {
-      setError('Vui lòng điền đủ Race, Winner và Time.');
+    if (!form.raceId) {
+      setError('Vui lòng chọn trận đua.');
       return;
     }
+    
+    const invalidEntry = raceEntries.find(e => e.finishPosition == null || e.finishTime == null);
+    if (invalidEntry) {
+      setError('Vui lòng nhập đầy đủ hạng và thời gian cho tất cả ngựa.');
+      return;
+    }
+
+    const winners = raceEntries.filter(e => Number(e.finishPosition) === 1);
+    if (winners.length !== 1) {
+      setError('Vui lòng chọn duy nhất một ngựa đạt Hạng 1.');
+      return;
+    }
+
+    if (!form.winner || !form.winningTime) {
+      setError('Thiếu thông tin người chiến thắng.');
+      return;
+    }
+
     setLoading(true);
     try {
       await submitResult({
         raceId: Number(form.raceId),
         winner: form.winner,
         winningTime: form.winningTime,
-        remarks: form.remarks
+        remarks: form.remarks,
+        entries: raceEntries.map(e => ({
+          raceEntryId: e.raceEntryId,
+          finishPosition: Number(e.finishPosition),
+          finishTime: Number(e.finishTime)
+        }))
       });
       setSuccess('Ghi nhận kết quả thành công!');
       setForm({ raceId: '', winner: '', winningTime: '', remarks: '' });
@@ -184,24 +231,40 @@ export function RefereeConfirmResultsPage() {
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="border-b border-glass-border/30 text-[10px] text-muted uppercase">
-                          <th className="py-2 pr-3">Hạng</th>
                           <th className="py-2 pr-3">Làn</th>
                           <th className="py-2 pr-3">Ngựa</th>
                           <th className="py-2 pr-3">Kỵ sĩ</th>
-                          <th className="py-2 text-right">Thời gian</th>
+                          <th className="py-2 pr-3 w-28">Hạng (Position)</th>
+                          <th className="py-2 text-right w-36">Thời gian (Giây)</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-glass-border/20 text-white/90">
                         {raceEntries.map((entry: any) => (
                           <tr key={entry.raceEntryId}>
-                            <td className="py-2 pr-3 font-bold text-gold">
-                              {entry.finishPosition ? `${entry.finishPosition}` : '-'}
+                            <td className="py-3 pr-3 text-muted">L{entry.laneNo}</td>
+                            <td className="py-3 pr-3 font-medium">🐎 {entry.horseName}</td>
+                            <td className="py-3 pr-3 text-muted">{entry.jockeyName || 'N/A'}</td>
+                            <td className="py-3 pr-3">
+                              <input 
+                                type="number" 
+                                min="1"
+                                max={raceEntries.length}
+                                value={entry.finishPosition ?? ''} 
+                                onChange={e => handleEntryChange(entry.raceEntryId, 'finishPosition', e.target.value)}
+                                placeholder="VD: 1" 
+                                className="w-16 bg-navy/40 border border-glass-border/60 rounded px-2 py-1 text-sm text-white text-center focus:border-red-400/40 outline-none"
+                              />
                             </td>
-                            <td className="py-2 pr-3 text-muted">L{entry.laneNo}</td>
-                            <td className="py-2 pr-3 font-medium">🐎 {entry.horseName}</td>
-                            <td className="py-2 pr-3 text-muted">{entry.jockeyName || 'N/A'}</td>
-                            <td className="py-2 text-right font-mono">
-                              {entry.finishTime ? `${entry.finishTime}s` : '-'}
+                            <td className="py-3 text-right">
+                              <input 
+                                type="number" 
+                                step="0.01" 
+                                min="0"
+                                value={entry.finishTime ?? ''} 
+                                onChange={e => handleEntryChange(entry.raceEntryId, 'finishTime', e.target.value)}
+                                placeholder="VD: 60.55" 
+                                className="w-28 bg-navy/40 border border-glass-border/60 rounded px-2 py-1 text-sm text-white text-right focus:border-red-400/40 outline-none"
+                              />
                             </td>
                           </tr>
                         ))}

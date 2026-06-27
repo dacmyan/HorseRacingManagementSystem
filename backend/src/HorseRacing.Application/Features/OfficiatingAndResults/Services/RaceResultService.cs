@@ -77,29 +77,45 @@ public class RaceResultService : IRaceResultService
             throw new InvalidOperationException($"A result has already been submitted for race with ID {request.RaceId}.");
         }
 
-        // Generate times and positions for all entries in that race if they exist
+        // Generate or save times and positions for all entries in that race if they exist
         var entries = (await _repository.GetRaceEntriesAsync(request.RaceId))?.ToList() ?? new List<RaceEntry>();
         if (entries.Any())
         {
-            var winnerEntry = entries.FirstOrDefault(re => re.Registration?.HorseId == horse.HorseId);
-            if (winnerEntry == null)
+            if (request.Entries != null && request.Entries.Any())
             {
-                throw new ArgumentException($"Horse '{horse.Name}' is not entered in race with ID {request.RaceId}.");
+                foreach (var manualEntry in request.Entries)
+                {
+                    var match = entries.FirstOrDefault(re => re.RaceEntryId == manualEntry.RaceEntryId);
+                    if (match != null)
+                    {
+                        match.FinishPosition = manualEntry.FinishPosition;
+                        match.FinishTime = manualEntry.FinishTime;
+                    }
+                }
+                await _repository.SaveChangesAsync();
             }
-
-            var random = new Random();
-            decimal winnerTime = Math.Round(55m + (decimal)random.NextDouble() * 10m, 2);
-
-            winnerEntry.FinishPosition = 1;
-            winnerEntry.FinishTime = winnerTime;
-
-            int position = 2;
-            foreach (var entryItem in entries.Where(re => re.RaceEntryId != winnerEntry.RaceEntryId))
+            else
             {
-                entryItem.FinishPosition = position++;
-                entryItem.FinishTime = Math.Round(winnerTime + (decimal)(random.NextDouble() * 3.0 + 0.5), 2);
+                var winnerEntry = entries.FirstOrDefault(re => re.Registration?.HorseId == horse.HorseId);
+                if (winnerEntry == null)
+                {
+                    throw new ArgumentException($"Horse '{horse.Name}' is not entered in race with ID {request.RaceId}.");
+                }
+
+                var random = new Random();
+                decimal winnerTime = Math.Round(55m + (decimal)random.NextDouble() * 10m, 2);
+
+                winnerEntry.FinishPosition = 1;
+                winnerEntry.FinishTime = winnerTime;
+
+                int position = 2;
+                foreach (var entryItem in entries.Where(re => re.RaceEntryId != winnerEntry.RaceEntryId))
+                {
+                    entryItem.FinishPosition = position++;
+                    entryItem.FinishTime = Math.Round(winnerTime + (decimal)(random.NextDouble() * 3.0 + 0.5), 2);
+                }
+                await _repository.SaveChangesAsync();
             }
-            await _repository.SaveChangesAsync();
         }
 
         // 6. Save result (using only actual properties from DB/entity)

@@ -154,8 +154,8 @@ namespace HorseRacing.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("HorseId"));
 
-                    b.Property<int>("Age")
-                        .HasColumnType("int");
+                    b.Property<DateTime>("Age")
+                        .HasColumnType("datetime2");
 
                     b.Property<decimal?>("AverageTime")
                         .HasPrecision(10, 2)

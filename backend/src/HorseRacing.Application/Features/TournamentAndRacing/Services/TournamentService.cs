@@ -217,9 +217,12 @@ public class TournamentService : ITournamentService
         foreach (var race in prefinalRaces)
         {
             var entries = await _tournamentRepository.GetRaceEntriesByRaceIdAsync(race.RaceId);
-            foreach (var entry in entries)
+            if (entries != null)
             {
-                assignedRegistrationIds.Add(entry.RegistrationId);
+                foreach (var entry in entries)
+                {
+                    assignedRegistrationIds.Add(entry.RegistrationId);
+                }
             }
         }
 

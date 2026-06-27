@@ -7,6 +7,7 @@ import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
 import { getMyHorses, createHorse, getHorse, updateHorse, deleteHorse } from '../../api/ownerService';
 import { parseApiError } from '../../api/authService';
+import { calculateAge, formatDateOnly } from '../../utils/format';
 
 const INPUT = 'w-full bg-navy/50 border border-glass-border rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-muted/60 outline-none focus:border-gold/40 transition-colors';
 const LABEL = 'block text-xs font-bold text-muted uppercase tracking-wider mb-1.5';
@@ -57,7 +58,7 @@ export function OwnerHorsesPage() {
     }
     setCreateLoading(true);
     try {
-      await createHorse({ name: createForm.name, breed: createForm.breed, age: Number(createForm.age), gender: createForm.gender });
+      await createHorse({ name: createForm.name, breed: createForm.breed, age: createForm.age, gender: createForm.gender });
       setShowCreate(false);
       setCreateForm(INIT_CREATE);
       loadHorses();
@@ -70,7 +71,7 @@ export function OwnerHorsesPage() {
 
   function openEdit(horse: any) {
     setEditHorse(horse);
-    setEditForm({ name: horse.name ?? '', breed: horse.breed ?? '', age: String(horse.age ?? ''), gender: horse.gender ?? 'Male', healthStatus: horse.healthStatus ?? '' });
+    setEditForm({ name: horse.name ?? '', breed: horse.breed ?? '', age: horse.age ? horse.age.split('T')[0] : '', gender: horse.gender ?? 'Male', healthStatus: horse.healthStatus ?? '' });
     setEditError('');
   }
 
@@ -79,7 +80,7 @@ export function OwnerHorsesPage() {
     setEditError('');
     setEditLoading(true);
     try {
-      await updateHorse(editHorse.id, { name: editForm.name, breed: editForm.breed, age: Number(editForm.age), gender: editForm.gender, healthStatus: editForm.healthStatus });
+      await updateHorse(editHorse.id, { name: editForm.name, breed: editForm.breed, age: editForm.age, gender: editForm.gender, healthStatus: editForm.healthStatus });
       setEditHorse(null);
       loadHorses();
     } catch (err: unknown) {
@@ -166,7 +167,7 @@ export function OwnerHorsesPage() {
                         <h3 className="text-lg font-serif text-white group-hover:text-champagne transition-colors">{h.name}</h3>
                         <p className="text-xs text-muted mt-1 flex items-center gap-1.5 flex-wrap">
                           <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/[0.04] border border-glass-border text-muted">{h.breed}</span>
-                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/[0.04] border border-glass-border text-champagne">{h.age} tuổi</span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/[0.04] border border-glass-border text-champagne">{calculateAge(h.age)} tuổi</span>
                           <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/[0.04] border border-glass-border text-muted">{h.gender === 'Male' ? 'Đực' : 'Cái'}</span>
                         </p>
                       </div>
@@ -218,8 +219,8 @@ export function OwnerHorsesPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className={LABEL}>Tuổi *</label>
-                  <input type="number" min="0" value={createForm.age} onChange={e => setCreateForm(p => ({...p, age: e.target.value}))} placeholder="VD: 3" className={INPUT} />
+                  <label className={LABEL}>Ngày sinh *</label>
+                  <input type="date" value={createForm.age} onChange={e => setCreateForm(p => ({...p, age: e.target.value}))} className={INPUT} style={{colorScheme: 'dark'}} />
                 </div>
                 <div>
                   <label className={LABEL}>Giới tính *</label>
@@ -259,8 +260,8 @@ export function OwnerHorsesPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className={LABEL}>Tuổi</label>
-                  <input type="number" min="0" value={editForm.age} onChange={e => setEditForm(p => ({...p, age: e.target.value}))} className={INPUT} />
+                  <label className={LABEL}>Ngày sinh *</label>
+                  <input type="date" value={editForm.age} onChange={e => setEditForm(p => ({...p, age: e.target.value}))} className={INPUT} style={{colorScheme: 'dark'}} />
                 </div>
                 <div>
                   <label className={LABEL}>Giới tính</label>
@@ -306,7 +307,8 @@ export function OwnerHorsesPage() {
                 </div>
                 <div className="space-y-1">
                   {[
-                    { l: 'Tuổi', v: viewHorse.age != null ? `${viewHorse.age} tuổi` : '—' },
+                    { l: 'Ngày sinh', v: formatDateOnly(viewHorse.age) },
+                    { l: 'Tuổi', v: viewHorse.age != null ? `${calculateAge(viewHorse.age)} tuổi` : '—' },
                     { l: 'Giới tính', v: viewHorse.gender === 'Male' ? 'Đực' : viewHorse.gender === 'Female' ? 'Cái' : '—' },
                     { l: 'Sức khỏe', v: viewHorse.healthStatus ?? '—' },
                   ].map(row => (

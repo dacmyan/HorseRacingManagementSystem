@@ -59,3 +59,28 @@ export function formatWinProbability(value) {
 
   return `${Math.min(Math.max(percent, 0), 100).toFixed(1)}%`;
 }
+
+export function calculateAge(birthDateString) {
+  if (!birthDateString) return '—';
+  const birthDate = new Date(birthDateString);
+  if (isNaN(birthDate.getTime())) return '—';
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age >= 0 ? age : 0;
+}
+
+export function formatDateOnly(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return "—";
+  
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  
+  return `${day}/${month}/${year}`;
+}

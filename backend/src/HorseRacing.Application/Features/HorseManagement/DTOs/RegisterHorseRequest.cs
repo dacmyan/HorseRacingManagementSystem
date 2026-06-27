@@ -1,3 +1,4 @@
+using System;
 using System.ComponentModel.DataAnnotations;
 
 namespace HorseRacing.Application.Features.HorseManagement.DTOs;
@@ -7,8 +8,8 @@ public class RegisterHorseRequest
     [Required]
     public string Name { get; set; } = string.Empty;
 
-    [Range(1, 40, ErrorMessage = "Age must be between 1 and 40.")]
-    public int Age { get; set; }
+    [Required]
+    public DateTime Age { get; set; }
 
     [Required]
     public string Gender { get; set; } = string.Empty;

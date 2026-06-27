@@ -1,4 +1,4 @@
-﻿TABLE_NAME,COLUMN_NAME,DATA_TYPE,IS_NULLABLE,CHARACTER_MAXIMUM_LENGTH
+TABLE_NAME,COLUMN_NAME,DATA_TYPE,IS_NULLABLE,CHARACTER_MAXIMUM_LENGTH
 ----------,-----------,---------,-----------,------------------------
 __EFMigrationsHistory,MigrationId,nvarchar,NO,150
 __EFMigrationsHistory,ProductVersion,nvarchar,NO,32
@@ -18,7 +18,7 @@ Bet,Odds,decimal,NO,NULL
 Bet,RaceId,bigint,NO,NULL
 Bet,Status,nvarchar,NO,-1
 Bet,UserId,int,NO,NULL
-Horse,Age,int,NO,NULL
+Horse,Age,datetime2,NO,NULL
 Horse,Breed,nvarchar,NO,-1
 Horse,Gender,nvarchar,NO,-1
 Horse,HealthStatus,nvarchar,NO,-1

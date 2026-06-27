@@ -135,24 +135,25 @@ public class DemoDataSeeder
             var refereeUser = await _context.Users.FirstAsync(u => u.Username == "referee");
 
             // 2. Seed Horses
+            var baseDate = new DateTime(2026, 6, 9, 0, 0, 0, DateTimeKind.Utc);
             var horseData = new[]
             {
-                new { Name = "Red Rum", Age = 6, Gender = "Stallion", Breed = "Thoroughbred", OwnerId = ownerUser.UserId, AvgTime = 68.50m, RecentAvgTime = 68.50m, WinRate = 0.25m },
-                new { Name = "Secretariat", Age = 5, Gender = "Stallion", Breed = "Thoroughbred", OwnerId = ownerUser.UserId, AvgTime = 67.20m, RecentAvgTime = 67.20m, WinRate = 0.80m },
-                new { Name = "Seattle Slew", Age = 5, Gender = "Stallion", Breed = "Thoroughbred", OwnerId = ownerUser.UserId, AvgTime = 70.00m, RecentAvgTime = 70.00m, WinRate = 0.50m },
-                new { Name = "Spectacular Bid", Age = 5, Gender = "Stallion", Breed = "Thoroughbred", OwnerId = ownerUser.UserId, AvgTime = 67.90m, RecentAvgTime = 67.90m, WinRate = 0.65m },
-                new { Name = "Zenyatta", Age = 6, Gender = "Mare", Breed = "Thoroughbred", OwnerId = ownerUser.UserId, AvgTime = 69.00m, RecentAvgTime = 69.00m, WinRate = 0.85m },
+                new { Name = "Red Rum", Age = baseDate.AddYears(-6), Gender = "Stallion", Breed = "Thoroughbred", OwnerId = ownerUser.UserId, AvgTime = 68.50m, RecentAvgTime = 68.50m, WinRate = 0.25m },
+                new { Name = "Secretariat", Age = baseDate.AddYears(-5), Gender = "Stallion", Breed = "Thoroughbred", OwnerId = ownerUser.UserId, AvgTime = 67.20m, RecentAvgTime = 67.20m, WinRate = 0.80m },
+                new { Name = "Seattle Slew", Age = baseDate.AddYears(-5), Gender = "Stallion", Breed = "Thoroughbred", OwnerId = ownerUser.UserId, AvgTime = 70.00m, RecentAvgTime = 70.00m, WinRate = 0.50m },
+                new { Name = "Spectacular Bid", Age = baseDate.AddYears(-5), Gender = "Stallion", Breed = "Thoroughbred", OwnerId = ownerUser.UserId, AvgTime = 67.90m, RecentAvgTime = 67.90m, WinRate = 0.65m },
+                new { Name = "Zenyatta", Age = baseDate.AddYears(-6), Gender = "Mare", Breed = "Thoroughbred", OwnerId = ownerUser.UserId, AvgTime = 69.00m, RecentAvgTime = 69.00m, WinRate = 0.85m },
 
-                new { Name = "Shergar", Age = 6, Gender = "Colt", Breed = "Irish Draught", OwnerId = owner2User.UserId, AvgTime = 71.10m, RecentAvgTime = 71.10m, WinRate = 0.40m },
-                new { Name = "Eclipse", Age = 7, Gender = "Gelding", Breed = "Arabian", OwnerId = owner2User.UserId, AvgTime = 69.80m, RecentAvgTime = 69.80m, WinRate = 0.35m },
-                new { Name = "Affirmed", Age = 6, Gender = "Stallion", Breed = "Thoroughbred", OwnerId = owner2User.UserId, AvgTime = 69.50m, RecentAvgTime = 69.50m, WinRate = 0.45m },
-                new { Name = "Ruffian", Age = 4, Gender = "Filly", Breed = "Thoroughbred", OwnerId = owner2User.UserId, AvgTime = 67.50m, RecentAvgTime = 67.50m, WinRate = 0.90m },
-                new { Name = "Frankel", Age = 5, Gender = "Stallion", Breed = "Thoroughbred", OwnerId = owner2User.UserId, AvgTime = 66.80m, RecentAvgTime = 66.80m, WinRate = 0.95m },
+                new { Name = "Shergar", Age = baseDate.AddYears(-6), Gender = "Colt", Breed = "Irish Draught", OwnerId = owner2User.UserId, AvgTime = 71.10m, RecentAvgTime = 71.10m, WinRate = 0.40m },
+                new { Name = "Eclipse", Age = baseDate.AddYears(-7), Gender = "Gelding", Breed = "Arabian", OwnerId = owner2User.UserId, AvgTime = 69.80m, RecentAvgTime = 69.80m, WinRate = 0.35m },
+                new { Name = "Affirmed", Age = baseDate.AddYears(-6), Gender = "Stallion", Breed = "Thoroughbred", OwnerId = owner2User.UserId, AvgTime = 69.50m, RecentAvgTime = 69.50m, WinRate = 0.45m },
+                new { Name = "Ruffian", Age = baseDate.AddYears(-4), Gender = "Filly", Breed = "Thoroughbred", OwnerId = owner2User.UserId, AvgTime = 67.50m, RecentAvgTime = 67.50m, WinRate = 0.90m },
+                new { Name = "Frankel", Age = baseDate.AddYears(-5), Gender = "Stallion", Breed = "Thoroughbred", OwnerId = owner2User.UserId, AvgTime = 66.80m, RecentAvgTime = 66.80m, WinRate = 0.95m },
 
-                new { Name = "Man o' War", Age = 5, Gender = "Stallion", Breed = "Thoroughbred", OwnerId = owner3User.UserId, AvgTime = 68.00m, RecentAvgTime = 68.00m, WinRate = 0.75m },
-                new { Name = "Phar Lap", Age = 6, Gender = "Gelding", Breed = "Thoroughbred", OwnerId = owner3User.UserId, AvgTime = 69.10m, RecentAvgTime = 69.10m, WinRate = 0.60m },
-                new { Name = "Citation", Age = 7, Gender = "Stallion", Breed = "Thoroughbred", OwnerId = owner3User.UserId, AvgTime = 68.90m, RecentAvgTime = 68.90m, WinRate = 0.70m },
-                new { Name = "War Admiral", Age = 6, Gender = "Stallion", Breed = "Thoroughbred", OwnerId = owner3User.UserId, AvgTime = 68.40m, RecentAvgTime = 68.40m, WinRate = 0.70m }
+                new { Name = "Man o' War", Age = baseDate.AddYears(-5), Gender = "Stallion", Breed = "Thoroughbred", OwnerId = owner3User.UserId, AvgTime = 68.00m, RecentAvgTime = 68.00m, WinRate = 0.75m },
+                new { Name = "Phar Lap", Age = baseDate.AddYears(-6), Gender = "Gelding", Breed = "Thoroughbred", OwnerId = owner3User.UserId, AvgTime = 69.10m, RecentAvgTime = 69.10m, WinRate = 0.60m },
+                new { Name = "Citation", Age = baseDate.AddYears(-7), Gender = "Stallion", Breed = "Thoroughbred", OwnerId = owner3User.UserId, AvgTime = 68.90m, RecentAvgTime = 68.90m, WinRate = 0.70m },
+                new { Name = "War Admiral", Age = baseDate.AddYears(-6), Gender = "Stallion", Breed = "Thoroughbred", OwnerId = owner3User.UserId, AvgTime = 68.40m, RecentAvgTime = 68.40m, WinRate = 0.70m }
             };
 
             foreach (var h in horseData)
