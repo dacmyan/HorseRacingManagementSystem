@@ -83,8 +83,8 @@ export function RefereeHorseCheckPage() {
     // Tab filter
     let tabMatch = true;
     if (tab === 'pending') tabMatch = hc.status?.toLowerCase() === 'pending';
-    else if (tab === 'approved') tabMatch = hc.status?.toLowerCase() === 'confirmed' || hc.status?.toLowerCase() === 'checked' || hc.medicalStatus?.toLowerCase() === 'good';
-    else if (tab === 'rejected') tabMatch = hc.status?.toLowerCase() === 'disqualified' || hc.medicalStatus?.toLowerCase() === 'unhealthy';
+    else if (tab === 'approved') tabMatch = hc.status?.toLowerCase() === 'confirmed' || hc.status?.toLowerCase() === 'checked' || hc.status?.toLowerCase() === 'ready' || hc.medicalStatus?.toLowerCase() === 'good' || hc.medicalStatus?.toLowerCase() === 'healthy';
+    else if (tab === 'rejected') tabMatch = hc.status?.toLowerCase() === 'disqualified' || hc.medicalStatus?.toLowerCase() === 'unhealthy' || hc.medicalStatus?.toLowerCase() === 'sick';
 
     // Search filter
     const query = search.toLowerCase();
@@ -198,9 +198,9 @@ export function RefereeHorseCheckPage() {
                         <td className="px-6 py-4 text-muted">{hc.jockeyName}</td>
                         <td className="px-6 py-4">
                           <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold ${
-                            hc.medicalStatus?.toLowerCase() === 'good' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
+                            hc.medicalStatus?.toLowerCase() === 'good' || hc.medicalStatus?.toLowerCase() === 'healthy' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
                           }`}>
-                            {hc.medicalStatus?.toLowerCase() === 'good' ? (
+                            {hc.medicalStatus?.toLowerCase() === 'good' || hc.medicalStatus?.toLowerCase() === 'healthy' ? (
                               <><Heart size={11} /> Khỏe mạnh</>
                             ) : (
                               <><ShieldAlert size={11} /> Gặp sự cố / Yếu</>
@@ -210,11 +210,11 @@ export function RefereeHorseCheckPage() {
                         <td className="px-6 py-4">
                           <span className={`px-2 py-1 rounded text-xs font-semibold ${
                             hc.status?.toLowerCase() === 'pending' ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20' :
-                            hc.status?.toLowerCase() === 'confirmed' || hc.status?.toLowerCase() === 'checked' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                            hc.status?.toLowerCase() === 'confirmed' || hc.status?.toLowerCase() === 'checked' || hc.status?.toLowerCase() === 'ready' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
                             'bg-red-500/10 text-red-400 border border-red-500/20'
                           }`}>
                             {hc.status?.toLowerCase() === 'pending' ? 'Chờ kiểm tra' :
-                             hc.status?.toLowerCase() === 'confirmed' || hc.status?.toLowerCase() === 'checked' ? 'Đã duyệt' : 'Bị loại'}
+                             hc.status?.toLowerCase() === 'confirmed' || hc.status?.toLowerCase() === 'checked' || hc.status?.toLowerCase() === 'ready' ? 'Đã duyệt' : 'Bị loại'}
                           </span>
                         </td>
                       </tr>
