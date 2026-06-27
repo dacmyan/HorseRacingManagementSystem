@@ -93,6 +93,41 @@ public class DemoDataSeeder
                 }
             }
 
+            // Seed 25 Jockeys dynamically
+            for (int i = 1; i <= 25; i++)
+            {
+                var jockeyUsername = $"jockey{i}";
+                var jockeyEmail = $"jockey{i}@gmail.com";
+                if (!await _context.Users.AnyAsync(u => u.Username == jockeyUsername || u.Email == jockeyEmail))
+                {
+                    var user = new AppUser
+                    {
+                        Username = jockeyUsername,
+                        Email = jockeyEmail,
+                        FullName = $"Nài ngựa {i}",
+                        RoleId = 3, // Jockey
+                        Status = "Active",
+                        CreatedAt = fixedDate
+                    };
+                    user.PasswordHash = hasher.HashPassword(user, "123456");
+                    _context.Users.Add(user);
+                    await _context.SaveChangesAsync();
+
+                    _context.JockeyProfiles.Add(new JockeyProfile
+                    {
+                        UserId = user.UserId,
+                        ExperienceYears = 2 + (i % 4),
+                        Status = "Active"
+                    });
+                    _context.Wallets.Add(new Wallet
+                    {
+                        UserId = user.UserId,
+                        Balance = 1000m
+                    });
+                    await _context.SaveChangesAsync();
+                }
+            }
+
             // Seed 20 Referees dynamically
             for (int i = 1; i <= 20; i++)
             {
@@ -539,7 +574,7 @@ public class DemoDataSeeder
                 var extraContracts = new List<JockeyContract>();
                 for (int i = 0; i < extraRegistrations.Count; i++)
                 {
-                    var assignedJockey = allJockeys[i % allJockeys.Count];
+                    var assignedJockey = allJockeys[i];
                     var contract = new JockeyContract
                     {
                         TournamentId = t2.TournamentId,
@@ -637,6 +672,84 @@ public class DemoDataSeeder
                         });
                     }
                 }
+                await _context.SaveChangesAsync();
+            }
+
+            // 6. Seed Tournament 5: "Giải mùa Xuân 2027" (UPCOMING)
+            var t5Name = "Giải mùa Xuân 2027";
+            var t5 = await _context.Tournaments.FirstOrDefaultAsync(t => t.Name == t5Name);
+            if (t5 == null)
+            {
+                t5 = new Tournament
+                {
+                    Name = t5Name,
+                    StartDate = new DateTime(2027, 3, 1, 0, 0, 0, DateTimeKind.Utc),
+                    EndDate = new DateTime(2027, 3, 10, 0, 0, 0, DateTimeKind.Utc),
+                    Status = "Upcoming"
+                };
+                _context.Tournaments.Add(t5);
+                await _context.SaveChangesAsync();
+
+                var preRound = new Round
+                {
+                    TournamentId = t5.TournamentId,
+                    Name = "Vòng Loại",
+                    RoundNumber = 1,
+                    StartDate = new DateTime(2027, 3, 1, 0, 0, 0, DateTimeKind.Utc),
+                    EndDate = new DateTime(2027, 3, 5, 0, 0, 0, DateTimeKind.Utc),
+                    Status = "Scheduled"
+                };
+                _context.Rounds.Add(preRound);
+                await _context.SaveChangesAsync();
+
+                var finalRound = new Round
+                {
+                    TournamentId = t5.TournamentId,
+                    Name = "Chung Kết",
+                    RoundNumber = 2,
+                    StartDate = new DateTime(2027, 3, 6, 0, 0, 0, DateTimeKind.Utc),
+                    EndDate = new DateTime(2027, 3, 10, 0, 0, 0, DateTimeKind.Utc),
+                    Status = "Scheduled"
+                };
+                _context.Rounds.Add(finalRound);
+                await _context.SaveChangesAsync();
+
+                // Seed 15 approved registrations and unique accepted jockey contracts
+                var t5Registrations = new List<Registration>();
+                for (int i = 0; i < 15; i++)
+                {
+                    var horse = allHorses[i];
+                    var reg = new Registration
+                    {
+                        TournamentId = t5.TournamentId,
+                        HorseId = horse.HorseId,
+                        Status = "Approved",
+                        RegisteredAt = DateTime.UtcNow
+                    };
+                    t5Registrations.Add(reg);
+                }
+                _context.Registrations.AddRange(t5Registrations);
+                await _context.SaveChangesAsync();
+
+                var allJockeys = await _context.JockeyProfiles.ToListAsync();
+                var t5Contracts = new List<JockeyContract>();
+                for (int i = 0; i < t5Registrations.Count; i++)
+                {
+                    // Assign a unique jockey to each horse in this tournament
+                    var assignedJockey = allJockeys[i];
+                    var contract = new JockeyContract
+                    {
+                        TournamentId = t5.TournamentId,
+                        HorseId = t5Registrations[i].HorseId,
+                        JockeyId = assignedJockey.UserId,
+                        StartDate = new DateTime(2027, 3, 1, 0, 0, 0, DateTimeKind.Utc),
+                        EndDate = new DateTime(2027, 3, 10, 0, 0, 0, DateTimeKind.Utc),
+                        Status = "Accepted",
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    t5Contracts.Add(contract);
+                }
+                _context.JockeyContracts.AddRange(t5Contracts);
                 await _context.SaveChangesAsync();
             }
 

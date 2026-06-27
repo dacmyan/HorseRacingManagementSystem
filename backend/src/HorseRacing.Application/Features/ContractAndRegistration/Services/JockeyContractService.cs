@@ -77,6 +77,13 @@ public class JockeyContractService : IJockeyContractService
             throw new InvalidOperationException("The specified Jockey is currently inactive.");
         }
 
+        // Validate that the Jockey is not already contracted to another horse in this tournament
+        var hasActiveContract = await _contractRepository.HasActiveContractForJockeyInTournamentAsync(request.JockeyId, request.TournamentId);
+        if (hasActiveContract)
+        {
+            throw new InvalidOperationException("This jockey is already contracted to another horse in this tournament.");
+        }
+
         // 3. Date validation
         if (request.StartDate >= request.EndDate)
         {
@@ -193,6 +200,15 @@ public class JockeyContractService : IJockeyContractService
         if (!contract.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException($"Contract is already '{contract.Status}' and cannot be responded to.");
+        }
+
+        if (request.Status.Equals("Active", StringComparison.OrdinalIgnoreCase))
+        {
+            var hasActiveContract = await _contractRepository.HasActiveContractForJockeyInTournamentAsync(jockeyUserId, contract.TournamentId);
+            if (hasActiveContract)
+            {
+                throw new InvalidOperationException("You cannot ride multiple horses in the same tournament.");
+            }
         }
 
         contract.Status = request.Status;
