@@ -211,7 +211,18 @@ public class DemoDataSeeder
                 new { Name = "Smarty Jones", Age = baseDate.AddYears(-5), Gender = "Stallion", Breed = "Thoroughbred", OwnerId = owner3User.UserId, AvgTime = 67.60m, RecentAvgTime = 67.60m, WinRate = 0.80m },
                 new { Name = "Funny Cide", Age = baseDate.AddYears(-6), Gender = "Gelding", Breed = "Thoroughbred", OwnerId = owner3User.UserId, AvgTime = 68.30m, RecentAvgTime = 68.30m, WinRate = 0.70m },
                 new { Name = "Sunday Silence", Age = baseDate.AddYears(-7), Gender = "Stallion", Breed = "Thoroughbred", OwnerId = owner3User.UserId, AvgTime = 67.90m, RecentAvgTime = 67.90m, WinRate = 0.80m },
-                new { Name = "Easy Goer", Age = baseDate.AddYears(-7), Gender = "Stallion", Breed = "Thoroughbred", OwnerId = owner3User.UserId, AvgTime = 67.70m, RecentAvgTime = 67.70m, WinRate = 0.78m }
+                new { Name = "Easy Goer", Age = baseDate.AddYears(-7), Gender = "Stallion", Breed = "Thoroughbred", OwnerId = owner3User.UserId, AvgTime = 67.70m, RecentAvgTime = 67.70m, WinRate = 0.78m },
+
+                // Custom horses for testing
+                new { Name = "Blaze", Age = baseDate.AddYears(-5), Gender = "Stallion", Breed = "Thoroughbred", OwnerId = ownerUser.UserId, AvgTime = 65.40m, RecentAvgTime = 65.30m, WinRate = 0.40m },
+                new { Name = "Thunder", Age = baseDate.AddYears(-5), Gender = "Stallion", Breed = "Thoroughbred", OwnerId = ownerUser.UserId, AvgTime = 66.38m, RecentAvgTime = 66.83m, WinRate = 0.20m },
+                new { Name = "Comet", Age = baseDate.AddYears(-5), Gender = "Stallion", Breed = "Thoroughbred", OwnerId = owner2User.UserId, AvgTime = 65.94m, RecentAvgTime = 65.87m, WinRate = 0.00m },
+                new { Name = "Wind Ranger", Age = baseDate.AddYears(-6), Gender = "Mare", Breed = "Thoroughbred", OwnerId = owner2User.UserId, AvgTime = 70.52m, RecentAvgTime = 70.63m, WinRate = 0.00m },
+                new { Name = "Dusty", Age = baseDate.AddYears(-6), Gender = "Mare", Breed = "Thoroughbred", OwnerId = owner3User.UserId, AvgTime = 71.38m, RecentAvgTime = 70.97m, WinRate = 0.00m },
+                new { Name = "Rusty", Age = baseDate.AddYears(-7), Gender = "Gelding", Breed = "Arabian", OwnerId = owner3User.UserId, AvgTime = 76.20m, RecentAvgTime = 75.43m, WinRate = 0.00m },
+                new { Name = "Tortoise", Age = baseDate.AddYears(-6), Gender = "Gelding", Breed = "Arabian", OwnerId = ownerUser.UserId, AvgTime = 78.14m, RecentAvgTime = 78.30m, WinRate = 0.00m },
+                new { Name = "Rising Star", Age = baseDate.AddYears(-4), Gender = "Filly", Breed = "Thoroughbred", OwnerId = owner2User.UserId, AvgTime = 70.36m, RecentAvgTime = 68.33m, WinRate = 0.20m },
+                new { Name = "Wild Wind", Age = baseDate.AddYears(-5), Gender = "Stallion", Breed = "Thoroughbred", OwnerId = owner3User.UserId, AvgTime = 70.64m, RecentAvgTime = 70.57m, WinRate = 0.20m }
             };
 
             foreach (var h in horseData)
@@ -235,172 +246,244 @@ public class DemoDataSeeder
             await _context.SaveChangesAsync();
             var allHorses = await _context.Horses.ToListAsync();
 
-            // 3. Seed Tournament 1: "Giải Đua Ngựa Mùa Xuân 2026" (FINISHED)
-            var t1Name = "Giải Đua Ngựa Mùa Xuân 2026";
-            var t1 = await _context.Tournaments.FirstOrDefaultAsync(t => t.Name == t1Name);
-            if (t1 == null)
+            // 3. Seed 5 Completed Tournaments
+            var completedTournaments = new List<(string Name, DateTime Start, DateTime End, string RaceName, int WinnerIndex, decimal[] Times, int[] Positions)>
             {
-                t1 = new Tournament
-                {
-                    Name = t1Name,
-                    StartDate = new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Utc),
-                    EndDate = new DateTime(2026, 3, 10, 0, 0, 0, DateTimeKind.Utc),
-                    Status = "Completed"
-                };
-                _context.Tournaments.Add(t1);
-                await _context.SaveChangesAsync();
+                (
+                    "Giải Đua Ngựa Mùa Xuân 2026", 
+                    new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Utc), 
+                    new DateTime(2026, 3, 10, 0, 0, 0, DateTimeKind.Utc),
+                    "Trận Đại Chiến Mùa Xuân",
+                    0, // Blaze wins
+                    new decimal[] { 65.20m, 65.80m, 66.00m, 70.20m, 71.00m, 76.50m, 78.00m, 74.00m, 71.50m },
+                    new int[] { 1, 2, 3, 4, 5, 8, 9, 7, 6 }
+                ),
+                (
+                    "Giải Cúp Hoàng Gia 2026", 
+                    new DateTime(2026, 3, 15, 0, 0, 0, DateTimeKind.Utc), 
+                    new DateTime(2026, 3, 20, 0, 0, 0, DateTimeKind.Utc),
+                    "Cúp Hoàng Gia Thường Niên",
+                    1, // Thunder wins
+                    new decimal[] { 65.90m, 65.60m, 66.10m, 70.50m, 73.00m, 78.20m, 77.80m, 72.80m, 70.00m },
+                    new int[] { 2, 1, 3, 5, 7, 9, 8, 6, 4 }
+                ),
+                (
+                    "Giải Derby Hà Nội 2026", 
+                    new DateTime(2026, 4, 10, 0, 0, 0, DateTimeKind.Utc), 
+                    new DateTime(2026, 4, 15, 0, 0, 0, DateTimeKind.Utc),
+                    "Trận Đua Hà Nội Derby",
+                    8, // Wild Wind wins
+                    new decimal[] { 65.10m, 66.00m, 65.90m, 71.80m, 71.20m, 75.80m, 78.50m, 71.00m, 65.00m },
+                    new int[] { 2, 4, 3, 7, 6, 8, 9, 5, 1 }
+                ),
+                (
+                    "Giải Vô Địch Quốc Gia 2026", 
+                    new DateTime(2026, 5, 5, 0, 0, 0, DateTimeKind.Utc), 
+                    new DateTime(2026, 5, 10, 0, 0, 0, DateTimeKind.Utc),
+                    "Trận Chung Kết Quốc Gia",
+                    0, // Blaze wins
+                    new decimal[] { 64.90m, 68.50m, 65.50m, 70.10m, 70.90m, 75.50m, 78.10m, 68.20m, 77.20m },
+                    new int[] { 1, 4, 2, 5, 6, 7, 9, 3, 8 }
+                ),
+                (
+                    "Giải Siêu Cúp Mùa Thu 2026", 
+                    new DateTime(2026, 9, 1, 0, 0, 0, DateTimeKind.Utc), 
+                    new DateTime(2026, 9, 10, 0, 0, 0, DateTimeKind.Utc),
+                    "Siêu Cúp Mùa Thu",
+                    7, // Rising Star wins
+                    new decimal[] { 65.90m, 66.00m, 66.20m, 70.00m, 70.80m, 75.00m, 78.30m, 65.80m, 69.50m },
+                    new int[] { 2, 3, 4, 6, 7, 8, 9, 1, 5 }
+                )
+            };
 
-                var t1Round = new Round
-                {
-                    TournamentId = t1.TournamentId,
-                    Name = "Chung Kết",
-                    RoundNumber = 1,
-                    StartDate = new DateTime(2026, 3, 5, 0, 0, 0, DateTimeKind.Utc),
-                    EndDate = new DateTime(2026, 3, 10, 0, 0, 0, DateTimeKind.Utc),
-                    Status = "Completed"
-                };
-                _context.Rounds.Add(t1Round);
-                await _context.SaveChangesAsync();
+            var customHorseNames = new[] { "Blaze", "Thunder", "Comet", "Wind Ranger", "Dusty", "Rusty", "Tortoise", "Rising Star", "Wild Wind" };
+            var customHorses = allHorses.Where(h => customHorseNames.Contains(h.Name)).OrderBy(h => Array.IndexOf(customHorseNames, h.Name)).ToList();
+            var allJockeys = await _context.JockeyProfiles.ToListAsync();
 
-                var t1Race = new Race
+            foreach (var ct in completedTournaments)
+            {
+                var t = await _context.Tournaments.FirstOrDefaultAsync(x => x.Name == ct.Name);
+                if (t == null)
                 {
-                    RoundId = t1Round.RoundId,
-                    Name = "Trận Đại Chiến Mùa Xuân",
-                    RaceDate = new DateTime(2026, 3, 8, 14, 0, 0, DateTimeKind.Utc),
-                    DistanceMeter = 1600,
-                    MaxLanes = 8,
-                    Status = "Completed"
-                };
-                _context.Races.Add(t1Race);
-                await _context.SaveChangesAsync();
-
-                // Registrations & Entries for T1
-                var t1Entries = new List<RaceEntry>();
-                for (int i = 0; i < 6; i++)
-                {
-                    var horse = allHorses[i];
-                    var reg = new Registration
+                    t = new Tournament
                     {
-                        TournamentId = t1.TournamentId,
-                        HorseId = horse.HorseId,
-                        Status = "Approved",
-                        RegisteredAt = new DateTime(2026, 2, 20, 0, 0, 0, DateTimeKind.Utc)
+                        Name = ct.Name,
+                        StartDate = ct.Start,
+                        EndDate = ct.End,
+                        Status = "Completed"
                     };
-                    _context.Registrations.Add(reg);
+                    _context.Tournaments.Add(t);
                     await _context.SaveChangesAsync();
 
-                    var entry = new RaceEntry
+                    var round = new Round
                     {
-                        RaceId = t1Race.RaceId,
-                        RegistrationId = reg.RegistrationId,
-                        JockeyId = jockeyProf.JockeyId,
-                        LaneNo = i + 1,
-                        Status = "Finished",
-                        WinningProbability = 20.0m,
-                        CurrentOdds = 2.5m,
-                        FinishTime = i == 1 ? 65.20m : (66.00m + i),
-                        FinishPosition = i == 1 ? 1 : (i == 0 ? 2 : i + 1)
+                        TournamentId = t.TournamentId,
+                        Name = "Chung Kết",
+                        RoundNumber = 1,
+                        StartDate = ct.Start,
+                        EndDate = ct.End,
+                        Status = "Completed"
                     };
-                    t1Entries.Add(entry);
+                    _context.Rounds.Add(round);
+                    await _context.SaveChangesAsync();
+
+                    var race = new Race
+                    {
+                        RoundId = round.RoundId,
+                        Name = ct.RaceName,
+                        RaceDate = ct.Start.AddDays(4),
+                        DistanceMeter = 1200,
+                        MaxLanes = 10,
+                        Status = "Completed"
+                    };
+                    _context.Races.Add(race);
+                    await _context.SaveChangesAsync();
+
+                    var entriesList = new List<RaceEntry>();
+                    for (int i = 0; i < customHorses.Count; i++)
+                    {
+                        var horse = customHorses[i];
+                        
+                        var reg = new Registration
+                        {
+                            TournamentId = t.TournamentId,
+                            HorseId = horse.HorseId,
+                            Status = "Approved",
+                            RegisteredAt = ct.Start.AddDays(-5)
+                        };
+                        _context.Registrations.Add(reg);
+                        await _context.SaveChangesAsync();
+
+                        var jockey = allJockeys[i % allJockeys.Count];
+                        var contract = new JockeyContract
+                        {
+                            TournamentId = t.TournamentId,
+                            HorseId = horse.HorseId,
+                            JockeyId = jockey.UserId,
+                            StartDate = ct.Start,
+                            EndDate = ct.End,
+                            Status = "Accepted",
+                            CreatedAt = ct.Start.AddDays(-4)
+                        };
+                        _context.JockeyContracts.Add(contract);
+                        await _context.SaveChangesAsync();
+
+                        var entry = new RaceEntry
+                        {
+                            RaceId = race.RaceId,
+                            RegistrationId = reg.RegistrationId,
+                            JockeyId = jockey.JockeyId,
+                            LaneNo = i + 1,
+                            Status = "Finished",
+                            WinningProbability = 11.1m,
+                            CurrentOdds = 2.0m,
+                            FinishTime = ct.Times[i],
+                            FinishPosition = ct.Positions[i]
+                        };
+                        entriesList.Add(entry);
+                    }
+                    _context.RaceEntries.AddRange(entriesList);
+                    await _context.SaveChangesAsync();
+
+                    var winnerHorse = customHorses[ct.WinnerIndex];
+                    _context.RaceResults.Add(new RaceResult
+                    {
+                        RaceId = race.RaceId,
+                        Winner = winnerHorse.Name,
+                        ResultRecordedAt = race.RaceDate.AddHours(1),
+                        CreatedAt = race.RaceDate.AddHours(1)
+                    });
+                    await _context.SaveChangesAsync();
+
+                    if (ct.Name == "Giải Đua Ngựa Mùa Xuân 2026")
+                    {
+                        var winnerEntry = entriesList.First(e => e.FinishPosition == 1);
+                        var runnerUpEntry = entriesList.First(e => e.FinishPosition == 2);
+                        var runnerUpHorse = customHorses[ct.WinnerIndex == 0 ? 1 : 0];
+
+                        var bet1 = new Bet
+                        {
+                            UserId = spectatorUser.UserId,
+                            RaceId = race.RaceId,
+                            HorseId = winnerHorse.HorseId,
+                            Amount = 5000m,
+                            Odds = 2.5m,
+                            Status = "Won",
+                            CreatedAt = race.RaceDate.AddHours(-2),
+                            RaceEntryId = winnerEntry.RaceEntryId
+                        };
+                        var bet2 = new Bet
+                        {
+                            UserId = spectator2User.UserId,
+                            RaceId = race.RaceId,
+                            HorseId = runnerUpHorse.HorseId,
+                            Amount = 3000m,
+                            Odds = 3.0m,
+                            Status = "Lost",
+                            CreatedAt = race.RaceDate.AddHours(-1.5),
+                            RaceEntryId = runnerUpEntry.RaceEntryId
+                        };
+                        var bet3 = new Bet
+                        {
+                            UserId = spectator3User.UserId,
+                            RaceId = race.RaceId,
+                            HorseId = winnerHorse.HorseId,
+                            Amount = 10000m,
+                            Odds = 2.2m,
+                            Status = "Won",
+                            CreatedAt = race.RaceDate.AddHours(-1),
+                            RaceEntryId = winnerEntry.RaceEntryId
+                        };
+                        _context.Bets.AddRange(bet1, bet2, bet3);
+                        await _context.SaveChangesAsync();
+
+                        _context.Payouts.Add(new Payout
+                        {
+                            BetId = bet1.Id,
+                            Amount = 5000m * 2.5m,
+                            CreatedAt = race.RaceDate.AddMinutes(5)
+                        });
+                        _context.Payouts.Add(new Payout
+                        {
+                            BetId = bet3.Id,
+                            Amount = 10000m * 2.2m,
+                            CreatedAt = race.RaceDate.AddMinutes(5)
+                        });
+                        await _context.SaveChangesAsync();
+
+                        _context.Predictions.Add(new Prediction
+                        {
+                            UserId = spectatorUser.UserId,
+                            RaceId = race.RaceId,
+                            RaceEntryId = winnerEntry.RaceEntryId,
+                            PredictedAt = race.RaceDate.AddHours(-4),
+                            Status = "Evaluated",
+                            IsCorrect = true,
+                            Point = 100
+                        });
+                        _context.Predictions.Add(new Prediction
+                        {
+                            UserId = spectator2User.UserId,
+                            RaceId = race.RaceId,
+                            RaceEntryId = runnerUpEntry.RaceEntryId,
+                            PredictedAt = race.RaceDate.AddHours(-3.5),
+                            Status = "Evaluated",
+                            IsCorrect = false,
+                            Point = 0
+                        });
+                        _context.Predictions.Add(new Prediction
+                        {
+                            UserId = spectator3User.UserId,
+                            RaceId = race.RaceId,
+                            RaceEntryId = winnerEntry.RaceEntryId,
+                            PredictedAt = race.RaceDate.AddHours(-3),
+                            Status = "Evaluated",
+                            IsCorrect = true,
+                            Point = 100
+                        });
+                        await _context.SaveChangesAsync();
+                    }
                 }
-                _context.RaceEntries.AddRange(t1Entries);
-                await _context.SaveChangesAsync();
-
-                // Published RaceResult
-                var secretariatHorse = allHorses.First(h => h.Name == "Secretariat");
-                _context.RaceResults.Add(new RaceResult
-                {
-                    RaceId = t1Race.RaceId,
-                    Winner = secretariatHorse.Name,
-                    ResultRecordedAt = new DateTime(2026, 3, 8, 15, 0, 0, DateTimeKind.Utc),
-                    CreatedAt = new DateTime(2026, 3, 8, 15, 0, 0, DateTimeKind.Utc)
-                });
-                await _context.SaveChangesAsync();
-
-                // Seed Bets on T1 Race
-                var bet1 = new Bet
-                {
-                    UserId = spectatorUser.UserId,
-                    RaceId = t1Race.RaceId,
-                    HorseId = secretariatHorse.HorseId,
-                    Amount = 5000m,
-                    Odds = 2.5m,
-                    Status = "Won",
-                    CreatedAt = new DateTime(2026, 3, 8, 12, 0, 0, DateTimeKind.Utc),
-                    RaceEntryId = t1Entries.First(e => e.FinishPosition == 1).RaceEntryId
-                };
-                var bet2 = new Bet
-                {
-                    UserId = spectator2User.UserId,
-                    RaceId = t1Race.RaceId,
-                    HorseId = allHorses[0].HorseId,
-                    Amount = 3000m,
-                    Odds = 3.0m,
-                    Status = "Lost",
-                    CreatedAt = new DateTime(2026, 3, 8, 12, 30, 0, DateTimeKind.Utc),
-                    RaceEntryId = t1Entries.First(e => e.LaneNo == 1).RaceEntryId
-                };
-                var bet3 = new Bet
-                {
-                    UserId = spectator3User.UserId,
-                    RaceId = t1Race.RaceId,
-                    HorseId = secretariatHorse.HorseId,
-                    Amount = 10000m,
-                    Odds = 2.2m,
-                    Status = "Won",
-                    CreatedAt = new DateTime(2026, 3, 8, 13, 0, 0, DateTimeKind.Utc),
-                    RaceEntryId = t1Entries.First(e => e.FinishPosition == 1).RaceEntryId
-                };
-                _context.Bets.AddRange(bet1, bet2, bet3);
-                await _context.SaveChangesAsync();
-
-                // Seed Payouts for Won Bets
-                _context.Payouts.Add(new Payout
-                {
-                    BetId = bet1.Id,
-                    Amount = 5000m * 2.5m,
-                    CreatedAt = new DateTime(2026, 3, 8, 15, 5, 0, DateTimeKind.Utc)
-                });
-                _context.Payouts.Add(new Payout
-                {
-                    BetId = bet3.Id,
-                    Amount = 10000m * 2.2m,
-                    CreatedAt = new DateTime(2026, 3, 8, 15, 5, 0, DateTimeKind.Utc)
-                });
-                await _context.SaveChangesAsync();
-
-                // Seed Predictions for T1
-                _context.Predictions.Add(new Prediction
-                {
-                    UserId = spectatorUser.UserId,
-                    RaceId = t1Race.RaceId,
-                    RaceEntryId = t1Entries.First(e => e.FinishPosition == 1).RaceEntryId,
-                    PredictedAt = new DateTime(2026, 3, 8, 10, 0, 0, DateTimeKind.Utc),
-                    Status = "Evaluated",
-                    IsCorrect = true,
-                    Point = 100
-                });
-                _context.Predictions.Add(new Prediction
-                {
-                    UserId = spectator2User.UserId,
-                    RaceId = t1Race.RaceId,
-                    RaceEntryId = t1Entries.First(e => e.LaneNo == 1).RaceEntryId,
-                    PredictedAt = new DateTime(2026, 3, 8, 10, 30, 0, DateTimeKind.Utc),
-                    Status = "Evaluated",
-                    IsCorrect = false,
-                    Point = 0
-                });
-                _context.Predictions.Add(new Prediction
-                {
-                    UserId = spectator3User.UserId,
-                    RaceId = t1Race.RaceId,
-                    RaceEntryId = t1Entries.First(e => e.FinishPosition == 1).RaceEntryId,
-                    PredictedAt = new DateTime(2026, 3, 8, 11, 0, 0, DateTimeKind.Utc),
-                    Status = "Evaluated",
-                    IsCorrect = true,
-                    Point = 100
-                });
-                await _context.SaveChangesAsync();
             }
 
             // 4. Seed Tournament 2: "Giải Đua Ngựa Mùa Hè 2026" (ONGOING / LIVE)
@@ -443,9 +526,9 @@ public class DemoDataSeeder
                 await _context.SaveChangesAsync();
 
                 var t2Entries = new List<RaceEntry>();
-                for (int i = 0; i < 6; i++)
+                for (int i = 0; i < customHorses.Count; i++)
                 {
-                    var horse = allHorses[i + 4];
+                    var horse = customHorses[i];
                     var reg = new Registration
                     {
                         TournamentId = t2.TournamentId,
@@ -460,7 +543,7 @@ public class DemoDataSeeder
                     {
                         RaceId = t2Race.RaceId,
                         RegistrationId = reg.RegistrationId,
-                        JockeyId = jockeyProf.JockeyId,
+                        JockeyId = allJockeys[i % allJockeys.Count].JockeyId,
                         LaneNo = i + 1,
                         Status = "Ready"
                     };
@@ -473,7 +556,7 @@ public class DemoDataSeeder
                 var t2Scores = new List<(RaceEntry entry, decimal score)>();
                 foreach (var entry in t2Entries)
                 {
-                    var horse = allHorses.First(h => h.HorseId == _context.Registrations.First(r => r.RegistrationId == entry.RegistrationId).HorseId);
+                    var horse = customHorses.First(h => h.HorseId == _context.Registrations.First(r => r.RegistrationId == entry.RegistrationId).HorseId);
                     var avg = horse.AverageTime ?? 70m;
                     var rec = horse.RecentAverageTime ?? avg;
                     var win = horse.WinRate ?? 0.05m;
@@ -510,9 +593,9 @@ public class DemoDataSeeder
                 {
                     UserId = spectatorUser.UserId,
                     RaceId = t2Race.RaceId,
-                    HorseId = allHorses[4].HorseId,
+                    HorseId = customHorses[0].HorseId,
                     Amount = 2000m,
-                    Odds = 2.5m,
+                    Odds = t2Entries[0].CurrentOdds ?? 2.5m,
                     Status = "Pending",
                     CreatedAt = DateTime.UtcNow,
                     RaceEntryId = t2Entries[0].RaceEntryId
@@ -521,9 +604,9 @@ public class DemoDataSeeder
                 {
                     UserId = spectator2User.UserId,
                     RaceId = t2Race.RaceId,
-                    HorseId = allHorses[5].HorseId,
+                    HorseId = customHorses[1].HorseId,
                     Amount = 1500m,
-                    Odds = 2.9m,
+                    Odds = t2Entries[1].CurrentOdds ?? 2.9m,
                     Status = "Pending",
                     CreatedAt = DateTime.UtcNow,
                     RaceEntryId = t2Entries[1].RaceEntryId
@@ -555,9 +638,10 @@ public class DemoDataSeeder
 
                 // 4.1 Seed 15 extra registrations and pending jockey contracts (invitations) for Summer 2026
                 var extraRegistrations = new List<Registration>();
-                for (int i = 10; i < 25; i++)
+                var nonCustomHorses = allHorses.Where(h => !customHorseNames.Contains(h.Name)).ToList();
+                for (int i = 0; i < Math.Min(15, nonCustomHorses.Count); i++)
                 {
-                    var horse = allHorses[i];
+                    var horse = nonCustomHorses[i];
                     var reg = new Registration
                     {
                         TournamentId = t2.TournamentId,
@@ -570,11 +654,10 @@ public class DemoDataSeeder
                 _context.Registrations.AddRange(extraRegistrations);
                 await _context.SaveChangesAsync();
 
-                var allJockeys = await _context.JockeyProfiles.ToListAsync();
                 var extraContracts = new List<JockeyContract>();
                 for (int i = 0; i < extraRegistrations.Count; i++)
                 {
-                    var assignedJockey = allJockeys[i];
+                    var assignedJockey = allJockeys[i % allJockeys.Count];
                     var contract = new JockeyContract
                     {
                         TournamentId = t2.TournamentId,
@@ -582,7 +665,7 @@ public class DemoDataSeeder
                         JockeyId = assignedJockey.UserId,
                         StartDate = new DateTime(2026, 6, 15, 0, 0, 0, DateTimeKind.Utc),
                         EndDate = new DateTime(2026, 7, 5, 0, 0, 0, DateTimeKind.Utc),
-                        Status = "Accepted", // Confirmed invitation status
+                        Status = "Accepted",
                         CreatedAt = DateTime.UtcNow
                     };
                     extraContracts.Add(contract);
@@ -630,10 +713,10 @@ public class DemoDataSeeder
                 _context.Races.Add(preRace1);
                 await _context.SaveChangesAsync();
 
-                // Approved registrations for T3
-                for (int i = 0; i < 6; i++)
+                // Approved registrations for T3 using our custom horses
+                for (int i = 0; i < customHorses.Count; i++)
                 {
-                    var horse = allHorses[i];
+                    var horse = customHorses[i];
                     var reg = new Registration
                     {
                         TournamentId = t3.TournamentId,
@@ -644,23 +727,38 @@ public class DemoDataSeeder
                     _context.Registrations.Add(reg);
                     await _context.SaveChangesAsync();
 
+                    var jockey = allJockeys[i % allJockeys.Count];
+                    var contract = new JockeyContract
+                    {
+                        TournamentId = t3.TournamentId,
+                        HorseId = horse.HorseId,
+                        JockeyId = jockey.UserId,
+                        StartDate = t3.StartDate ?? DateTime.UtcNow,
+                        EndDate = t3.EndDate ?? DateTime.UtcNow,
+                        Status = "Accepted",
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    _context.JockeyContracts.Add(contract);
+                    await _context.SaveChangesAsync();
+
                     _context.RaceEntries.Add(new RaceEntry
                     {
                         RaceId = preRace1.RaceId,
                         RegistrationId = reg.RegistrationId,
-                        JockeyId = jockeyProf.JockeyId,
+                        JockeyId = jockey.JockeyId,
                         LaneNo = i + 1,
                         Status = "Ready",
-                        WinningProbability = 16.6m,
+                        WinningProbability = 0m,
                         CurrentOdds = 2.0m
                     });
                 }
                 await _context.SaveChangesAsync();
 
-                // 6. Seed PENDING Registrations for T3 so Admin can test approving/rejecting in /admin/registrations
-                for (int i = 6; i < 11; i++)
+                // Seed PENDING Registrations for T3 so Admin can test approving/rejecting
+                var nonCustomHorsesForPending = allHorses.Where(h => !customHorseNames.Contains(h.Name)).ToList();
+                for (int i = 0; i < Math.Min(5, nonCustomHorsesForPending.Count); i++)
                 {
-                    var horse = allHorses[i];
+                    var horse = nonCustomHorsesForPending[i];
                     if (!await _context.Registrations.AnyAsync(r => r.TournamentId == t3.TournamentId && r.HorseId == horse.HorseId))
                     {
                         _context.Registrations.Add(new Registration
@@ -714,9 +812,8 @@ public class DemoDataSeeder
                 _context.Rounds.Add(finalRound);
                 await _context.SaveChangesAsync();
 
-                // Seed 15 approved registrations and unique accepted jockey contracts
                 var t5Registrations = new List<Registration>();
-                for (int i = 0; i < 15; i++)
+                for (int i = 0; i < Math.Min(15, allHorses.Count); i++)
                 {
                     var horse = allHorses[i];
                     var reg = new Registration
@@ -731,12 +828,10 @@ public class DemoDataSeeder
                 _context.Registrations.AddRange(t5Registrations);
                 await _context.SaveChangesAsync();
 
-                var allJockeys = await _context.JockeyProfiles.ToListAsync();
                 var t5Contracts = new List<JockeyContract>();
                 for (int i = 0; i < t5Registrations.Count; i++)
                 {
-                    // Assign a unique jockey to each horse in this tournament
-                    var assignedJockey = allJockeys[i];
+                    var assignedJockey = allJockeys[i % allJockeys.Count];
                     var contract = new JockeyContract
                     {
                         TournamentId = t5.TournamentId,
@@ -753,37 +848,70 @@ public class DemoDataSeeder
                 await _context.SaveChangesAsync();
             }
 
-            // Always recalculate and force update Odds for Summer Race on every startup
-            var summerRace = await _context.Races.Include(r => r.Round).FirstOrDefaultAsync(r => r.Name == "Trận Đua Khai Mạc Mùa Hè");
-            if (summerRace != null)
+            // Recalculate stats for custom horses to ensure perfect data consistency
+            foreach (var name in customHorseNames)
             {
-                var summerEntries = await _context.RaceEntries.Include(re => re.Registration).ThenInclude(reg => reg.Horse).Where(re => re.RaceId == summerRace.RaceId).ToListAsync();
-                if (summerEntries.Any())
+                var h = allHorses.First(x => x.Name == name);
+                var entries = await _context.RaceEntries
+                    .Include(re => re.Race)
+                    .Where(re => re.Registration != null && re.Registration.HorseId == h.HorseId)
+                    .Where(re => re.FinishTime.HasValue && re.FinishTime.Value > 0)
+                    .Where(re => re.Race!.Status == "Completed" || re.Race.Status == "Finished")
+                    .ToListAsync();
+                
+                if (entries.Any())
                 {
-                    var scores = new List<(RaceEntry entry, decimal score)>();
-                    foreach (var entry in summerEntries)
-                    {
-                        var horse = entry.Registration?.Horse;
-                        var avg = horse?.AverageTime ?? 70m;
-                        var rec = horse?.RecentAverageTime ?? avg;
-                        var win = horse?.WinRate ?? 0.05m;
-                        if (win > 1) win /= 100m;
+                    var avg = entries.Average(re => re.FinishTime!.Value);
+                    var recent = entries
+                        .OrderByDescending(re => re.Race!.RaceDate)
+                        .Take(3)
+                        .Average(re => re.FinishTime!.Value);
+                    var total = entries.Count;
+                    var wins = entries.Count(re => re.FinishPosition == 1);
+                    var winRate = (decimal)wins / total;
 
-                        var avgScore = Math.Max(1m, 100m - (avg - 60m) * 5m);
-                        var recScore = Math.Max(1m, 100m - (rec - 60m) * 5m);
-                        var winScore = win * 100m;
+                    h.AverageTime = Math.Round(avg, 2);
+                    h.RecentAverageTime = Math.Round(recent, 2);
+                    h.WinRate = Math.Round(winRate, 2);
+                }
+            }
+            await _context.SaveChangesAsync();
 
-                        var score = avgScore * 0.4m + recScore * 0.4m + winScore * 0.2m;
-                        scores.Add((entry, score));
-                    }
-                    var totScore = scores.Sum(x => x.score);
-                    foreach (var item in scores)
+            // Recalculate and force update Odds for Summer and Winter races on startup
+            var racesToRecalculate = new[] { "Trận Đua Khai Mạc Mùa Hè", "Pre Race 1" };
+            foreach (var rName in racesToRecalculate)
+            {
+                var rObj = await _context.Races.Include(r => r.Round).FirstOrDefaultAsync(r => r.Name == rName);
+                if (rObj != null)
+                {
+                    var entries = await _context.RaceEntries.Include(re => re.Registration).ThenInclude(reg => reg.Horse).Where(re => re.RaceId == rObj.RaceId).ToListAsync();
+                    if (entries.Any())
                     {
-                        var prob = item.score / totScore;
-                        item.entry.WinningProbability = Math.Round(prob * 100m, 2);
-                        item.entry.CurrentOdds = Math.Round(Math.Max((1m / prob) * 0.9m, 1.05m), 2);
+                        var scores = new List<(RaceEntry entry, decimal score)>();
+                        foreach (var entry in entries)
+                        {
+                            var horse = entry.Registration?.Horse;
+                            var avg = horse?.AverageTime ?? 70m;
+                            var rec = horse?.RecentAverageTime ?? avg;
+                            var win = horse?.WinRate ?? 0.05m;
+                            if (win > 1) win /= 100m;
+
+                            var avgScore = Math.Max(1m, 100m - (avg - 60m) * 5m);
+                            var recScore = Math.Max(1m, 100m - (rec - 60m) * 5m);
+                            var winScore = win * 100m;
+
+                            var score = avgScore * 0.4m + recScore * 0.4m + winScore * 0.2m;
+                            scores.Add((entry, score));
+                        }
+                        var totScore = scores.Sum(x => x.score);
+                        foreach (var item in scores)
+                        {
+                            var prob = item.score / totScore;
+                            item.entry.WinningProbability = Math.Round(prob * 100m, 2);
+                            item.entry.CurrentOdds = Math.Round(Math.Max((1m / prob) * 0.9m, 1.05m), 2);
+                        }
+                        await _context.SaveChangesAsync();
                     }
-                    await _context.SaveChangesAsync();
                 }
             }
 
