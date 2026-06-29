@@ -7,18 +7,23 @@ using HorseRacing.Application.Features.TournamentAndRacing.Interfaces;
 using HorseRacing.Domain.Entities.Tournaments;
 using HorseRacing.Application.Features.BettingEngine.Interfaces;
 
+using HorseRacing.Application.Features.Notifications.Interfaces;
+
 namespace HorseRacing.Application.Features.TournamentAndRacing.Services;
 
 public class TournamentService : ITournamentService
 {
     private readonly ITournamentRepository _tournamentRepository;
     private readonly IBettingService? _bettingService;
+    private readonly INotificationService _notificationService;
 
     public TournamentService(
         ITournamentRepository tournamentRepository,
+        INotificationService notificationService,
         IBettingService? bettingService = null)
     {
         _tournamentRepository = tournamentRepository;
+        _notificationService = notificationService;
         _bettingService = bettingService;
     }
 
@@ -100,6 +105,21 @@ public class TournamentService : ITournamentService
         await _tournamentRepository.AddAsync(tournament);
         await _tournamentRepository.SaveChangesAsync();
 
+        try
+        {
+            await _notificationService.BroadcastNotificationAsync(
+                "Tournament mới đã mở đăng ký",
+                $"Giải đấu '{tournament.Name}' bắt đầu từ {tournament.StartDate:dd/MM/yyyy} đã mở đăng ký.",
+                "Tournament",
+                referenceId: (int)tournament.TournamentId,
+                actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
+            );
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Notification Error] Failed to broadcast tournament creation: {ex.Message}");
+        }
+
         return MapToResponse(tournament);
     }
 
@@ -175,6 +195,21 @@ public class TournamentService : ITournamentService
 
         _tournamentRepository.Update(tournament);
         await _tournamentRepository.SaveChangesAsync();
+
+        try
+        {
+            await _notificationService.BroadcastNotificationAsync(
+                "Tournament cập nhật",
+                $"Giải đấu '{tournament.Name}' đã cập nhật thông tin và chuyển trạng thái sang '{tournament.Status}'.",
+                "Tournament",
+                referenceId: (int)tournament.TournamentId,
+                actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
+            );
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Notification Error] Failed to broadcast tournament update: {ex.Message}");
+        }
 
         return MapToResponse(tournament);
     }

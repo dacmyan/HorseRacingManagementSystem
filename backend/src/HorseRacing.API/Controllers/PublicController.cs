@@ -129,12 +129,16 @@ private readonly IRaceResultService _resultService;
 
     [HttpGet("notifications")]
     [Authorize]
-    public async Task<IActionResult> GetMyNotifications()
+    public async Task<IActionResult> GetMyNotifications(
+        [FromQuery] string? type,
+        [FromQuery] bool? isRead,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
     {
         try
         {
             var userId = GetCurrentUserId();
-            var notifications = await _notificationService.GetNotificationsForUserAsync(userId);
+            var notifications = await _notificationService.GetNotificationsForUserPagedAsync(userId, type, isRead, page, pageSize);
             return Ok(new { message = "Notifications retrieved successfully", result = notifications });
         }
         catch (Exception ex)
@@ -160,6 +164,42 @@ private readonly IRaceResultService _resultService;
         catch (Exception ex)
         {
             return StatusCode(500, new { message = "An error occurred updating notification", detail = ex.Message });
+        }
+    }
+
+    [HttpPut("notifications/read-all")]
+    [Authorize]
+    public async Task<IActionResult> MarkAllNotificationsAsRead()
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            await _notificationService.MarkAllAsReadAsync(userId);
+            return Ok(new { message = "All notifications marked as read successfully" });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred updating notifications", detail = ex.Message });
+        }
+    }
+
+    [HttpDelete("notifications/{id}")]
+    [Authorize]
+    public async Task<IActionResult> DeleteNotification(int id)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            await _notificationService.DeleteNotificationAsync(id, userId);
+            return Ok(new { message = "Notification soft deleted successfully" });
+        }
+        catch (ArgumentException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred deleting notification", detail = ex.Message });
         }
     }
 

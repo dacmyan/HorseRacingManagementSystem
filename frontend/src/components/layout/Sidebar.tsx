@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Flag, Trophy, Calendar, BarChart3,
@@ -140,18 +140,19 @@ export function Sidebar() {
 
       {/* User Profile */}
       <div className="px-4 py-4 border-t border-glass-border shrink-0 relative">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-gold/30 to-gold/10 border border-gold/30 flex items-center justify-center font-serif text-base font-bold text-champagne">
-            {user?.fullName?.[0] ?? 'U'}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold text-white truncate">{user?.fullName ?? 'User'}</div>
-            <div className="text-[11px] text-gold font-medium">{t(ROLE_LABELS[roleKey] ?? user?.role)}</div>
+        <div className="flex items-center justify-between p-3 bg-white/[0.02] border border-glass-border rounded-xl">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-gold/10 border border-gold-border/30 flex items-center justify-center font-bold text-gold shrink-0">
+              {user?.fullName?.charAt(0).toUpperCase() || 'U'}
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs font-bold text-white truncate max-w-[120px]">{user?.fullName}</div>
+              <div className="text-[11px] text-gold font-medium truncate max-w-[120px]">{t(ROLE_LABELS[roleKey] ?? user?.role)}</div>
+            </div>
           </div>
           <button
             onClick={() => setShowSettings(!showSettings)}
-            className={`text-muted hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/[0.04] ${showSettings ? 'text-gold bg-white/[0.04]' : ''
-              }`}
+            className={`text-muted hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/[0.04] ${showSettings ? 'text-gold bg-white/[0.04]' : ''}`}
             title="Settings"
           >
             <Settings size={18} />

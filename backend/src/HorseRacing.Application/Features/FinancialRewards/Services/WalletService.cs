@@ -13,16 +13,16 @@ public class WalletService : IWalletService
 {
     private readonly IWalletRepository _walletRepository;
     private readonly IWalletTransactionRepository _transactionRepository;
-    private readonly INotificationRepository _notificationRepository;
+    private readonly INotificationService _notificationService;
 
     public WalletService(
         IWalletRepository walletRepository,
         IWalletTransactionRepository transactionRepository,
-        INotificationRepository notificationRepository)
+        INotificationService notificationService)
     {
         _walletRepository = walletRepository;
         _transactionRepository = transactionRepository;
-        _notificationRepository = notificationRepository;
+        _notificationService = notificationService;
     }
 
     private async Task<Wallet> GetOrCreateWalletAsync(int userId)
@@ -78,16 +78,14 @@ public class WalletService : IWalletService
         await _transactionRepository.AddAsync(transaction);
         await _transactionRepository.SaveChangesAsync();
 
-        // Create system notification
-        var notification = new Notification
-        {
-            UserId = userId,
-            Message = $"You have successfully deposited {request.Amount:N2} to your wallet. New balance: {wallet.Balance:N2}.",
-            IsRead = false,
-            CreatedAt = DateTime.UtcNow
-        };
-        await _notificationRepository.AddAsync(notification);
-        await _notificationRepository.SaveChangesAsync();
+        // Create wallet notification
+        await _notificationService.SendNotificationToUserAsync(
+            userId,
+            "Nạp tiền thành công",
+            $"Bạn đã nạp thành công {request.Amount:N2}$ vào ví. Số dư mới: {wallet.Balance:N2}$.",
+            "Wallet",
+            actionUrl: "/spectator/wallet"
+        );
 
         return new WalletBalanceResponse
         {
@@ -122,16 +120,14 @@ public class WalletService : IWalletService
         await _transactionRepository.AddAsync(transaction);
         await _transactionRepository.SaveChangesAsync();
 
-        // Create system notification
-        var notification = new Notification
-        {
-            UserId = userId,
-            Message = $"You have successfully withdrawn {request.Amount:N2} from your wallet. New balance: {wallet.Balance:N2}.",
-            IsRead = false,
-            CreatedAt = DateTime.UtcNow
-        };
-        await _notificationRepository.AddAsync(notification);
-        await _notificationRepository.SaveChangesAsync();
+        // Create wallet notification
+        await _notificationService.SendNotificationToUserAsync(
+            userId,
+            "Rút tiền thành công",
+            $"Bạn đã rút thành công {request.Amount:N2}$ từ ví. Số dư mới: {wallet.Balance:N2}$.",
+            "Wallet",
+            actionUrl: "/spectator/wallet"
+        );
 
         return new WalletBalanceResponse
         {

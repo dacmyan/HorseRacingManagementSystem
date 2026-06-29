@@ -915,6 +915,80 @@ public class DemoDataSeeder
                 }
             }
 
+            // 7. Seed Demo Notifications
+            if (!await _context.Notifications.AnyAsync())
+            {
+                var spectator = await _context.Users.FirstOrDefaultAsync(u => u.Username == "spectator");
+                if (spectator != null)
+                {
+                    var notifications = new List<Notification>
+                    {
+                        new Notification
+                        {
+                            UserId = spectator.UserId,
+                            Title = "Đặt cược thành công",
+                            Content = "Bạn vừa đặt cược thành công 100$ vào ngựa 'Chiến Binh' trong Race 5.",
+                            Type = "Bet",
+                            IsRead = false,
+                            CreatedAt = DateTime.UtcNow.AddMinutes(-10),
+                            IsDeleted = false
+                        },
+                        new Notification
+                        {
+                            UserId = spectator.UserId,
+                            Title = "Tournament mở cược",
+                            Content = "Tournament 'Spring Cup 2026' đã mở cổng cá cược.",
+                            Type = "Tournament",
+                            IsRead = false,
+                            CreatedAt = DateTime.UtcNow.AddMinutes(-2),
+                            IsDeleted = false
+                        },
+                        new Notification
+                        {
+                            UserId = spectator.UserId,
+                            Title = "Bạn thắng cược!",
+                            Content = "Chúc mừng! Bạn đã thắng cược ngựa 'Vinh Quang' trong Race 3. Nhận được 250$.",
+                            Type = "Bet",
+                            IsRead = false,
+                            CreatedAt = DateTime.UtcNow.AddHours(-1),
+                            IsDeleted = false
+                        },
+                        new Notification
+                        {
+                            UserId = spectator.UserId,
+                            Title = "Race 5 đã bắt đầu",
+                            Content = "Cuộc đua Race 5 đã chính thức bắt đầu. Hãy theo dõi trực tiếp kết quả!",
+                            Type = "Race",
+                            IsRead = true,
+                            CreatedAt = DateTime.UtcNow.AddMinutes(-30),
+                            IsDeleted = false
+                        },
+                        new Notification
+                        {
+                            UserId = spectator.UserId,
+                            Title = "Hoàn tiền cược",
+                            Content = "Cuộc đua Race 2 bị hủy. Số tiền cược 150$ của bạn đã được hoàn trả vào ví.",
+                            Type = "Wallet",
+                            IsRead = true,
+                            CreatedAt = DateTime.UtcNow.AddHours(-3),
+                            IsDeleted = false
+                        },
+                        new Notification
+                        {
+                            UserId = spectator.UserId,
+                            Title = "Bảo trì hệ thống",
+                            Content = "Hệ thống sẽ tiến hành bảo trì định kỳ từ 02:00 đến 04:00 ngày mai.",
+                            Type = "System",
+                            IsRead = true,
+                            CreatedAt = DateTime.UtcNow.AddHours(-12),
+                            IsDeleted = false
+                        }
+                    };
+                    await _context.Notifications.AddRangeAsync(notifications);
+                    await _context.SaveChangesAsync();
+                }
+            }
+
             _logger.LogInformation("Rich demo data seeding completed successfully.");
         }
         catch (Exception ex)
