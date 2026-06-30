@@ -16,20 +16,20 @@ public class PrizePayoutService : IPrizePayoutService
     private readonly IWalletRepository _walletRepository;
     private readonly IWalletTransactionRepository _transactionRepository;
     private readonly IPrizeRepository _prizeRepository;
-    private readonly INotificationRepository _notificationRepository;
+    private readonly INotificationService _notificationService;
 
     public PrizePayoutService(
         IBetRepository betRepository,
         IWalletRepository walletRepository,
         IWalletTransactionRepository transactionRepository,
         IPrizeRepository prizeRepository,
-        INotificationRepository notificationRepository)
+        INotificationService notificationService)
     {
         _betRepository = betRepository;
         _walletRepository = walletRepository;
         _transactionRepository = transactionRepository;
         _prizeRepository = prizeRepository;
-        _notificationRepository = notificationRepository;
+        _notificationService = notificationService;
     }
 
     private async Task<Wallet> GetOrCreateWalletAsync(int userId)
@@ -171,14 +171,14 @@ public class PrizePayoutService : IPrizePayoutService
             };
             await _prizeRepository.AddTournamentPrizePayoutAsync(ownerPayoutRecord);
 
-            var ownerNotification = new Notification
-            {
-                UserId = horse.OwnerId,
-                Message = $"Congratulations! Your horse '{horse.Name}' won Rank {rank} in the tournament '{tournament.Name}'. You have been awarded the Owner's Prize share of {ownerAmount:N2}. New balance: {ownerWallet.Balance:N2}.",
-                IsRead = false,
-                CreatedAt = DateTime.UtcNow
-            };
-            await _notificationRepository.AddAsync(ownerNotification);
+            await _notificationService.SendNotificationToUserAsync(
+                horse.OwnerId,
+                "Nhận giải thưởng Tournament",
+                $"Chúc mừng! Ngựa '{horse.Name}' của bạn đạt Hạng {rank} trong giải đấu '{tournament.Name}'. Bạn nhận được giải thưởng của Chủ Ngựa là {ownerAmount:N2}$. Số dư mới: {ownerWallet.Balance:N2}$.",
+                "Wallet",
+                referenceId: (int)tournament.TournamentId,
+                actionUrl: "/spectator/wallet"
+            );
 
             // Pay Jockey
             int jockeyUserId = 0;
@@ -207,14 +207,14 @@ public class PrizePayoutService : IPrizePayoutService
                 };
                 await _prizeRepository.AddTournamentPrizePayoutAsync(jockeyPayoutRecord);
 
-                var jockeyNotification = new Notification
-                {
-                    UserId = jockeyUserId,
-                    Message = $"Congratulations! You won Rank {rank} in the tournament '{tournament.Name}' riding '{horse.Name}'. You have been awarded the Jockey's Prize share of {jockeyAmount:N2}. New balance: {jockeyWallet.Balance:N2}.",
-                    IsRead = false,
-                    CreatedAt = DateTime.UtcNow
-                };
-                await _notificationRepository.AddAsync(jockeyNotification);
+                await _notificationService.SendNotificationToUserAsync(
+                    jockeyUserId,
+                    "Nhận giải thưởng Tournament",
+                    $"Chúc mừng! Bạn đạt Hạng {rank} trong giải đấu '{tournament.Name}' khi nài ngựa '{horse.Name}'. Bạn nhận được giải thưởng của Nài Ngựa là {jockeyAmount:N2}$. Số dư mới: {jockeyWallet.Balance:N2}$.",
+                    "Wallet",
+                    referenceId: (int)tournament.TournamentId,
+                    actionUrl: "/spectator/wallet"
+                );
             }
         }
 

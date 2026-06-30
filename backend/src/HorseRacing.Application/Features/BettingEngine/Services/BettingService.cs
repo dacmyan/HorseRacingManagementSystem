@@ -9,6 +9,8 @@ using HorseRacing.Application.Features.Notifications.Interfaces;
 using HorseRacing.Domain.Entities;
 using HorseRacing.Domain.Entities.Tournaments;
 
+using HorseRacing.Application.Features.Notifications.Interfaces;
+
 namespace HorseRacing.Application.Features.BettingEngine.Services;
 
 public class BettingService : IBettingService
@@ -16,18 +18,18 @@ public class BettingService : IBettingService
     private readonly IBetRepository _betRepository;
     private readonly IWalletRepository _walletRepository;
     private readonly IWalletTransactionRepository _transactionRepository;
-    private readonly INotificationRepository _notificationRepository;
+    private readonly INotificationService _notificationService;
 
     public BettingService(
         IBetRepository betRepository,
         IWalletRepository walletRepository,
         IWalletTransactionRepository transactionRepository,
-        INotificationRepository notificationRepository)
+        INotificationService notificationService)
     {
         _betRepository = betRepository;
         _walletRepository = walletRepository;
         _transactionRepository = transactionRepository;
-        _notificationRepository = notificationRepository;
+        _notificationService = notificationService;
     }
 
     public async Task<decimal> CalculateCurrentOddsAsync(long raceId, int horseId)
@@ -140,15 +142,14 @@ public class BettingService : IBettingService
         // Save wallet changes
         await _walletRepository.SaveChangesAsync();
 
-        var notification = new Notification
-        {
-            UserId = userId,
-            Message = $"You placed a bet of {request.Amount:N2} on '{horse.Name}' in race '{race.Name}' at odds of {currentOdds:N2}.",
-            IsRead = false,
-            CreatedAt = DateTime.UtcNow
-        };
-        await _notificationRepository.AddAsync(notification);
-        await _notificationRepository.SaveChangesAsync();
+        await _notificationService.SendNotificationToUserAsync(
+            userId,
+            "Đặt cược thành công",
+            $"Bạn đã đặt cược thành công {request.Amount:N2}$ vào ngựa '{horse.Name}' trong cuộc đua '{race.Name}' với odds là {currentOdds:N2}.",
+            "Bet",
+            referenceId: (int)bet.Id,
+            actionUrl: "/spectator/predictions"
+        );
 
         return new BetTicketResponse
         {

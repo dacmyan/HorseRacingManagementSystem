@@ -9,7 +9,7 @@ import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
 import { deposit, withdraw, getBalance, getWalletHistory } from '../../api/spectatorService';
-import { parseApiError } from '../../api/authService';
+import { parseApiError, getCurrentUser } from '../../api/authService';
 
 const COINS_PER_USD = 100;
 const QUICK_AMTS = [5, 10, 20, 50];
@@ -73,8 +73,19 @@ export function SpectatorWalletPage() {
   const effectiveUsd = quickAmt ?? (parseFloat(usdInput) || 0);
   const coinsPreview = effectiveUsd * COINS_PER_USD;
 
+  const user = getCurrentUser();
+  const [showVNPayModal, setShowVNPayModal] = useState(false);
+
+  const handleOpenVNPay = () => {
+    if (effectiveUsd <= 0) return;
+    setDepositErr('');
+    setDepositMsg('');
+    setShowVNPayModal(true);
+  };
+
   async function handleDeposit() {
     if (effectiveUsd <= 0) return;
+    setShowVNPayModal(false);
     setDepositLoading(true); setDepositErr(''); setDepositMsg('');
     try {
       await deposit(coinsPreview);
@@ -226,7 +237,7 @@ export function SpectatorWalletPage() {
                 {depositErr && <div className="mb-3 text-xs text-red-400 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20">{depositErr}</div>}
                 {depositMsg && <div className="mb-3 text-xs text-emerald-400 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">{depositMsg}</div>}
 
-                <button onClick={handleDeposit} disabled={coinsPreview <= 0 || depositLoading}
+                <button onClick={handleOpenVNPay} disabled={coinsPreview <= 0 || depositLoading}
                   className={`w-full py-2.5 rounded-lg text-sm font-bold transition-all ${coinsPreview > 0 ? 'btn-gold' : 'bg-white/5 text-muted cursor-not-allowed border border-glass-border'}`}>
                   {depositLoading ? 'Đang nạp…' : coinsPreview > 0 ? `Nạp $${effectiveUsd} → ${coinsPreview.toLocaleString()} coins` : 'Chọn số tiền'}
                 </button>
@@ -337,6 +348,115 @@ export function SpectatorWalletPage() {
 
         </main>
       </div>
+
+      {/* VNPay Mock Payment Modal */}
+      {showVNPayModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-sm bg-[#0B101E] border border-gold-border/40 rounded-2xl shadow-2xl overflow-hidden relative flex flex-col animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-glass-border flex items-center justify-between bg-white/[0.01]">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                <span className="text-xs font-bold text-champagne uppercase tracking-wider">Thanh Toán VNPAY (Giả lập)</span>
+              </div>
+              <button 
+                onClick={() => setShowVNPayModal(false)}
+                className="text-muted hover:text-white text-xs font-semibold uppercase cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-5 overflow-y-auto max-h-[75vh]">
+              {/* QR Code Container */}
+              <div className="flex flex-col items-center justify-center gap-3">
+                <div className="p-3 bg-white rounded-xl border border-glass-border shadow-inner">
+                  <img
+                    src={`https://img.vietqr.io/image/vietinbank-1234567890-print.png?amount=${effectiveUsd * 25000}&addInfo=EQUESTRIA_DEPOSIT_USER_${user?.userId ?? 0}&accountName=DU%20AN%20EQUESTRIA`}
+                    alt="VNPAY VietQR Mock"
+                    className="w-44 h-44 object-contain"
+                  />
+                </div>
+                <span className="text-[10px] text-muted italic">Mã VietQR động tạo theo số tiền nạp</span>
+              </div>
+
+              {/* Transfer Details */}
+              <div className="space-y-3 bg-white/[0.02] border border-glass-border rounded-xl p-4 text-xs">
+                <div className="flex justify-between py-1">
+                  <span className="text-muted">Ngân hàng:</span>
+                  <span className="text-white font-semibold">VietinBank</span>
+                </div>
+                <div className="flex justify-between py-1 border-t border-glass-border/40">
+                  <span className="text-muted">Số tài khoản:</span>
+                  <span className="text-white font-semibold flex items-center gap-1.5">
+                    1234567890
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText('1234567890');
+                        alert('Đã sao chép số tài khoản!');
+                      }}
+                      className="text-[10px] text-gold hover:text-white font-bold cursor-pointer"
+                    >
+                      (Sao chép)
+                    </button>
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-t border-glass-border/40">
+                  <span className="text-muted">Chủ tài khoản:</span>
+                  <span className="text-white font-semibold">DỰ ÁN EQUESTRIA</span>
+                </div>
+                <div className="flex justify-between py-1 border-t border-glass-border/40">
+                  <span className="text-muted">Số tiền nạp:</span>
+                  <span className="text-gold font-bold text-sm">
+                    {(effectiveUsd * 25000).toLocaleString('vi-VN')} VND
+                    <span className="text-[10px] font-normal text-muted ml-1.5">(${effectiveUsd} USD)</span>
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-t border-glass-border/40">
+                  <span className="text-muted">Nội dung CK:</span>
+                  <span className="text-white font-semibold flex items-center gap-1.5">
+                    {`EQUESTRIA DEPOSIT USER ${user?.userId ?? 0}`}
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(`EQUESTRIA DEPOSIT USER ${user?.userId ?? 0}`);
+                        alert('Đã sao chép nội dung chuyển khoản!');
+                      }}
+                      className="text-[10px] text-gold hover:text-white font-bold cursor-pointer"
+                    >
+                      (Sao chép)
+                    </button>
+                  </span>
+                </div>
+              </div>
+
+              {/* Disclaimer Alert */}
+              <div className="p-3 bg-blue-500/10 border border-blue-500/25 rounded-lg flex gap-2.5 text-[11px] leading-relaxed text-blue-300">
+                <div className="shrink-0 pt-0.5">ℹ️</div>
+                <div>
+                  <strong>Giao dịch thử nghiệm:</strong> Vui lòng không thực hiện chuyển tiền thật. Hãy nhấn nút <strong>Xác nhận đã thanh toán</strong> bên dưới để hoàn tất giả lập nạp tiền vào ví.
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-glass-border flex items-center justify-end gap-3 bg-white/[0.01]">
+              <button
+                onClick={() => setShowVNPayModal(false)}
+                className="px-4 py-2 border border-glass-border hover:bg-white/[0.04] text-muted hover:text-white rounded-lg text-xs font-bold transition-all cursor-pointer"
+              >
+                Hủy giao dịch
+              </button>
+              <button
+                onClick={handleDeposit}
+                className="px-4 py-2 bg-gold hover:bg-gold-hover text-black rounded-lg text-xs font-extrabold shadow-lg shadow-gold/20 hover:shadow-gold/30 transition-all cursor-pointer"
+              >
+                Xác nhận đã thanh toán
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

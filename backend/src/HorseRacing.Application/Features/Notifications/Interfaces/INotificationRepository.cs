@@ -11,4 +11,6 @@ public interface INotificationRepository
     Task<bool> UserExistsAsync(int userId);
     Task AddAsync(Notification notification);
     Task SaveChangesAsync();
+    Task<(IEnumerable<Notification> Items, int TotalCount)> GetPagedByUserIdAsync(int userId, string? type, bool? isRead, int page, int pageSize);
+    Task<List<int>> GetActiveUserIdsAsync();
 }

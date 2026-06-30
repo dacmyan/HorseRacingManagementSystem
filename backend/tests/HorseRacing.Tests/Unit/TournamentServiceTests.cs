@@ -11,17 +11,21 @@ using HorseRacing.Domain.Entities.Tournaments;
 using Moq;
 using Xunit;
 
+using HorseRacing.Application.Features.Notifications.Interfaces;
+
 namespace HorseRacing.Tests.Unit;
 
 public class TournamentServiceTests
 {
     private readonly Mock<ITournamentRepository> _tournamentRepoMock;
+    private readonly Mock<INotificationService> _notificationMock;
     private readonly TournamentService _service;
 
     public TournamentServiceTests()
     {
         _tournamentRepoMock = new Mock<ITournamentRepository>();
-        _service = new TournamentService(_tournamentRepoMock.Object);
+        _notificationMock = new Mock<INotificationService>();
+        _service = new TournamentService(_tournamentRepoMock.Object, _notificationMock.Object);
     }
 
     [Fact]

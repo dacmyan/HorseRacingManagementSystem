@@ -60,6 +60,14 @@ public class JockeyContractRepository : IJockeyContractRepository
                 jc.JockeyId == jockeyUserId);
     }
 
+    public async Task<bool> HasActiveContractForJockeyInTournamentAsync(int jockeyUserId, long tournamentId)
+    {
+        return await _context.JockeyContracts
+            .AnyAsync(jc => jc.JockeyId == jockeyUserId 
+                && jc.TournamentId == tournamentId 
+                && (jc.Status == "Active" || jc.Status == "Accepted"));
+    }
+
     public async Task AddAsync(JockeyContract contract)
     {
         await _context.JockeyContracts.AddAsync(contract);

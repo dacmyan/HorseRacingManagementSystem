@@ -8,22 +8,24 @@ using HorseRacing.Application.Features.Notifications.Interfaces;
 using HorseRacing.Application.Features.OfficiatingAndResults.Interfaces;
 using HorseRacing.Domain.Entities;
 
+using HorseRacing.Application.Features.Notifications.Interfaces;
+
 namespace HorseRacing.Application.Features.BettingEngine.Services;
 
 public class PredictionService : IPredictionService
 {
     private readonly IPredictionRepository _predictionRepository;
     private readonly IResultRepository _resultRepository;
-    private readonly INotificationRepository _notificationRepository;
+    private readonly INotificationService _notificationService;
 
     public PredictionService(
         IPredictionRepository predictionRepository,
         IResultRepository resultRepository,
-        INotificationRepository notificationRepository)
+        INotificationService notificationService)
     {
         _predictionRepository = predictionRepository;
         _resultRepository = resultRepository;
-        _notificationRepository = notificationRepository;
+        _notificationService = notificationService;
     }
 
     public async Task<PredictionResponse> CreatePredictionAsync(int userId, CreatePredictionRequest request)
@@ -79,15 +81,14 @@ public class PredictionService : IPredictionService
 
         // Send notification for prediction submission
         var race = await _resultRepository.GetRaceByIdAsync(request.RaceId);
-        var notification = new Notification
-        {
-            UserId = userId,
-            Message = $"You successfully submitted your prediction for race '{race?.Name ?? request.RaceId.ToString()}'.",
-            IsRead = false,
-            CreatedAt = DateTime.UtcNow
-        };
-        await _notificationRepository.AddAsync(notification);
-        await _notificationRepository.SaveChangesAsync();
+        await _notificationService.SendNotificationToUserAsync(
+            userId,
+            "Dự đoán thành công",
+            $"Bạn đã gửi dự đoán thành công cho race '{race?.Name ?? request.RaceId.ToString()}'.",
+            "Race",
+            referenceId: (int)request.RaceId,
+            actionUrl: $"/spectator/races/{request.RaceId}"
+        );
 
         return new PredictionResponse
         {
@@ -170,14 +171,14 @@ public class PredictionService : IPredictionService
                 prediction.Point = 1;
                 prediction.Status = "Evaluated";
 
-                var notification = new Notification
-                {
-                    UserId = prediction.UserId,
-                    Message = $"Your prediction for race '{raceName}' was correct! You gained 1 prediction point.",
-                    IsRead = false,
-                    CreatedAt = DateTime.UtcNow
-                };
-                await _notificationRepository.AddAsync(notification);
+                await _notificationService.SendNotificationToUserAsync(
+                    prediction.UserId,
+                    "Dự đoán chính xác!",
+                    $"Dự đoán của bạn cho race '{raceName}' đã chính xác! Bạn nhận được +1 điểm tích lũy.",
+                    "Race",
+                    referenceId: (int)raceId,
+                    actionUrl: $"/spectator/races/{raceId}"
+                );
             }
             else
             {
@@ -185,14 +186,14 @@ public class PredictionService : IPredictionService
                 prediction.Point = 0;
                 prediction.Status = "Evaluated";
 
-                var notification = new Notification
-                {
-                    UserId = prediction.UserId,
-                    Message = $"Your prediction for race '{raceName}' was incorrect. Better luck next time!",
-                    IsRead = false,
-                    CreatedAt = DateTime.UtcNow
-                };
-                await _notificationRepository.AddAsync(notification);
+                await _notificationService.SendNotificationToUserAsync(
+                    prediction.UserId,
+                    "Dự đoán không chính xác",
+                    $"Dự đoán của bạn cho race '{raceName}' không chính xác. Chúc bạn may mắn lần sau!",
+                    "Race",
+                    referenceId: (int)raceId,
+                    actionUrl: $"/spectator/races/{raceId}"
+                );
             }
         }
 

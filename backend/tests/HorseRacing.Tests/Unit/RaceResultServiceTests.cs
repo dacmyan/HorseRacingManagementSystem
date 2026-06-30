@@ -13,6 +13,8 @@ using FluentAssertions;
 using HorseRacing.Application.Features.FinancialRewards.Interfaces;
 using HorseRacing.Application.Features.BettingEngine.Interfaces;
 
+using HorseRacing.Application.Features.Notifications.Interfaces;
+
 namespace HorseRacing.Tests.Unit;
 
 public class RaceResultServiceTests
@@ -20,6 +22,7 @@ public class RaceResultServiceTests
     private readonly Mock<IResultRepository> _repoMock;
     private readonly Mock<IBetPayoutService> _payoutMock;
     private readonly Mock<IPredictionService> _predictionMock;
+    private readonly Mock<INotificationService> _notificationMock;
     private readonly RaceResultService _service;
 
     public RaceResultServiceTests()
@@ -27,7 +30,8 @@ public class RaceResultServiceTests
         _repoMock = new Mock<IResultRepository>();
         _payoutMock = new Mock<IBetPayoutService>();
         _predictionMock = new Mock<IPredictionService>();
-        _service = new RaceResultService(_repoMock.Object, _payoutMock.Object, _predictionMock.Object);
+        _notificationMock = new Mock<INotificationService>();
+        _service = new RaceResultService(_repoMock.Object, _payoutMock.Object, _predictionMock.Object, _notificationMock.Object);
     }
 
     [Fact]
