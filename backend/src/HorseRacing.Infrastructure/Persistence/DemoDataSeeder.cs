@@ -633,7 +633,7 @@ public class DemoDataSeeder
                 _context.RaceRefereeAssignments.Add(new RaceRefereeAssignment
                 {
                     RaceId = t2Race.RaceId,
-                    RefereeId = refereeUser.UserId,
+                    RefereeId = refereeProfile.RefereeId,
                     AssignedAt = DateTime.UtcNow,
                     Status = "Active"
                 });

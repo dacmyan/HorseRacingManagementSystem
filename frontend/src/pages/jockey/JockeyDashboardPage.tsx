@@ -23,6 +23,7 @@ export function JockeyDashboardPage() {
   const [schedule, setSchedule] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [myRaces, setMyRaces] = useState<any[]>([]);
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   async function loadContracts() {
     try {
@@ -214,32 +215,121 @@ export function JockeyDashboardPage() {
                   <div className="text-4xl opacity-40 mb-3">📊</div>
                   <div className="text-muted text-sm">Chưa có dữ liệu</div>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {completedRaces.slice(0, 3).map((r, i) => (
-                    <div key={r.raceEntryId ?? i} className="flex items-center justify-between p-4 rounded-xl bg-white/[0.02] border border-glass-border hover:border-gold/30 hover:bg-gold/[0.02] transition-all">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                          r.finishPosition === 1 ? 'bg-gold/20 text-gold border border-gold/30' :
-                          r.finishPosition === 2 ? 'bg-slate-300/20 text-slate-300 border border-slate-300/30' :
-                          r.finishPosition === 3 ? 'bg-amber-700/20 text-amber-600 border border-amber-700/30' :
-                          'bg-white/10 text-white'
-                        }`}>
-                          {r.finishPosition ?? '—'}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-xs font-semibold text-white truncate">{r.raceName}</div>
-                          <div className="text-[10px] text-muted truncate">{r.horseName} • {r.tournamentName}</div>
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <div className="text-xs font-mono text-champagne">{r.finishTime ? `${r.finishTime}s` : '—'}</div>
-                        <div className="text-[9px] text-emerald-400 font-medium">+{r.finishPosition === 1 ? 10 : 5} điểm</div>
+              ) : (() => {
+                const total = completedRaces.length;
+                const firstCount = completedRaces.filter(r => r.finishPosition === 1).length;
+                const secondCount = completedRaces.filter(r => r.finishPosition === 2).length;
+                const thirdCount = completedRaces.filter(r => r.finishPosition === 3).length;
+                const otherCount = completedRaces.filter(r => r.finishPosition > 3 || !r.finishPosition).length;
+
+                let pct1 = total > 0 ? Math.round((firstCount / total) * 100) : 0;
+                let pct2 = total > 0 ? Math.round((secondCount / total) * 100) : 0;
+                let pct3 = total > 0 ? Math.round((thirdCount / total) * 100) : 0;
+                let pctOther = total > 0 ? Math.round((otherCount / total) * 100) : 0;
+
+                const sum = pct1 + pct2 + pct3 + pctOther;
+                if (total > 0 && sum !== 100) {
+                  const diff = 100 - sum;
+                  if (pct1 > 0) pct1 += diff;
+                  else if (pct2 > 0) pct2 += diff;
+                  else if (pct3 > 0) pct3 += diff;
+                  else if (pctOther > 0) pctOther += diff;
+                }
+
+                const segments = [
+                  { label: 'Hạng 1', count: firstCount, percentage: pct1, color: '#e2ba5e', glowColor: 'rgba(226, 186, 94, 0.4)' },
+                  { label: 'Hạng 2', count: secondCount, percentage: pct2, color: '#94a3b8', glowColor: 'rgba(148, 163, 184, 0.4)' },
+                  { label: 'Hạng 3', count: thirdCount, percentage: pct3, color: '#b45309', glowColor: 'rgba(180, 83, 9, 0.4)' },
+                  { label: 'Khác', count: otherCount, percentage: pctOther, color: '#475569', glowColor: 'rgba(71, 85, 105, 0.4)' },
+                ].filter(s => s.count > 0);
+
+                const radius = 50;
+                const circumference = 2 * Math.PI * radius;
+
+                let accumulatedPercentage = 0;
+                const segmentsWithOffsets = segments.map(s => {
+                  const angle = (accumulatedPercentage / 100) * 360 - 90;
+                  accumulatedPercentage += s.percentage;
+                  return {
+                    ...s,
+                    angle,
+                    strokeDasharray: `${(s.percentage / 100) * circumference} ${circumference}`
+                  };
+                });
+
+                return (
+                  <div className="flex items-center gap-6 py-2">
+                    {/* SVG Chart */}
+                    <div className="relative w-[140px] h-[140px] shrink-0 flex items-center justify-center">
+                      <svg width="140" height="140" viewBox="0 0 140 140">
+                        {/* Background track circle */}
+                        <circle
+                          cx="70"
+                          cy="70"
+                          r={radius}
+                          fill="transparent"
+                          stroke="rgba(255, 255, 255, 0.03)"
+                          strokeWidth="8"
+                        />
+                        {segmentsWithOffsets.map((s, idx) => (
+                          <circle
+                            key={s.label}
+                            cx="70"
+                            cy="70"
+                            r={radius}
+                            fill="transparent"
+                            stroke={s.color}
+                            strokeWidth={hoveredIndex === idx ? 12 : 8}
+                            strokeDasharray={s.strokeDasharray}
+                            transform={`rotate(${s.angle} 70 70)`}
+                            className="transition-all duration-300 cursor-pointer"
+                            onMouseEnter={() => setHoveredIndex(idx)}
+                            onMouseLeave={() => setHoveredIndex(null)}
+                            style={{
+                              filter: hoveredIndex === idx ? `drop-shadow(0 0 6px ${s.glowColor})` : 'none',
+                            }}
+                          />
+                        ))}
+                      </svg>
+                      
+                      {/* Inner label */}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none z-10">
+                        <span className="text-[9px] uppercase tracking-wider text-muted font-bold">
+                          {hoveredIndex !== null ? segments[hoveredIndex].label : "Tổng đua"}
+                        </span>
+                        <span className="text-lg font-bold text-white font-serif mt-0.5">
+                          {hoveredIndex !== null ? `${segments[hoveredIndex].percentage}%` : `${total} trận`}
+                        </span>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
+
+                    {/* Legends */}
+                    <div className="flex-1 space-y-1.5 min-w-0">
+                      {segments.map((s, idx) => (
+                        <div
+                          key={s.label}
+                          className={`flex items-center justify-between p-2 rounded-xl transition-all border ${
+                            hoveredIndex === idx 
+                              ? 'bg-white/[0.04] border-white/10 scale-[1.02]' 
+                              : 'bg-transparent border-transparent'
+                          }`}
+                          onMouseEnter={() => setHoveredIndex(idx)}
+                          onMouseLeave={() => setHoveredIndex(null)}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color, boxShadow: `0 0 6px ${s.color}` }} />
+                            <span className="text-xs font-semibold text-white truncate">{s.label}</span>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="text-xs font-mono font-bold text-champagne">{s.count} trận</span>
+                            <span className="text-[10px] text-muted block leading-none mt-0.5">{s.percentage}%</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </motion.div>
           </div>
 
