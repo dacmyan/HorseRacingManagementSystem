@@ -878,6 +878,7 @@ public class AdminController : ControllerBase
                     RaceName = r.Name,
                     RaceDate = r.RaceDate,
                     Status = r.Status,
+                    DistanceMeter = r.DistanceMeter,
                     RoundName = r.Round != null ? r.Round.Name : "",
                     TournamentName = (r.Round != null && r.Round.Tournament != null) ? r.Round.Tournament.Name : "",
                     Referees = r.RaceRefereeAssignments.Select(ra => new
