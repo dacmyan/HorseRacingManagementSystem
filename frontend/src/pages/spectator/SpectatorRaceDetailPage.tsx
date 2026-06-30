@@ -7,7 +7,7 @@ import { Topbar } from '../../components/layout/Topbar';
 import { PageAmbience } from '../../components/layout/PageAmbience';
 import { getRaceDetail } from '../../api/publicService';
 import { getBalance, placeBet, getRaceBettingInfo } from '../../api/spectatorService';
-import { formatCurrencyVND, formatDateTime, formatWinProbability } from '../../utils/format';
+import { formatDateTime, formatWinProbability } from '../../utils/format';
 
 const RACE_STATUS_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
   live: { label: 'Đang diễn ra', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', dot: 'bg-emerald-400' },

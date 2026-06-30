@@ -31,4 +31,7 @@ public interface IBetRepository
     Task<IEnumerable<JockeyProfile>> GetJockeyRankingsAsync();
     Task<IEnumerable<Horse>> GetHorsesWithWinnersAsync();
     Task<IEnumerable<RaceResult>> GetFinishedRaceResultsAsync();
+
+    Task<decimal> GetTotalBetsForRaceAsync(long raceId);
+    Task<decimal> GetTotalPayoutsForRaceAsync(long raceId);
 }

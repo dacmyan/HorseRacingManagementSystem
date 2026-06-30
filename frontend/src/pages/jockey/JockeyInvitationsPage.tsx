@@ -18,6 +18,13 @@ function bucketOf(status: string): Tab {
   return 'pending';
 }
 
+const formatDate = (value?: string) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('vi-VN');
+};
+
 export function JockeyInvitationsPage() {
   const [tab, setTab] = useState<Tab>('pending');
   const [invitations, setInvitations] = useState<any[]>([]);
@@ -108,11 +115,13 @@ export function JockeyInvitationsPage() {
                         <div className="flex items-center gap-1.5 text-xs text-muted mb-3">
                           <User size={11} className="text-gold/60" /> Chủ ngựa: <span className="text-white font-medium">{inv.ownerName ?? `Owner #${inv.ownerId ?? '—'}`}</span>
                         </div>
-                        {(inv.startDate || inv.endDate) && (
-                          <div className="flex flex-wrap gap-2.5 text-xs text-muted mb-4">
-                            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.04] border border-glass-border"><Calendar size={11} className="text-gold/60" /> <span className="text-champagne font-semibold">{inv.startDate ?? '—'}{inv.endDate ? ` → ${inv.endDate}` : ''}</span></span>
-                          </div>
-                        )}
+                        <div className="flex flex-wrap gap-2.5 text-xs text-muted mb-4">
+                          {(inv.startDate || inv.endDate) && (
+                            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.04] border border-glass-border"><Calendar size={11} className="text-gold/60" /> <span className="text-champagne font-semibold">Thời gian: {formatDate(inv.startDate)} → {formatDate(inv.endDate)}</span></span>
+                          )}
+                          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.04] border border-glass-border text-gold font-semibold">💰 Tiền thuê: ${inv.rentalFee ?? 0}</span>
+                          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.04] border border-glass-border text-emerald-400 font-semibold">🏆 Thưởng thắng: {inv.winningBonusPercentage ?? 0}%</span>
+                        </div>
                         {bucket === 'pending' && (
                           <div className="flex items-center gap-3">
                             <button

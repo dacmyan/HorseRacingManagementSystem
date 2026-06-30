@@ -149,4 +149,18 @@ public class BetRepository : IBetRepository
             .Where(re => re.RaceId == raceId)
             .ToListAsync();
     }
+
+    public async Task<decimal> GetTotalBetsForRaceAsync(long raceId)
+    {
+        return await _context.Bets
+            .Where(b => b.RaceId == raceId)
+            .SumAsync(b => b.Amount);
+    }
+
+    public async Task<decimal> GetTotalPayoutsForRaceAsync(long raceId)
+    {
+        return await _context.Payouts
+            .Where(p => p.Bet.RaceId == raceId)
+            .SumAsync(p => p.Amount);
+    }
 }

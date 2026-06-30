@@ -19,6 +19,9 @@ public class JockeyContract
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }
 
+    public decimal RentalFee { get; set; }
+    public decimal WinningBonusPercentage { get; set; }
+
     public string Status { get; set; } = "Pending";
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

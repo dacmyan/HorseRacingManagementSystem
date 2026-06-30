@@ -19,4 +19,7 @@ public class CreateJockeyContract
 
     [Required]
     public DateTime EndDate { get; set; }
+
+    public decimal RentalFee { get; set; }
+    public decimal WinningBonusPercentage { get; set; }
 }
