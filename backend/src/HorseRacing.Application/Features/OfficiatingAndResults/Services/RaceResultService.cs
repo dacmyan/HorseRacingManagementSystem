@@ -9,6 +9,8 @@ using HorseRacing.Application.Features.FinancialRewards.Interfaces;
 using HorseRacing.Application.Features.BettingEngine.Interfaces;
 using System.Linq;
 
+using HorseRacing.Application.Features.Notifications.Interfaces;
+
 namespace HorseRacing.Application.Features.OfficiatingAndResults.Services;
 
 public class RaceResultService : IRaceResultService
@@ -16,15 +18,18 @@ public class RaceResultService : IRaceResultService
     private readonly IResultRepository _repository;
     private readonly IBetPayoutService _betPayoutService;
     private readonly IPredictionService _predictionService;
+    private readonly INotificationService _notificationService;
 
     public RaceResultService(
         IResultRepository repository,
         IBetPayoutService betPayoutService,
-        IPredictionService predictionService)
+        IPredictionService predictionService,
+        INotificationService notificationService)
     {
         _repository = repository;
         _betPayoutService = betPayoutService;
         _predictionService = predictionService;
+        _notificationService = notificationService;
     }
 
     public async Task<RaceResultResponse> SubmitResultAsync(SubmitRaceResultRequest request)
@@ -209,6 +214,21 @@ public class RaceResultService : IRaceResultService
         if (horse != null)
         {
             entry = await _repository.GetRaceEntryByHorseIdAsync(raceId, horse.HorseId);
+        }
+
+        try
+        {
+            await _notificationService.BroadcastNotificationAsync(
+                "Kết quả Race đã có",
+                $"Kết quả cuộc đua '{race.Name}' đã được công bố. Nhấp để xem kết quả chi tiết.",
+                "Race",
+                referenceId: (int)race.RaceId,
+                actionUrl: $"/spectator/races/{race.RaceId}"
+            );
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Notification Error] Failed to broadcast race result publication: {ex.Message}");
         }
 
         return new RaceResultResponse

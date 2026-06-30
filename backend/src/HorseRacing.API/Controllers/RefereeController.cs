@@ -128,10 +128,18 @@ public class RefereeController : ControllerBase
     }
 
     [HttpPost("reports")]
-    public async Task<IActionResult> SubmitReport([FromBody] CreateRefereeReportRequest request)
+    public async Task<IActionResult> SubmitReport([FromBody] CreateRefereeReportRequest request, [FromServices] AppDbContext context)
     {
         try
         {
+            var userId = GetCurrentUserId();
+            var referee = await context.RefereeProfiles.FirstOrDefaultAsync(rp => rp.UserId == userId);
+            if (referee == null)
+            {
+                return NotFound(new { message = "Referee profile not found for current user." });
+            }
+            request.RefereeId = referee.RefereeId;
+
             var response = await _refereeService.SubmitReportAsync(request);
             return StatusCode(StatusCodes.Status201Created, response);
         }
@@ -291,7 +299,11 @@ public class RefereeController : ControllerBase
 
             var completedReportCount = reports.Count;
             var pendingReportCount = assignments.Count - completedReportCount;
-            var violationsCreatedCount = reports.Count(r => !string.IsNullOrEmpty(r.ViolationNote));
+            
+            var assignedRaceIds = assignments.Select(a => a.RaceId).ToList();
+            var violationsCreatedCount = await context.Violations
+                .Where(v => assignedRaceIds.Contains(v.RaceId))
+                .CountAsync();
 
             var assignedRaces = assignments.Select(a => new {
                 RaceId = a.RaceId,

@@ -4,6 +4,7 @@ using HorseRacing.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HorseRacing.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260629064701_AddNotificationColumns")]
+    partial class AddNotificationColumns
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -282,10 +285,6 @@ namespace HorseRacing.Infrastructure.Migrations
                     b.Property<int>("JockeyId")
                         .HasColumnType("int");
 
-                    b.Property<decimal>("RentalFee")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("datetime2");
 
@@ -295,10 +294,6 @@ namespace HorseRacing.Infrastructure.Migrations
 
                     b.Property<long>("TournamentId")
                         .HasColumnType("bigint");
-
-                    b.Property<decimal>("WinningBonusPercentage")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
 
                     b.HasKey("ContractId");
 

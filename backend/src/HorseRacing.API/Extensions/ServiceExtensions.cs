@@ -2,6 +2,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using HorseRacing.Application.Features.UserManagement.Interfaces;
 using HorseRacing.Application.Features.UserManagement.Services;
+using HorseRacing.Application.Common.Interfaces;
+using HorseRacing.API.SignalR;
 using HorseRacing.Application.Features.BettingEngine.Interfaces;
 using HorseRacing.Application.Features.BettingEngine.Services;
 using HorseRacing.Application.Features.FinancialRewards.Interfaces;
@@ -37,6 +39,7 @@ public static class ServiceExtensions
         services.AddScoped<IBetPayoutService, BetPayoutService>();
         services.AddScoped<IPrizePayoutService, PrizePayoutService>();
         services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<INotificationPusher, NotificationPusher>();
         services.AddScoped<ITournamentService, TournamentService>();
         services.AddScoped<IRoundService, RoundService>();
         services.AddScoped<IRaceService, RaceService>();

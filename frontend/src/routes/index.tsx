@@ -49,60 +49,66 @@ import { SpectatorNotificationsPage } from '../pages/spectator/SpectatorNotifica
 import { SpectatorWalletPage } from '../pages/spectator/SpectatorWalletPage';
 
 import { PrivateRoute } from './PrivateRoute';
+import { NotificationProvider } from '../context/NotificationContext';
 
 export function AppRoutes() {
   return (
-    <Routes>
-      <Route path="/" element={<HomePage />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
+    <NotificationProvider>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
 
-      {/* Horse Owner (legacy route kept for backward compat) */}
-      <Route path="/dashboard" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
+        {/* Horse Owner (legacy route kept for backward compat) */}
+        <Route path="/dashboard" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
 
-      {/* Admin */}
-      <Route path="/admin/dashboard" element={<PrivateRoute><AdminDashboardPage /></PrivateRoute>} />
-      <Route path="/admin/users" element={<PrivateRoute><AdminUsersPage /></PrivateRoute>} />
-      <Route path="/admin/tournaments" element={<PrivateRoute><AdminTournamentsPage /></PrivateRoute>} />
-      <Route path="/admin/races" element={<PrivateRoute><AdminRacesPage /></PrivateRoute>} />
-      <Route path="/admin/registrations" element={<PrivateRoute><AdminRegistrationsPage /></PrivateRoute>} />
-      <Route path="/admin/referees" element={<PrivateRoute><AdminRefereesPage /></PrivateRoute>} />
-      <Route path="/admin/results" element={<PrivateRoute><AdminResultsPage /></PrivateRoute>} />
-      <Route path="/admin/predictions" element={<PrivateRoute><AdminPredictionsPage /></PrivateRoute>} />
-      <Route path="/admin/violations" element={<PrivateRoute><AdminViolationsPage /></PrivateRoute>} />
+        {/* Admin */}
+        <Route path="/admin/dashboard" element={<PrivateRoute><AdminDashboardPage /></PrivateRoute>} />
+        <Route path="/admin/users" element={<PrivateRoute><AdminUsersPage /></PrivateRoute>} />
+        <Route path="/admin/tournaments" element={<PrivateRoute><AdminTournamentsPage /></PrivateRoute>} />
+        <Route path="/admin/races" element={<PrivateRoute><AdminRacesPage /></PrivateRoute>} />
+        <Route path="/admin/registrations" element={<PrivateRoute><AdminRegistrationsPage /></PrivateRoute>} />
+        <Route path="/admin/referees" element={<PrivateRoute><AdminRefereesPage /></PrivateRoute>} />
+        <Route path="/admin/results" element={<PrivateRoute><AdminResultsPage /></PrivateRoute>} />
+        <Route path="/admin/predictions" element={<PrivateRoute><AdminPredictionsPage /></PrivateRoute>} />
+        <Route path="/admin/violations" element={<PrivateRoute><AdminViolationsPage /></PrivateRoute>} />
 
-      {/* Owner */}
-      <Route path="/owner/dashboard" element={<PrivateRoute><OwnerDashboardPage /></PrivateRoute>} />
-      <Route path="/owner/horses" element={<PrivateRoute><OwnerHorsesPage /></PrivateRoute>} />
-      <Route path="/owner/jockeys" element={<PrivateRoute><OwnerJockeysPage /></PrivateRoute>} />
-      <Route path="/owner/registrations" element={<PrivateRoute><OwnerRegistrationsPage /></PrivateRoute>} />
-      <Route path="/owner/results" element={<PrivateRoute><OwnerResultsPage /></PrivateRoute>} />
-      <Route path="/owner/tournaments" element={<PrivateRoute><OwnerTournamentsPage /></PrivateRoute>} />
+        {/* Owner */}
+        <Route path="/owner/dashboard" element={<PrivateRoute><OwnerDashboardPage /></PrivateRoute>} />
+        <Route path="/owner/horses" element={<PrivateRoute><OwnerHorsesPage /></PrivateRoute>} />
+        <Route path="/owner/jockeys" element={<PrivateRoute><OwnerJockeysPage /></PrivateRoute>} />
+        <Route path="/owner/registrations" element={<PrivateRoute><OwnerRegistrationsPage /></PrivateRoute>} />
+        <Route path="/owner/results" element={<PrivateRoute><OwnerResultsPage /></PrivateRoute>} />
+        <Route path="/owner/tournaments" element={<PrivateRoute><OwnerTournamentsPage /></PrivateRoute>} />
 
-      {/* Jockey */}
-      <Route path="/jockey/dashboard" element={<PrivateRoute><JockeyDashboardPage /></PrivateRoute>} />
-      <Route path="/jockey/invitations" element={<PrivateRoute><JockeyInvitationsPage /></PrivateRoute>} />
-      <Route path="/jockey/races" element={<PrivateRoute><JockeyRacesPage /></PrivateRoute>} />
-      <Route path="/jockey/schedule" element={<PrivateRoute><JockeySchedulePage /></PrivateRoute>} />
-      <Route path="/jockey/stats" element={<PrivateRoute><JockeyStatsPage /></PrivateRoute>} />
-      <Route path="/jockey/violations" element={<PrivateRoute><JockeyViolationsPage /></PrivateRoute>} />
+        {/* Jockey */}
+        <Route path="/jockey/dashboard" element={<PrivateRoute><JockeyDashboardPage /></PrivateRoute>} />
+        <Route path="/jockey/invitations" element={<PrivateRoute><JockeyInvitationsPage /></PrivateRoute>} />
+        <Route path="/jockey/races" element={<PrivateRoute><JockeyRacesPage /></PrivateRoute>} />
+        <Route path="/jockey/schedule" element={<PrivateRoute><JockeySchedulePage /></PrivateRoute>} />
+        <Route path="/jockey/stats" element={<PrivateRoute><JockeyStatsPage /></PrivateRoute>} />
+        <Route path="/jockey/violations" element={<PrivateRoute><JockeyViolationsPage /></PrivateRoute>} />
 
-      {/* Referee */}
-      <Route path="/referee/dashboard" element={<PrivateRoute><RefereeDashboardPage /></PrivateRoute>} />
-      <Route path="/referee/horse-check" element={<PrivateRoute><RefereeHorseCheckPage /></PrivateRoute>} />
-      <Route path="/referee/violations" element={<PrivateRoute><RefereeViolationsPage /></PrivateRoute>} />
-      <Route path="/referee/confirm-results" element={<PrivateRoute><RefereeConfirmResultsPage /></PrivateRoute>} />
-      <Route path="/referee/reports" element={<PrivateRoute><RefereeReportsPage /></PrivateRoute>} />
+        {/* Referee */}
+        <Route path="/referee/dashboard" element={<PrivateRoute><RefereeDashboardPage /></PrivateRoute>} />
+        <Route path="/referee/horse-check" element={<PrivateRoute><RefereeHorseCheckPage /></PrivateRoute>} />
+        <Route path="/referee/violations" element={<PrivateRoute><RefereeViolationsPage /></PrivateRoute>} />
+        <Route path="/referee/confirm-results" element={<PrivateRoute><RefereeConfirmResultsPage /></PrivateRoute>} />
+        <Route path="/referee/reports" element={<PrivateRoute><RefereeReportsPage /></PrivateRoute>} />
 
-      {/* Spectator */}
-      <Route path="/spectator/dashboard" element={<PrivateRoute><SpectatorDashboardPage /></PrivateRoute>} />
-      <Route path="/spectator/tournaments" element={<PrivateRoute><SpectatorTournamentsPage /></PrivateRoute>} />
-      <Route path="/spectator/tournaments/:tournamentId" element={<PrivateRoute><SpectatorTournamentDetailPage /></PrivateRoute>} />
-      <Route path="/spectator/races/:raceId" element={<PrivateRoute><SpectatorRaceDetailPage /></PrivateRoute>} />
-      <Route path="/spectator/live" element={<PrivateRoute><SpectatorLiveResultsPage /></PrivateRoute>} />
-      <Route path="/spectator/predictions" element={<PrivateRoute><SpectatorPredictionsPage /></PrivateRoute>} />
-      <Route path="/spectator/notifications" element={<PrivateRoute><SpectatorNotificationsPage /></PrivateRoute>} />
-      <Route path="/spectator/wallet" element={<PrivateRoute><SpectatorWalletPage /></PrivateRoute>} />
-    </Routes>
+        {/* Spectator */}
+        <Route path="/spectator/dashboard" element={<PrivateRoute><SpectatorDashboardPage /></PrivateRoute>} />
+        <Route path="/spectator/tournaments" element={<PrivateRoute><SpectatorTournamentsPage /></PrivateRoute>} />
+        <Route path="/spectator/tournaments/:tournamentId" element={<PrivateRoute><SpectatorTournamentDetailPage /></PrivateRoute>} />
+        <Route path="/spectator/races/:raceId" element={<PrivateRoute><SpectatorRaceDetailPage /></PrivateRoute>} />
+        <Route path="/spectator/live" element={<PrivateRoute><SpectatorLiveResultsPage /></PrivateRoute>} />
+        <Route path="/spectator/predictions" element={<PrivateRoute><SpectatorPredictionsPage /></PrivateRoute>} />
+        <Route path="/spectator/notifications" element={<PrivateRoute><SpectatorNotificationsPage /></PrivateRoute>} />
+        <Route path="/spectator/wallet" element={<PrivateRoute><SpectatorWalletPage /></PrivateRoute>} />
+        
+        {/* Core notifications route accessible by all roles */}
+        <Route path="/notifications" element={<PrivateRoute><SpectatorNotificationsPage /></PrivateRoute>} />
+      </Routes>
+    </NotificationProvider>
   );
 }

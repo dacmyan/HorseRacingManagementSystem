@@ -68,6 +68,7 @@ public class RefereeReportRepository : IRefereeReportRepository
     {
         return await _context.RefereeReports
             .AsNoTracking()
+            .Include(r => r.ReportedHorse)
             .Include(r => r.Assignment)
                 .ThenInclude(a => a!.Race)
             .Include(r => r.Assignment)

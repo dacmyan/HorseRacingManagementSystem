@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, ShieldCheck, Edit2, Trash2, Eye, Search } from 'lucide-react';
+import { Plus, ShieldCheck, Edit2, Trash2, Eye, Search, Trophy, Calendar } from 'lucide-react';
 import { Sidebar } from '../../components/layout/Sidebar';
 import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
-import { getMyHorses, createHorse, getHorse, updateHorse, deleteHorse } from '../../api/ownerService';
+import { getMyHorses, createHorse, getHorse, updateHorse, deleteHorse, getOwnerResults } from '../../api/ownerService';
 import { parseApiError } from '../../api/authService';
 import { calculateAge, formatDateOnly } from '../../utils/format';
 
@@ -33,6 +33,9 @@ export function OwnerHorsesPage() {
 
   const [viewHorse, setViewHorse] = useState<any | null>(null);
   const [viewLoading, setViewLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'info' | 'history'>('info');
+  const [horseRaces, setHorseRaces] = useState<any[]>([]);
+  const [loadingRaces, setLoadingRaces] = useState(false);
 
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
@@ -92,14 +95,27 @@ export function OwnerHorsesPage() {
 
   async function openView(id: number) {
     setViewLoading(true);
+    setLoadingRaces(true);
+    setHorseRaces([]);
+    setActiveTab('info');
     setViewHorse({});
     try {
       const data = await getHorse(id);
-      setViewHorse(data?.result ?? data);
-    } catch {
+      const horseData = data?.result ?? data;
+      setViewHorse(horseData);
+
+      const resultsData = await getOwnerResults();
+      const allResults = resultsData?.result ?? (Array.isArray(resultsData) ? resultsData : []);
+      if (horseData?.name) {
+        const filtered = allResults.filter((r: any) => r.horseName === horseData.name);
+        setHorseRaces(filtered);
+      }
+    } catch (err) {
+      console.error(err);
       setViewHorse(horses.find(h => h.id === id) ?? null);
     } finally {
       setViewLoading(false);
+      setLoadingRaces(false);
     }
   }
 
@@ -292,7 +308,7 @@ export function OwnerHorsesPage() {
       {/* View detail modal */}
       {viewHorse !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-panel rounded-2xl p-8 w-full max-w-md border border-gold/20">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-panel rounded-2xl p-8 w-full max-w-xl border border-gold/20">
             {viewLoading ? (
               <div className="text-center py-8 text-muted text-sm">Đang tải...</div>
             ) : (
@@ -305,19 +321,121 @@ export function OwnerHorsesPage() {
                   <p className="text-sm text-muted mt-1">{viewHorse.breed}</p>
                   <div className="mx-auto mt-3 w-24 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent" />
                 </div>
-                <div className="space-y-1">
-                  {[
-                    { l: 'Ngày sinh', v: formatDateOnly(viewHorse.age) },
-                    { l: 'Tuổi', v: viewHorse.age != null ? `${calculateAge(viewHorse.age)} tuổi` : '—' },
-                    { l: 'Giới tính', v: viewHorse.gender === 'Male' ? 'Đực' : viewHorse.gender === 'Female' ? 'Cái' : '—' },
-                    { l: 'Sức khỏe', v: viewHorse.healthStatus ?? '—' },
-                  ].map(row => (
-                    <div key={row.l} className="flex justify-between py-2.5 border-b border-glass-border text-sm">
-                      <span className="text-muted">{row.l}</span>
-                      <span className="text-white font-medium">{row.v}</span>
-                    </div>
-                  ))}
+
+                {/* Tabs */}
+                <div className="flex border-b border-glass-border mb-6">
+                  <button
+                    onClick={() => setActiveTab('info')}
+                    className={`flex-1 pb-3 text-sm font-bold border-b-2 transition-all ${
+                      activeTab === 'info' 
+                        ? 'border-gold text-gold' 
+                        : 'border-transparent text-muted hover:text-white'
+                    }`}
+                  >
+                    Thông tin & Thống kê
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('history')}
+                    className={`flex-1 pb-3 text-sm font-bold border-b-2 transition-all ${
+                      activeTab === 'history' 
+                        ? 'border-gold text-gold' 
+                        : 'border-transparent text-muted hover:text-white'
+                    }`}
+                  >
+                    Lịch sử thi đấu
+                  </button>
                 </div>
+
+                {activeTab === 'info' ? (
+                  <div className="space-y-6">
+                    <div className="space-y-1">
+                      {[
+                        { l: 'Ngày sinh', v: formatDateOnly(viewHorse.age) },
+                        { l: 'Tuổi', v: viewHorse.age != null ? `${calculateAge(viewHorse.age)} tuổi` : '—' },
+                        { l: 'Giới tính', v: viewHorse.gender === 'Male' ? 'Đực' : viewHorse.gender === 'Female' ? 'Cái' : '—' },
+                        { l: 'Sức khỏe', v: viewHorse.healthStatus ?? '—' },
+                      ].map(row => (
+                        <div key={row.l} className="flex justify-between py-2.5 border-b border-glass-border text-sm">
+                          <span className="text-muted">{row.l}</span>
+                          <span className="text-white font-medium">{row.v}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Overall Stats Cards */}
+                    <div>
+                      <h3 className="text-xs font-bold text-muted uppercase tracking-wider mb-3">Thống kê hiệu suất</h3>
+                      <div className="grid grid-cols-3 gap-3 mb-3">
+                        <div className="bg-white/[0.02] border border-glass-border rounded-xl p-3 text-center">
+                          <div className="text-[10px] uppercase tracking-wider text-muted font-bold mb-1">Tổng số trận</div>
+                          <div className="text-lg font-bold text-white font-mono">{viewHorse.statistic?.totalRaces ?? 0}</div>
+                        </div>
+                        <div className="bg-white/[0.02] border border-glass-border rounded-xl p-3 text-center">
+                          <div className="text-[10px] uppercase tracking-wider text-gold font-bold mb-1">Số lần thắng (🥇)</div>
+                          <div className="text-lg font-bold text-gold font-mono">{viewHorse.statistic?.totalWins ?? 0}</div>
+                        </div>
+                        <div className="bg-white/[0.02] border border-glass-border rounded-xl p-3 text-center">
+                          <div className="text-[10px] uppercase tracking-wider text-muted font-bold mb-1">Tốc độ TB</div>
+                          <div className="text-sm font-bold text-white font-mono mt-0.5">{viewHorse.statistic?.averageSpeed ? `${Number(viewHorse.statistic.averageSpeed).toFixed(1)} m/s` : '—'}</div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div className="flex justify-between p-2.5 rounded-lg bg-white/[0.01] border border-glass-border">
+                          <span className="text-slate-300">🥈 Về nhì (Hạng 2)</span>
+                          <span className="font-bold text-white font-mono">{viewHorse.statistic?.totalSecondPlaces ?? 0} lần</span>
+                        </div>
+                        <div className="flex justify-between p-2.5 rounded-lg bg-white/[0.01] border border-glass-border">
+                          <span className="text-amber-600">🥉 Về ba (Hạng 3)</span>
+                          <span className="font-bold text-white font-mono">{viewHorse.statistic?.totalThirdPlaces ?? 0} lần</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+                    {loadingRaces ? (
+                      <div className="text-center py-12 text-muted text-sm">
+                        <div className="text-2xl animate-spin inline-block mb-2">⏳</div>
+                        <div>Đang tải lịch sử thi đấu...</div>
+                      </div>
+                    ) : horseRaces.length === 0 ? (
+                      <div className="text-center py-12 text-muted text-sm">
+                        <div className="text-3xl opacity-40 mb-2">📋</div>
+                        <div>Chưa tham gia cuộc đua nào.</div>
+                      </div>
+                    ) : (
+                      horseRaces.map((r, idx) => (
+                        <div key={idx} className="p-3.5 rounded-xl bg-white/[0.02] border border-glass-border hover:border-gold/20 transition-all flex items-center justify-between gap-4">
+                          <div className="min-w-0">
+                            <div className="text-xs font-bold text-white truncate">{r.raceName}</div>
+                            <div className="text-[10px] text-muted truncate mt-0.5">{r.tournamentName}</div>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <div className="text-right">
+                              <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
+                                r.finishPosition === 1 ? 'bg-gold/20 text-gold border border-gold/30' :
+                                r.finishPosition === 2 ? 'bg-slate-300/20 text-slate-300 border border-slate-300/30' :
+                                r.finishPosition === 3 ? 'bg-amber-700/20 text-amber-600 border border-amber-700/30' :
+                                'bg-white/10 text-white'
+                              }`}>
+                                Hạng {r.finishPosition}
+                              </span>
+                              <div className="text-[10px] text-muted font-mono mt-1 text-right">{r.finishTime ? `${r.finishTime}s` : '—'}</div>
+                            </div>
+                            {r.prizeAmount > 0 && (
+                              <div className="text-right border-l border-glass-border pl-3 min-w-[70px]">
+                                <div className="text-[10px] text-muted leading-none mb-1">Thưởng</div>
+                                <div className="text-xs font-mono font-bold text-emerald-400">+{r.prizeAmount.toLocaleString('vi-VN')}đ</div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
                 <button onClick={() => setViewHorse(null)} className="w-full mt-6 py-2.5 rounded-lg border border-glass-border text-muted hover:text-white hover:bg-white/5 text-sm font-medium transition-colors">
                   Đóng
                 </button>

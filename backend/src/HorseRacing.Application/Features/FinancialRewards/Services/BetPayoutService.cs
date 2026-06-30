@@ -7,6 +7,8 @@ using HorseRacing.Application.Features.Notifications.Interfaces;
 using HorseRacing.Domain.Entities;
 using HorseRacing.Domain.Entities.Tournaments;
 
+using HorseRacing.Application.Features.Notifications.Interfaces;
+
 namespace HorseRacing.Application.Features.FinancialRewards.Services;
 
 public class BetPayoutService : IBetPayoutService
@@ -15,20 +17,20 @@ public class BetPayoutService : IBetPayoutService
     private readonly IWalletRepository _walletRepository;
     private readonly IWalletTransactionRepository _transactionRepository;
     private readonly IPayoutRepository _payoutRepository;
-    private readonly INotificationRepository _notificationRepository;
+    private readonly INotificationService _notificationService;
 
     public BetPayoutService(
         IBetRepository betRepository,
         IWalletRepository walletRepository,
         IWalletTransactionRepository transactionRepository,
         IPayoutRepository payoutRepository,
-        INotificationRepository notificationRepository)
+        INotificationService notificationService)
     {
         _betRepository = betRepository;
         _walletRepository = walletRepository;
         _transactionRepository = transactionRepository;
         _payoutRepository = payoutRepository;
-        _notificationRepository = notificationRepository;
+        _notificationService = notificationService;
     }
 
     public async Task ProcessPayoutAsync(long raceId)
@@ -128,14 +130,14 @@ public class BetPayoutService : IBetPayoutService
                 };
                 await _transactionRepository.AddAsync(transaction);
 
-                var notification = new Notification
-                {
-                    UserId = bet.UserId,
-                    Message = $"Congratulations! Your bet on '{winningHorse.Name}' in race '{race.Name}' won. Payout of {payoutAmount:N2} has been credited to your wallet. New balance: {wallet.Balance:N2}.",
-                    IsRead = false,
-                    CreatedAt = DateTime.UtcNow
-                };
-                await _notificationRepository.AddAsync(notification);
+                await _notificationService.SendNotificationToUserAsync(
+                    bet.UserId,
+                    "Bạn thắng cược",
+                    $"Chúc mừng! Bạn đã thắng cược ngựa '{winningHorse.Name}' trong race '{race.Name}'. Nhận được {payoutAmount:N2}$. Số dư mới: {wallet.Balance:N2}$.",
+                    "Bet",
+                    referenceId: (int)bet.Id,
+                    actionUrl: "/spectator/predictions"
+                );
             }
             else
             {
@@ -144,14 +146,14 @@ public class BetPayoutService : IBetPayoutService
                 var horse = await _betRepository.GetHorseByIdOrNameAsync(bet.HorseId.ToString());
                 var horseName = horse?.Name ?? "your chosen horse";
 
-                var notification = new Notification
-                {
-                    UserId = bet.UserId,
-                    Message = $"Your bet on '{horseName}' in race '{race.Name}' lost. Better luck next time!",
-                    IsRead = false,
-                    CreatedAt = DateTime.UtcNow
-                };
-                await _notificationRepository.AddAsync(notification);
+                await _notificationService.SendNotificationToUserAsync(
+                    bet.UserId,
+                    "Kết quả vé cược",
+                    $"Vé cược của bạn cho ngựa '{horseName}' trong race '{race.Name}' không trúng thưởng. Chúc bạn may mắn lần sau!",
+                    "Bet",
+                    referenceId: (int)bet.Id,
+                    actionUrl: "/spectator/predictions"
+                );
             }
         }
 

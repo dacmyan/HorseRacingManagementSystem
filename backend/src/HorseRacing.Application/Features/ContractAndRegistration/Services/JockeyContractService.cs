@@ -17,20 +17,20 @@ public class JockeyContractService : IJockeyContractService
     private readonly IJockeyContractRepository _contractRepository;
     private readonly IHorseRepository _horseRepository;
     private readonly IUserRepository _userRepository;
-    private readonly INotificationRepository _notificationRepository;
+    private readonly INotificationService _notificationService;
     private readonly ITournamentRepository _tournamentRepository;
 
     public JockeyContractService(
         IJockeyContractRepository contractRepository,
         IHorseRepository horseRepository,
         IUserRepository userRepository,
-        INotificationRepository notificationRepository,
+        INotificationService notificationService,
         ITournamentRepository tournamentRepository)
     {
         _contractRepository = contractRepository;
         _horseRepository = horseRepository;
         _userRepository = userRepository;
-        _notificationRepository = notificationRepository;
+        _notificationService = notificationService;
         _tournamentRepository = tournamentRepository;
     }
 
@@ -77,6 +77,13 @@ public class JockeyContractService : IJockeyContractService
         if (!jockeyUser.Status.Equals("Active", StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException("The specified Jockey is currently inactive.");
+        }
+
+        // Validate that the Jockey is not already contracted to another horse in this tournament
+        var hasActiveContract = await _contractRepository.HasActiveContractForJockeyInTournamentAsync(request.JockeyId, request.TournamentId);
+        if (hasActiveContract)
+        {
+            throw new InvalidOperationException("This jockey is already contracted to another horse in this tournament.");
         }
 
         // 3. Date validation
@@ -158,15 +165,14 @@ public class JockeyContractService : IJockeyContractService
         await _contractRepository.SaveChangesAsync();
 
         // 5. Send notification to Jockey
-        var notification = new Notification
-        {
-            UserId = request.JockeyId,
-            Message = $"You received a new jockey contract proposal from Owner '{horse.Owner?.FullName ?? "Owner"}' for horse '{horse.Name}'.",
-            IsRead = false,
-            CreatedAt = DateTime.UtcNow
-        };
-        await _notificationRepository.AddAsync(notification);
-        await _notificationRepository.SaveChangesAsync();
+        await _notificationService.SendNotificationToUserAsync(
+            request.JockeyId,
+            "Đề xuất hợp đồng mới",
+            $"Bạn đã nhận được đề xuất hợp đồng nài ngựa mới từ Owner '{horse.Owner?.FullName ?? "Owner"}' cho ngựa '{horse.Name}'.",
+            "System",
+            referenceId: (int)contract.ContractId,
+            actionUrl: "/jockey/invitations"
+        );
 
         // Fetch populated contract for mapped response
         var populated = await _contractRepository.GetByIdAsync(contract.ContractId);
@@ -201,6 +207,15 @@ public class JockeyContractService : IJockeyContractService
             throw new InvalidOperationException($"Contract is already '{contract.Status}' and cannot be responded to.");
         }
 
+        if (request.Status.Equals("Active", StringComparison.OrdinalIgnoreCase))
+        {
+            var hasActiveContract = await _contractRepository.HasActiveContractForJockeyInTournamentAsync(jockeyUserId, contract.TournamentId);
+            if (hasActiveContract)
+            {
+                throw new InvalidOperationException("You cannot ride multiple horses in the same tournament.");
+            }
+        }
+
         contract.Status = request.Status;
 
         // If accepting, cancel/expire other active contracts for the same horse
@@ -216,15 +231,14 @@ public class JockeyContractService : IJockeyContractService
         await _contractRepository.SaveChangesAsync();
 
         // Notify Owner of response
-        var notification = new Notification
-        {
-            UserId = contract.Horse?.OwnerId ?? 0,
-            Message = $"Jockey '{contract.Jockey?.FullName ?? "Jockey"}' responded '{request.Status}' to contract ID {contract.ContractId} for horse '{contract.Horse?.Name ?? "Horse"}'.",
-            IsRead = false,
-            CreatedAt = DateTime.UtcNow
-        };
-        await _notificationRepository.AddAsync(notification);
-        await _notificationRepository.SaveChangesAsync();
+        await _notificationService.SendNotificationToUserAsync(
+            contract.Horse?.OwnerId ?? 0,
+            "Phản hồi hợp đồng",
+            $"Jockey '{contract.Jockey?.FullName ?? "Jockey"}' đã phản hồi '{request.Status}' cho đề xuất hợp đồng ID {contract.ContractId} của ngựa '{contract.Horse?.Name ?? "Horse"}'.",
+            "System",
+            referenceId: (int)contract.ContractId,
+            actionUrl: "/owner/jockeys"
+        );
 
         return MapToResponse(contract);
     }
@@ -248,15 +262,14 @@ public class JockeyContractService : IJockeyContractService
         contract.Status = "Cancelled";
         await _contractRepository.SaveChangesAsync();
 
-        var notification = new Notification
-        {
-            UserId = contract.JockeyId,
-            Message = $"Contract proposal for horse '{contract.Horse?.Name ?? "Horse"}' was cancelled by the owner.",
-            IsRead = false,
-            CreatedAt = DateTime.UtcNow
-        };
-        await _notificationRepository.AddAsync(notification);
-        await _notificationRepository.SaveChangesAsync();
+        await _notificationService.SendNotificationToUserAsync(
+            contract.JockeyId,
+            "Hủy đề xuất hợp đồng",
+            $"Đề xuất hợp đồng cho ngựa '{contract.Horse?.Name ?? "Horse"}' đã bị hủy bởi Owner.",
+            "System",
+            referenceId: (int)contract.ContractId,
+            actionUrl: "/jockey/invitations"
+        );
 
         return MapToResponse(contract);
     }

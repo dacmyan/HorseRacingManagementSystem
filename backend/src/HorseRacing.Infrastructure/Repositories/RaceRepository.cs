@@ -94,7 +94,8 @@ public class RaceRepository : IRaceRepository
 
         return await _context.JockeyContracts
             .AsNoTracking()
-            .AnyAsync(jc => jc.HorseId == intHorseId 
+            .AnyAsync(jc => jc.TournamentId == tournamentId
+                && jc.HorseId == intHorseId 
                 && jc.JockeyId == jockeyProfile.UserId 
                 && (jc.Status == "Active" || jc.Status == "Accepted"));
     }

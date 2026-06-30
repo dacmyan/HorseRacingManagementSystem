@@ -5,7 +5,7 @@ import { Sidebar } from '../../components/layout/Sidebar';
 import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
-import { getJockeyStats } from '../../api/jockeyService';
+import { getJockeyStats, getAssignedHorses } from '../../api/jockeyService';
 
 interface JockeyStats {
   totalRaces: number;
@@ -17,20 +17,24 @@ interface JockeyStats {
 
 export function JockeyStatsPage() {
   const [stats, setStats] = useState<JockeyStats | null>(null);
+  const [races, setRaces] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    getJockeyStats()
-      .then(res => {
-        if (res && res.result) {
-          setStats(res.result);
-        }
-        setLoading(false);
+    Promise.all([
+      getJockeyStats().then(res => {
+        if (res && res.result) setStats(res.result);
+      }),
+      getAssignedHorses().then(res => {
+        setRaces(res?.result ?? (Array.isArray(res) ? res : []));
       })
+    ])
       .catch(err => {
         console.error(err);
         setError('Không thể tải thống kê thành tích nài ngựa');
+      })
+      .finally(() => {
         setLoading(false);
       });
   }, []);
@@ -162,13 +166,43 @@ export function JockeyStatsPage() {
                   <div className="text-muted text-sm">Chưa có lịch sử thi đấu</div>
                 </div>
               ) : (
-                <div className="text-sm text-white space-y-3">
+                <div className="text-sm text-white space-y-4">
                   <div className="p-4 bg-white/[0.02] border border-glass-border rounded-lg flex items-center justify-between">
                     <div>
                       <div className="font-semibold text-gold">Đã tham gia {totalRaces} cuộc đua chính thức</div>
                       <div className="text-xs text-muted">Tỉ lệ về Nhất đạt {winRate}%</div>
                     </div>
                     <div className="font-mono text-sm text-gold">+{wins * 10} điểm thưởng</div>
+                  </div>
+
+                  {/* Danh sách các cuộc đua đã hoàn thành */}
+                  <div className="space-y-2.5">
+                    {races
+                      .filter(r => {
+                        const s = (r.status ?? '').toLowerCase();
+                        return s === 'completed' || s === 'finished';
+                      })
+                      .map((r, idx) => (
+                        <div key={r.raceEntryId ?? idx} className="p-4 rounded-xl bg-white/[0.01] border border-glass-border hover:border-gold/20 flex items-center justify-between">
+                          <div>
+                            <div className="font-semibold text-white">{r.raceName}</div>
+                            <div className="text-xs text-muted">{r.horseName} • {r.tournamentName} • Lane {r.laneNo}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${
+                              r.finishPosition === 1 ? 'bg-gold/20 text-gold border border-gold/30' :
+                              r.finishPosition === 2 ? 'bg-slate-300/20 text-slate-300' :
+                              r.finishPosition === 3 ? 'bg-amber-700/20 text-amber-600' :
+                              'bg-white/5 text-muted'
+                            }`}>
+                              Hạng {r.finishPosition ?? '—'}
+                            </div>
+                            {r.finishTime && (
+                              <div className="text-xs font-mono text-champagne mt-1">{r.finishTime}s</div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
                   </div>
                 </div>
               )}
