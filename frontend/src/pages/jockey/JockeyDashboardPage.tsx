@@ -6,7 +6,7 @@ import { Topbar } from '../../components/layout/Topbar';
 import { PageAmbience } from '../../components/layout/PageAmbience';
 import { PageHero } from '../../components/layout/PageHero';
 import { useNavigate } from 'react-router-dom';
-import { getContracts, respondContract } from '../../api/jockeyService';
+import { getContracts, respondContract, getJockeyStats, getAssignedHorses } from '../../api/jockeyService';
 import { getCurrentUser, parseApiError } from '../../api/authService';
 import { getRaceSchedule } from '../../api/publicService';
 
@@ -21,6 +21,9 @@ export function JockeyDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [respondingId, setRespondingId] = useState<number | null>(null);
   const [schedule, setSchedule] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>(null);
+  const [myRaces, setMyRaces] = useState<any[]>([]);
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   async function loadContracts() {
     try {
@@ -38,6 +41,18 @@ export function JockeyDashboardPage() {
     getRaceSchedule()
       .then((d: any) => setSchedule(d?.result ?? (Array.isArray(d) ? d : [])))
       .catch(() => setSchedule([]));
+    
+    getJockeyStats()
+      .then(res => {
+        if (res && res.result) setStats(res.result);
+      })
+      .catch(console.error);
+
+    getAssignedHorses()
+      .then(res => {
+        setMyRaces(res?.result ?? (Array.isArray(res) ? res : []));
+      })
+      .catch(console.error);
   }, []);
 
   async function handleRespond(id: number, status: 'Active' | 'Rejected') {
@@ -55,6 +70,16 @@ export function JockeyDashboardPage() {
   const pending = contracts.filter(c => {
     const s = (c.status ?? '').toLowerCase();
     return s === 'pending' || s === 'waiting';
+  });
+
+  const upcomingRacesCount = myRaces.filter(r => {
+    const s = (r.status ?? '').toLowerCase();
+    return s !== 'completed' && s !== 'finished';
+  }).length;
+
+  const completedRaces = myRaces.filter(r => {
+    const s = (r.status ?? '').toLowerCase();
+    return s === 'completed' || s === 'finished';
   });
 
   return (
@@ -88,12 +113,12 @@ export function JockeyDashboardPage() {
             }
           />
 
-          {/* Stats — TODO: backend chưa có API cho win count và upcoming races */}
+          {/* Stats */}
           <motion.div variants={stagger} initial="hidden" animate="show" className="grid grid-cols-4 gap-4">
             {[
               { title: 'Lời mời mới',    value: String(pending.length),    trend: 'Chờ phản hồi', icon: Bell,     color: 'text-yellow-400', bg: 'from-yellow-500/15 to-yellow-900/20', path: '/jockey/invitations' },
-              { title: 'Cuộc đua sắp tới', value: schedule.length > 0 ? String(schedule.length) : '—', trend: '7 ngày tới', icon: Calendar, color: 'text-blue-400', bg: 'from-blue-500/15 to-blue-900/20', path: '/jockey/schedule' },
-              { title: 'Số lần thắng',   value: '—',                      trend: 'Mùa 2026',     icon: Trophy,   color: 'text-gold',       bg: 'from-gold/15 to-amber-900/20',      path: '/jockey/stats' },
+              { title: 'Cuộc đua sắp tới', value: upcomingRacesCount > 0 ? String(upcomingRacesCount) : '—', trend: '7 ngày tới', icon: Calendar, color: 'text-blue-400', bg: 'from-blue-500/15 to-blue-900/20', path: '/jockey/schedule' },
+              { title: 'Số lần thắng',   value: stats?.wins !== undefined ? String(stats.wins) : '—',                      trend: 'Mùa 2026',     icon: Trophy,   color: 'text-gold',       bg: 'from-gold/15 to-amber-900/20',      path: '/jockey/stats' },
               { title: 'Ngựa tham gia',  value: 'Xem ngay', trend: 'Cuộc đua của tôi',icon: Flag,     color: 'text-purple-400', bg: 'from-purple-500/15 to-purple-900/20',path: '/jockey/races' },
             ].map((m, i) => (
               <motion.div key={i} variants={child} onClick={() => navigate(m.path)}
@@ -170,21 +195,141 @@ export function JockeyDashboardPage() {
               )}
             </motion.div>
 
-            {/* TODO: backend chưa có API cho thành tích gần đây */}
+            {/* Thành tích gần đây */}
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-panel rounded-xl p-6 relative overflow-hidden">
-              <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent" />
+              <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
               <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-gradient-to-br from-blue-500/10 to-transparent blur-[40px] pointer-events-none" />
               <div className="relative z-10 flex items-center gap-3 mb-5">
                 <div className="w-8 h-8 rounded-lg bg-gold/10 border border-gold/20 flex items-center justify-center shrink-0"><Award size={15} className="text-gold" /></div>
                 <h2 className="text-lg font-serif text-white">Thành tích gần đây</h2>
                 <div className="flex-1 h-px bg-gradient-to-r from-gold/30 via-glass-border to-transparent" />
               </div>
-              {/* TODO: BE chưa có API thành tích */}
-              <div className="glass-panel rounded-xl p-12 text-center relative overflow-hidden">
-                <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
-                <div className="text-4xl opacity-40 mb-3">📊</div>
-                <div className="text-muted text-sm">Chưa có dữ liệu</div>
-              </div>
+              {loading ? (
+                <div className="text-center py-12 text-muted text-sm">
+                  <div className="text-4xl opacity-40 mb-3">⏳</div>
+                  Đang tải...
+                </div>
+              ) : completedRaces.length === 0 ? (
+                <div className="glass-panel rounded-xl p-12 text-center relative overflow-hidden">
+                  <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
+                  <div className="text-4xl opacity-40 mb-3">📊</div>
+                  <div className="text-muted text-sm">Chưa có dữ liệu</div>
+                </div>
+              ) : (() => {
+                const total = completedRaces.length;
+                const firstCount = completedRaces.filter(r => r.finishPosition === 1).length;
+                const secondCount = completedRaces.filter(r => r.finishPosition === 2).length;
+                const thirdCount = completedRaces.filter(r => r.finishPosition === 3).length;
+                const otherCount = completedRaces.filter(r => r.finishPosition > 3 || !r.finishPosition).length;
+
+                let pct1 = total > 0 ? Math.round((firstCount / total) * 100) : 0;
+                let pct2 = total > 0 ? Math.round((secondCount / total) * 100) : 0;
+                let pct3 = total > 0 ? Math.round((thirdCount / total) * 100) : 0;
+                let pctOther = total > 0 ? Math.round((otherCount / total) * 100) : 0;
+
+                const sum = pct1 + pct2 + pct3 + pctOther;
+                if (total > 0 && sum !== 100) {
+                  const diff = 100 - sum;
+                  if (pct1 > 0) pct1 += diff;
+                  else if (pct2 > 0) pct2 += diff;
+                  else if (pct3 > 0) pct3 += diff;
+                  else if (pctOther > 0) pctOther += diff;
+                }
+
+                const segments = [
+                  { label: 'Hạng 1', count: firstCount, percentage: pct1, color: '#e2ba5e', glowColor: 'rgba(226, 186, 94, 0.4)' },
+                  { label: 'Hạng 2', count: secondCount, percentage: pct2, color: '#94a3b8', glowColor: 'rgba(148, 163, 184, 0.4)' },
+                  { label: 'Hạng 3', count: thirdCount, percentage: pct3, color: '#b45309', glowColor: 'rgba(180, 83, 9, 0.4)' },
+                  { label: 'Khác', count: otherCount, percentage: pctOther, color: '#475569', glowColor: 'rgba(71, 85, 105, 0.4)' },
+                ].filter(s => s.count > 0);
+
+                const radius = 50;
+                const circumference = 2 * Math.PI * radius;
+
+                let accumulatedPercentage = 0;
+                const segmentsWithOffsets = segments.map(s => {
+                  const angle = (accumulatedPercentage / 100) * 360 - 90;
+                  accumulatedPercentage += s.percentage;
+                  return {
+                    ...s,
+                    angle,
+                    strokeDasharray: `${(s.percentage / 100) * circumference} ${circumference}`
+                  };
+                });
+
+                return (
+                  <div className="flex items-center gap-6 py-2">
+                    {/* SVG Chart */}
+                    <div className="relative w-[140px] h-[140px] shrink-0 flex items-center justify-center">
+                      <svg width="140" height="140" viewBox="0 0 140 140">
+                        {/* Background track circle */}
+                        <circle
+                          cx="70"
+                          cy="70"
+                          r={radius}
+                          fill="transparent"
+                          stroke="rgba(255, 255, 255, 0.03)"
+                          strokeWidth="8"
+                        />
+                        {segmentsWithOffsets.map((s, idx) => (
+                          <circle
+                            key={s.label}
+                            cx="70"
+                            cy="70"
+                            r={radius}
+                            fill="transparent"
+                            stroke={s.color}
+                            strokeWidth={hoveredIndex === idx ? 12 : 8}
+                            strokeDasharray={s.strokeDasharray}
+                            transform={`rotate(${s.angle} 70 70)`}
+                            className="transition-all duration-300 cursor-pointer"
+                            onMouseEnter={() => setHoveredIndex(idx)}
+                            onMouseLeave={() => setHoveredIndex(null)}
+                            style={{
+                              filter: hoveredIndex === idx ? `drop-shadow(0 0 6px ${s.glowColor})` : 'none',
+                            }}
+                          />
+                        ))}
+                      </svg>
+                      
+                      {/* Inner label */}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none z-10">
+                        <span className="text-[9px] uppercase tracking-wider text-muted font-bold">
+                          {hoveredIndex !== null ? segments[hoveredIndex].label : "Tổng đua"}
+                        </span>
+                        <span className="text-lg font-bold text-white font-serif mt-0.5">
+                          {hoveredIndex !== null ? `${segments[hoveredIndex].percentage}%` : `${total} trận`}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Legends */}
+                    <div className="flex-1 space-y-1.5 min-w-0">
+                      {segments.map((s, idx) => (
+                        <div
+                          key={s.label}
+                          className={`flex items-center justify-between p-2 rounded-xl transition-all border ${
+                            hoveredIndex === idx 
+                              ? 'bg-white/[0.04] border-white/10 scale-[1.02]' 
+                              : 'bg-transparent border-transparent'
+                          }`}
+                          onMouseEnter={() => setHoveredIndex(idx)}
+                          onMouseLeave={() => setHoveredIndex(null)}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color, boxShadow: `0 0 6px ${s.color}` }} />
+                            <span className="text-xs font-semibold text-white truncate">{s.label}</span>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="text-xs font-mono font-bold text-champagne">{s.count} trận</span>
+                            <span className="text-[10px] text-muted block leading-none mt-0.5">{s.percentage}%</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </motion.div>
           </div>
 

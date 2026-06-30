@@ -11,6 +11,14 @@ using HorseRacing.Domain.Entities.Financials;
 
 namespace HorseRacing.Infrastructure.Persistence;
 
+public class DemoUserSeedDto
+{
+    public string Username { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public int RoleId { get; set; }
+}
+
 public class DemoDataSeeder
 {
     private readonly AppDbContext _context;
@@ -31,20 +39,61 @@ public class DemoDataSeeder
             var hasher = new PasswordHasher<AppUser>();
             var fixedDate = new DateTime(2026, 6, 9, 0, 0, 0, DateTimeKind.Utc);
 
+            _logger.LogInformation("Wiping old demo data to prepare a fresh clean slate...");
+
+            // Order of deletion to avoid FK violations:
+            _context.Predictions.RemoveRange(_context.Predictions);
+            _context.RefereeReports.RemoveRange(_context.RefereeReports);
+            _context.Violations.RemoveRange(_context.Violations);
+            _context.RaceResults.RemoveRange(_context.RaceResults);
+            _context.RaceRefereeAssignments.RemoveRange(_context.RaceRefereeAssignments);
+            _context.RaceEntries.RemoveRange(_context.RaceEntries);
+            _context.JockeyContracts.RemoveRange(_context.JockeyContracts);
+            _context.Registrations.RemoveRange(_context.Registrations);
+            _context.Races.RemoveRange(_context.Races);
+            _context.Rounds.RemoveRange(_context.Rounds);
+            _context.Tournaments.RemoveRange(_context.Tournaments);
+            _context.HorseDocuments.RemoveRange(_context.HorseDocuments);
+            _context.HorseStatistics.RemoveRange(_context.HorseStatistics);
+            _context.Horses.RemoveRange(_context.Horses);
+
+            _context.Payouts.RemoveRange(_context.Payouts);
+            _context.Bets.RemoveRange(_context.Bets);
+            _context.TournamentPrizePayouts.RemoveRange(_context.TournamentPrizePayouts);
+            _context.Prizes.RemoveRange(_context.Prizes);
+            _context.Transactions.RemoveRange(_context.Transactions);
+            _context.Notifications.RemoveRange(_context.Notifications);
+
+            _context.RefereeProfiles.RemoveRange(_context.RefereeProfiles);
+            _context.JockeyProfiles.RemoveRange(_context.JockeyProfiles);
+            _context.Wallets.RemoveRange(_context.Wallets);
+
+            // Remove all users except admin@gmail.com
+            var nonAdminUsers = _context.Users.Where(u => u.Email != "admin@gmail.com");
+            _context.Users.RemoveRange(nonAdminUsers);
+
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Wipe complete. Starting clean seeding of new test data...");
+
             // 1. Seed Demo Users & Wallets & Profiles
-            var demoUsers = new[]
+            var demoUsersList = new List<DemoUserSeedDto>
             {
-                new { Username = "owner",      Email = "owner@gmail.com",      FullName = "Nguyễn Văn Hùng", RoleId = 2 },
-                new { Username = "owner2",     Email = "owner2@gmail.com",     FullName = "Trần Thị Mai",     RoleId = 2 },
-                new { Username = "owner3",     Email = "owner3@gmail.com",     FullName = "Lê Minh Tuấn",     RoleId = 2 },
-                new { Username = "jockey",     Email = "jockey@gmail.com",     FullName = "Jockey Nguyễn",    RoleId = 3 },
-                new { Username = "referee",    Email = "referee@gmail.com",    FullName = "Trọng tài Nam",    RoleId = 4 },
-                new { Username = "spectator",  Email = "spectator@gmail.com",  FullName = "Khán giả Bình",    RoleId = 5 },
-                new { Username = "spectator2", Email = "spectator2@gmail.com", FullName = "Khán giả Hoàng",   RoleId = 5 },
-                new { Username = "spectator3", Email = "spectator3@gmail.com", FullName = "Khán giả Dung",    RoleId = 5 }
+                new() { Username = "owner",     Email = "owner@gmail.com",     FullName = "Nguyễn Văn Hùng", RoleId = 2 },
+                new() { Username = "owner2",    Email = "owner2@gmail.com",    FullName = "Trần Thị Mai",     RoleId = 2 },
+                new() { Username = "owner3",    Email = "owner3@gmail.com",    FullName = "Lê Minh Tuấn",     RoleId = 2 },
+                new() { Username = "jockey",    Email = "jockey@gmail.com",    FullName = "Jockey Nguyễn",    RoleId = 3 },
+                new() { Username = "referee",   Email = "referee@gmail.com",   FullName = "Trọng tài Nam",    RoleId = 4 },
+                new() { Username = "spectator", Email = "spectator@gmail.com", FullName = "Khán giả Bình",    RoleId = 5 },
+                new() { Username = "spectator2", Email = "spectator2@gmail.com", FullName = "Khán giả Hoàng",   RoleId = 5 },
+                new() { Username = "spectator3", Email = "spectator3@gmail.com", FullName = "Khán giả Dung",    RoleId = 5 }
             };
 
-            foreach (var item in demoUsers)
+            for (int i = 1; i <= 10; i++)
+            {
+                demoUsersList.Add(new DemoUserSeedDto { Username = $"jockey{i}", Email = $"jockey{i}@gmail.com", FullName = $"Jockey Số {i}", RoleId = 3 });
+            }
+
+            foreach (var item in demoUsersList)
             {
                 if (!await _context.Users.AnyAsync(u => u.Username == item.Username || u.Email == item.Email))
                 {
@@ -66,8 +115,8 @@ public class DemoDataSeeder
                         _context.JockeyProfiles.Add(new JockeyProfile
                         {
                             UserId = user.UserId,
-                            ExperienceYears = 5,
-                            RankingPoint = 150,
+                            ExperienceYears = 3 + (user.UserId % 7),
+                            RankingPoint = 100 + (user.UserId % 100),
                             Status = "Active"
                         });
                     }
@@ -76,7 +125,7 @@ public class DemoDataSeeder
                         _context.RefereeProfiles.Add(new RefereeProfile
                         {
                             UserId = user.UserId,
-                            LicenseNumber = "LIC-REF-DEMO",
+                            LicenseNumber = $"LIC-REF-{user.UserId:D3}",
                             ExperienceYears = 7,
                             Status = "Active"
                         });
@@ -167,15 +216,17 @@ public class DemoDataSeeder
             var ownerUser = await _context.Users.FirstAsync(u => u.Username == "owner");
             var owner2User = await _context.Users.FirstAsync(u => u.Username == "owner2");
             var owner3User = await _context.Users.FirstAsync(u => u.Username == "owner3");
+            var jockeys = await _context.JockeyProfiles.Include(jp => jp.User).ToListAsync();
+            var refereeProfile = await _context.RefereeProfiles.Include(rp => rp.User).FirstAsync(rp => rp.User.Username == "referee");
             var jockeyUser = await _context.Users.FirstAsync(u => u.Username == "jockey");
             var jockeyProf = await _context.JockeyProfiles.FirstAsync(jp => jp.UserId == jockeyUser.UserId);
             var refereeUser = await _context.Users.FirstAsync(u => u.Username == "referee");
             var spectatorUser = await _context.Users.FirstAsync(u => u.Username == "spectator");
             var spectator2User = await _context.Users.FirstAsync(u => u.Username == "spectator2");
             var spectator3User = await _context.Users.FirstAsync(u => u.Username == "spectator3");
+            var baseDate = fixedDate;
 
-            // 2. Seed Horses
-            var baseDate = new DateTime(2026, 6, 9, 0, 0, 0, DateTimeKind.Utc);
+            // 2. Seed 30 Horses
             var horseData = new[]
             {
                 new { Name = "Red Rum", Age = baseDate.AddYears(-6), Gender = "Stallion", Breed = "Thoroughbred", OwnerId = ownerUser.UserId, AvgTime = 68.50m, RecentAvgTime = 68.50m, WinRate = 0.25m },
@@ -582,7 +633,7 @@ public class DemoDataSeeder
                 _context.RaceRefereeAssignments.Add(new RaceRefereeAssignment
                 {
                     RaceId = t2Race.RaceId,
-                    RefereeId = refereeUser.UserId,
+                    RefereeId = refereeProfile.RefereeId,
                     AssignedAt = DateTime.UtcNow,
                     Status = "Active"
                 });
@@ -772,6 +823,7 @@ public class DemoDataSeeder
                 }
                 await _context.SaveChangesAsync();
             }
+
 
             // 6. Seed Tournament 5: "Giải mùa Xuân 2027" (UPCOMING)
             var t5Name = "Giải mùa Xuân 2027";
