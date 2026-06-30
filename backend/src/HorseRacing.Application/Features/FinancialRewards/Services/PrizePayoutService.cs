@@ -129,6 +129,16 @@ public class PrizePayoutService : IPrizePayoutService
         }
 
         // 3. Process payouts for all top 3 ranks
+        decimal totalBets = await _betRepository.GetTotalBetsForRaceAsync(finalRace.RaceId);
+        decimal totalPayouts = await _betRepository.GetTotalPayoutsForRaceAsync(finalRace.RaceId);
+        decimal houseProfit = totalBets - totalPayouts;
+
+        decimal bonusPool = 0m;
+        if (houseProfit > 0)
+        {
+            bonusPool = houseProfit * 0.20m;
+        }
+
         var finalEntries = (await _betRepository.GetRaceEntriesWithHorseAsync(finalRace.RaceId))
             .Where(re => re.FinishPosition.HasValue)
             .OrderBy(re => re.FinishPosition.Value)
@@ -145,8 +155,15 @@ public class PrizePayoutService : IPrizePayoutService
             var horse = entry.Registration?.Horse;
             if (horse == null) continue;
 
-            decimal ownerAmount = Math.Round(prize.Amount * (prize.OwnerPercentage / 100m), 2);
-            decimal jockeyAmount = Math.Round(prize.Amount * (prize.JockeyPercentage / 100m), 2);
+            // Calculate rank bonus
+            decimal bonusAmount = 0m;
+            if (rank == 1) bonusAmount = bonusPool * 0.50m;
+            else if (rank == 2) bonusAmount = bonusPool * 0.30m;
+            else if (rank == 3) bonusAmount = bonusPool * 0.20m;
+
+            decimal totalPrizeAmount = prize.Amount + bonusAmount;
+            decimal ownerAmount = Math.Round(totalPrizeAmount * (prize.OwnerPercentage / 100m), 2);
+            decimal jockeyAmount = Math.Round(totalPrizeAmount * (prize.JockeyPercentage / 100m), 2);
 
             // Pay Owner
             var ownerWallet = await GetOrCreateWalletAsync(horse.OwnerId);
@@ -174,7 +191,7 @@ public class PrizePayoutService : IPrizePayoutService
             await _notificationService.SendNotificationToUserAsync(
                 horse.OwnerId,
                 "Nhận giải thưởng Tournament",
-                $"Chúc mừng! Ngựa '{horse.Name}' của bạn đạt Hạng {rank} trong giải đấu '{tournament.Name}'. Bạn nhận được giải thưởng của Chủ Ngựa là {ownerAmount:N2}$. Số dư mới: {ownerWallet.Balance:N2}$.",
+                $"Chúc mừng! Ngựa '{horse.Name}' của bạn đạt Hạng {rank} trong giải đấu '{tournament.Name}'. Bạn nhận được giải thưởng của Chủ Ngựa là {ownerAmount:N2}$ (bao gồm thưởng thêm {bonusAmount * (prize.OwnerPercentage / 100m):N2}$). Số dư mới: {ownerWallet.Balance:N2}$.",
                 "Wallet",
                 referenceId: (int)tournament.TournamentId,
                 actionUrl: "/spectator/wallet"
@@ -185,6 +202,10 @@ public class PrizePayoutService : IPrizePayoutService
             if (entry.JockeyId.HasValue && entry.JockeyProfile != null)
             {
                 jockeyUserId = entry.JockeyProfile.UserId;
+            }
+
+            if (jockeyUserId > 0)
+            {
                 var jockeyWallet = await GetOrCreateWalletAsync(jockeyUserId);
                 jockeyWallet.Balance += jockeyAmount;
 
@@ -210,7 +231,7 @@ public class PrizePayoutService : IPrizePayoutService
                 await _notificationService.SendNotificationToUserAsync(
                     jockeyUserId,
                     "Nhận giải thưởng Tournament",
-                    $"Chúc mừng! Bạn đạt Hạng {rank} trong giải đấu '{tournament.Name}' khi nài ngựa '{horse.Name}'. Bạn nhận được giải thưởng của Nài Ngựa là {jockeyAmount:N2}$. Số dư mới: {jockeyWallet.Balance:N2}$.",
+                    $"Chúc mừng! Bạn đạt Hạng {rank} trong giải đấu '{tournament.Name}' khi nài ngựa '{horse.Name}'. Bạn nhận được giải thưởng của Nài Ngựa là {jockeyAmount:N2}$ (bao gồm thưởng thêm {bonusAmount * (prize.JockeyPercentage / 100m):N2}$). Số dư mới: {jockeyWallet.Balance:N2}$.",
                     "Wallet",
                     referenceId: (int)tournament.TournamentId,
                     actionUrl: "/spectator/wallet"
