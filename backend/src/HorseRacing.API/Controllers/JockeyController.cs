@@ -100,23 +100,38 @@ public class JockeyController : ControllerBase
                 .ToListAsync();
 
             int wins = 0;
+            int top3 = 0;
             foreach (var entry in entries)
             {
-                var result = results.FirstOrDefault(r => r.RaceId == entry.RaceId);
-                if (result != null && entry.Registration?.Horse != null)
+                bool isWin = entry.FinishPosition == 1;
+                if (!isWin)
                 {
-                    if (result.Winner.Equals(entry.Registration.Horse.Name, StringComparison.OrdinalIgnoreCase) ||
-                        result.Winner == entry.Registration.HorseId.ToString())
+                    var result = results.FirstOrDefault(r => r.RaceId == entry.RaceId);
+                    if (result != null && entry.Registration?.Horse != null)
                     {
-                        wins++;
+                        if (result.Winner.Equals(entry.Registration.Horse.Name, StringComparison.OrdinalIgnoreCase) ||
+                            result.Winner == entry.Registration.HorseId.ToString())
+                        {
+                            isWin = true;
+                        }
                     }
+                }
+
+                if (isWin)
+                {
+                    wins++;
+                    top3++;
+                }
+                else if (entry.FinishPosition == 2 || entry.FinishPosition == 3)
+                {
+                    top3++;
                 }
             }
 
             var resultStats = new {
                 TotalRaces = entries.Count,
                 Wins = wins,
-                Top3 = wins, // Dummy or same for wins
+                Top3 = top3,
                 TotalPoints = wins * 10,
                 RankingPoint = jockey.RankingPoint
             };
@@ -201,7 +216,9 @@ public class JockeyController : ControllerBase
                     HorseName = (re.Registration != null && re.Registration.Horse != null) ? re.Registration.Horse.Name : "",
                     TournamentName = (re.Registration != null && re.Registration.Tournament != null) ? re.Registration.Tournament.Name : "",
                     LaneNo = re.LaneNo,
-                    Status = re.Status
+                    Status = re.Race != null ? re.Race.Status : re.Status,
+                    FinishPosition = re.FinishPosition,
+                    FinishTime = re.FinishTime
                 })
                 .ToListAsync();
 
