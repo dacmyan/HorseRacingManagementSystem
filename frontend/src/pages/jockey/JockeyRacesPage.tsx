@@ -8,10 +8,18 @@ import { PageAmbience } from '../../components/layout/PageAmbience';
 import { getAssignedHorses } from '../../api/jockeyService';
 import { parseApiError } from '../../api/authService';
 
-const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  pending:   { label: 'Sắp tới', color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20' },
-  active:    { label: 'Đang diễn ra', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' },
-  completed: { label: 'Đã kết thúc', color: 'text-muted bg-white/5 border-glass-border' },
+const getStatusConfig = (status: string) => {
+  const s = (status ?? '').toLowerCase();
+  if (s === 'scheduled' || s === 'upcoming' || s === 'pending') {
+    return { label: 'Sắp tới', color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20' };
+  }
+  if (s === 'running' || s === 'live' || s === 'active' || s === 'ongoing') {
+    return { label: 'Đang diễn ra', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' };
+  }
+  if (s === 'finished' || s === 'completed') {
+    return { label: 'Đã kết thúc', color: 'text-muted bg-white/5 border-glass-border' };
+  }
+  return { label: status || 'Không rõ', color: 'text-muted bg-white/5 border-glass-border' };
 };
 
 export function JockeyRacesPage() {
@@ -64,7 +72,7 @@ export function JockeyRacesPage() {
           ) : (
             <div className="space-y-4">
               {races.map((r, i) => {
-                const cfg = STATUS_CONFIG[(r.status ?? '').toLowerCase() as keyof typeof STATUS_CONFIG];
+                const cfg = getStatusConfig(r.status);
                 return (
                   <motion.div key={r.id ?? i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}
                     className="glass-panel rounded-2xl overflow-hidden border border-glass-border hover:border-gold/30 hover:bg-gold/[0.02] transition-all group relative">
@@ -84,9 +92,18 @@ export function JockeyRacesPage() {
                           {r.tournamentName && <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/[0.04] border border-glass-border"><Trophy size={10} className="text-gold/60" /> {r.tournamentName}</span>}
                           {r.raceDate && <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/[0.04] border border-glass-border"><Calendar size={10} className="text-gold/60" /> {r.raceDate}</span>}
                         </div>
-                        <div className="flex items-center gap-5 p-3 rounded-xl bg-white/[0.02] border border-glass-border hover:border-gold/30 hover:bg-gold/[0.04] transition-all w-fit">
+                        <div className="flex items-center gap-5 p-3 rounded-xl bg-white/[0.02] border border-glass-border hover:border-gold/30 hover:bg-gold/[0.04] transition-all w-fit flex-wrap">
                           <div className="text-sm font-bold text-white group-hover:text-champagne transition-colors">🐴 Lane {r.laneNo ?? '?'}</div>
                           <div className="flex items-center gap-1 text-xs text-muted"><ShieldCheck size={11} className="text-emerald-400" /> Trận: <span className="text-champagne font-semibold">{r.raceName || `Race #${r.raceId}`}</span></div>
+                          {(r.status?.toLowerCase() === 'completed' || r.status?.toLowerCase() === 'finished') && (
+                            <>
+                              <div className="w-px h-4 bg-glass-border hidden sm:block" />
+                              <div className="text-xs font-bold text-gold">Hạng: {r.finishPosition ?? '—'}</div>
+                              {r.finishTime && (
+                                <div className="text-xs font-mono text-champagne">Thời gian: {r.finishTime}s</div>
+                              )}
+                            </>
+                          )}
                         </div>
                       </div>
                       <button className="text-xs text-gold hover:text-champagne flex items-center gap-1 transition-colors shrink-0 font-medium">
