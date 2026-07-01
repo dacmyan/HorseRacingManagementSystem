@@ -1,10 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap');
 
 @import "tailwindcss";
 
 @theme {
-  --font-serif: "Orbitron", sans-serif;
-  --font-sans: "Rajdhani", sans-serif;
+  --font-serif: "Poppins", sans-serif;
+  --font-sans: "Inter", sans-serif;
   
   --color-navy: #0B1628;
   --color-navy-light: #0B1628;
