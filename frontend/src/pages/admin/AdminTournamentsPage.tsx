@@ -73,42 +73,72 @@ export function AdminTournamentsPage() {
     loadTournaments();
   }, []);
 
+  useEffect(() => {
+    setError('');
+    const now = new Date();
+
+    // 1. Validate registration window
+    if (form.registrationStartDate && form.registrationEndDate) {
+      const regStartVal = new Date(form.registrationStartDate);
+      const regEndVal = new Date(form.registrationEndDate);
+      if (regEndVal <= regStartVal) {
+        setError(t('Thời gian kết thúc đăng ký phải sau thời gian bắt đầu đăng ký.'));
+        return;
+      }
+    }
+
+    // 2. Validate registration start date vs past
+    if (form.registrationStartDate) {
+      const regStartVal = new Date(form.registrationStartDate);
+      if (regStartVal.getTime() < now.getTime() - 5 * 60 * 1000) {
+        setError(t('Thời gian bắt đầu đăng ký không thể ở quá khứ.'));
+        return;
+      }
+    }
+
+    // 3. Validate tournament start date vs registration end date
+    if (form.startDate && form.registrationEndDate) {
+      const startVal = new Date(form.startDate);
+      const regEndVal = new Date(form.registrationEndDate);
+      if (startVal < regEndVal) {
+        setError(t('Thời gian bắt đầu giải đấu phải sau hoặc bằng thời hạn kết thúc đăng ký.'));
+        return;
+      }
+    }
+
+    // 4. Validate tournament window
+    if (form.startDate && form.endDate) {
+      const startVal = new Date(form.startDate);
+      const endVal = new Date(form.endDate);
+      if (endVal <= startVal) {
+        setError(t('Thời gian kết thúc giải đấu phải sau thời gian bắt đầu giải đấu.'));
+        return;
+      }
+    }
+  }, [form.registrationStartDate, form.registrationEndDate, form.startDate, form.endDate, t]);
 
   function set(field: string, value: string) {
     setForm(prev => ({ ...prev, [field]: value }));
   }
 
   async function handleCreate() {
-    setError('');
     if (!form.name || !form.registrationStartDate || !form.registrationEndDate || !form.startDate || !form.endDate) {
       setError(t('Vui lòng điền đầy đủ tất cả các trường thông tin bắt buộc.'));
       return;
     }
 
+    // Guard if there is an active date error
     const regStartVal = new Date(form.registrationStartDate);
     const regEndVal = new Date(form.registrationEndDate);
     const startVal = new Date(form.startDate);
     const endVal = new Date(form.endDate);
     const now = new Date();
 
-    if (regStartVal.getTime() < now.getTime() - 5 * 60 * 1000) {
-      setError(t('Thời gian bắt đầu đăng ký không thể ở quá khứ.'));
-      return;
-    }
-
-    if (regEndVal <= regStartVal) {
-      setError(t('Thời gian kết thúc đăng ký phải sau thời gian bắt đầu đăng ký.'));
-      return;
-    }
-
-    if (startVal < regEndVal) {
-      setError(t('Thời gian bắt đầu giải đấu phải sau hoặc bằng thời hạn kết thúc đăng ký.'));
-      return;
-    }
-
-    if (endVal <= startVal) {
-      setError(t('Thời gian kết thúc giải đấu phải sau thời gian bắt đầu giải đấu.'));
-      return;
+    if (regStartVal.getTime() < now.getTime() - 5 * 60 * 1000 ||
+        regEndVal <= regStartVal ||
+        startVal < regEndVal ||
+        endVal <= startVal) {
+      return; // prevent submit if invalid dates
     }
 
     const prizes = [
