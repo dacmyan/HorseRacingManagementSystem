@@ -8,7 +8,6 @@ import { PageHero } from '../../components/layout/PageHero';
 import { useNavigate } from 'react-router-dom';
 import { getContracts, respondContract, getJockeyStats, getAssignedHorses } from '../../api/jockeyService';
 import { getCurrentUser, parseApiError } from '../../api/authService';
-import { getRaceSchedule } from '../../api/publicService';
 
 const child = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { duration: 0.35 } } };
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.08 } } };
@@ -20,7 +19,6 @@ export function JockeyDashboardPage() {
   const [contracts, setContracts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [respondingId, setRespondingId] = useState<number | null>(null);
-  const [schedule, setSchedule] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [myRaces, setMyRaces] = useState<any[]>([]);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
@@ -38,9 +36,6 @@ export function JockeyDashboardPage() {
 
   useEffect(() => {
     loadContracts();
-    getRaceSchedule()
-      .then((d: any) => setSchedule(d?.result ?? (Array.isArray(d) ? d : [])))
-      .catch(() => setSchedule([]));
     
     getJockeyStats()
       .then(res => {

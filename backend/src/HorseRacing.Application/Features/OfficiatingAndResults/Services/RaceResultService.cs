@@ -19,17 +19,20 @@ public class RaceResultService : IRaceResultService
     private readonly IBetPayoutService _betPayoutService;
     private readonly IPredictionService _predictionService;
     private readonly INotificationService _notificationService;
+    private readonly IPrizePayoutService _prizePayoutService;
 
     public RaceResultService(
         IResultRepository repository,
         IBetPayoutService betPayoutService,
         IPredictionService predictionService,
-        INotificationService notificationService)
+        INotificationService notificationService,
+        IPrizePayoutService prizePayoutService)
     {
         _repository = repository;
         _betPayoutService = betPayoutService;
         _predictionService = predictionService;
         _notificationService = notificationService;
+        _prizePayoutService = prizePayoutService;
     }
 
     public async Task<RaceResultResponse> SubmitResultAsync(SubmitRaceResultRequest request)
@@ -205,6 +208,26 @@ public class RaceResultService : IRaceResultService
             catch (Exception ex)
             {
                 Console.WriteLine($"[Prediction Error] Failed to evaluate predictions for race {raceId}: {ex.Message}");
+            }
+
+            // Auto Prize Payout for Final Round Race
+            if (race.Round != null && race.Round.RoundNumber == 2)
+            {
+                try
+                {
+                    var payoutRequest = new FinancialRewards.DTOs.PrizePayoutRequest
+                    {
+                        TournamentId = (int)race.Round.TournamentId,
+                        FirstPlacePrize = 0m,
+                        SecondPlacePrize = 0m,
+                        ThirdPlacePrize = 0m
+                    };
+                    await _prizePayoutService.ProcessPrizePayoutAsync(payoutRequest);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[PrizePayout Error] Failed to process auto prize payout: {ex.Message}");
+                }
             }
         }
 

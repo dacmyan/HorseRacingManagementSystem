@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Loader, Plus, Search, Shuffle, Trophy } from 'lucide-react';
+import { Loader, Plus, Search, Shuffle, Trophy, Clock } from 'lucide-react';
 import { Sidebar } from '../../components/layout/Sidebar';
 import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
-import { createTournament, generateTournamentRaces, generateFinalRace } from '../../api/adminService';
+import { createTournament, generateTournamentRaces, generateFinalRace, closeTournamentRegistration } from '../../api/adminService';
 import { getRaceSchedule, getTournaments } from '../../api/publicService';
 import { parseApiError } from '../../api/authService';
 import { formatDateTime } from '../../utils/format';
@@ -22,7 +22,17 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string 
 const INPUT = 'w-full bg-navy/50 border border-glass-border rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-muted/60 outline-none focus:border-gold/40 transition-colors';
 const LABEL = 'block text-xs font-bold text-muted uppercase tracking-wider mb-1.5';
 
-const INIT_FORM = { name: '', startDate: '', endDate: '' };
+const INIT_FORM = {
+  name: '',
+  description: '',
+  registrationStartDate: '',
+  registrationEndDate: '',
+  startDate: '',
+  endDate: '',
+  firstPrize: '10000000',
+  secondPrize: '5000000',
+  thirdPrize: '2500000'
+};
 
 export function AdminTournamentsPage() {
   const { t } = useLanguage();
@@ -69,34 +79,57 @@ export function AdminTournamentsPage() {
 
   async function handleCreate() {
     setError(''); setSuccess('');
-    if (!form.name || !form.startDate || !form.endDate) {
-      setError(t('Vui lòng điền đầy đủ tất cả các trường.'));
+    if (!form.name || !form.registrationStartDate || !form.registrationEndDate || !form.startDate || !form.endDate) {
+      setError(t('Vui lòng điền đầy đủ tất cả các trường thông tin bắt buộc.'));
       return;
     }
 
+    const regStartVal = new Date(form.registrationStartDate);
+    const regEndVal = new Date(form.registrationEndDate);
     const startVal = new Date(form.startDate);
     const endVal = new Date(form.endDate);
     const now = new Date();
 
-    if (startVal.getTime() < now.getTime() - 5 * 60 * 1000) {
-      setError(t('Thời gian bắt đầu không thể ở quá khứ.'));
+    if (regStartVal.getTime() < now.getTime() - 5 * 60 * 1000) {
+      setError(t('Thời gian bắt đầu đăng ký không thể ở quá khứ.'));
+      return;
+    }
+
+    if (regEndVal <= regStartVal) {
+      setError(t('Thời gian kết thúc đăng ký phải sau thời gian bắt đầu đăng ký.'));
+      return;
+    }
+
+    if (startVal < regEndVal) {
+      setError(t('Thời gian bắt đầu giải đấu phải sau hoặc bằng thời hạn kết thúc đăng ký.'));
       return;
     }
 
     if (endVal <= startVal) {
-      setError(t('Thời gian kết thúc phải sau thời gian bắt đầu.'));
+      setError(t('Thời gian kết thúc giải đấu phải sau thời gian bắt đầu giải đấu.'));
       return;
     }
+
+    const prizes = [
+      { rankPosition: 1, amount: Number(form.firstPrize || 10000000), ownerPercentage: 70, jockeyPercentage: 30 },
+      { rankPosition: 2, amount: Number(form.secondPrize || 5000000), ownerPercentage: 70, jockeyPercentage: 30 },
+      { rankPosition: 3, amount: Number(form.thirdPrize || 2500000), ownerPercentage: 70, jockeyPercentage: 30 }
+    ];
+
     setLoading(true);
     try {
       const data: any = await createTournament({
         name: form.name,
+        description: form.description || '',
+        registrationStartDate: form.registrationStartDate,
+        registrationEndDate: form.registrationEndDate,
         startDate: form.startDate,
         endDate: form.endDate,
+        prizes: prizes
       });
       const newId = data?.result?.id ?? data?.result?.tournamentId;
       setSuccess(newId != null
-        ? `${t('Tạo giải đấu thành công!')} ID = ${newId}. ${t('Hệ thống đã tạo sẵn 2 vòng Pre, Final và 1 Final Race.')}`
+        ? `${t('Tạo giải đấu thành công!')} ID = ${newId}. ${t('Giải đấu đang ở trạng thái Sắp diễn ra (Upcoming).')}`
         : t('Tạo giải đấu thành công!'));
       setForm(INIT_FORM);
       loadTournaments();
@@ -111,6 +144,20 @@ export function AdminTournamentsPage() {
     setShowModal(false);
     setError(''); setSuccess('');
     setForm(INIT_FORM);
+  }
+
+  async function handleCloseRegistration(tournamentId: number) {
+    setGeneratingForTournament(tournamentId);
+    setError(''); setSuccess('');
+    try {
+      await closeTournamentRegistration(tournamentId);
+      setSuccess(t('Đã đóng thời hạn đăng ký giải đấu thành công!'));
+      await loadTournaments();
+    } catch (err: unknown) {
+      setError(parseApiError(err as Error));
+    } finally {
+      setGeneratingForTournament(null);
+    }
   }
 
   async function handleGenerateRaces(tournamentId: number) {
@@ -162,27 +209,47 @@ export function AdminTournamentsPage() {
   function getTournamentRaceState(tour: any) {
     const tournamentRaces = races.filter(r => r.tournamentId === tour.tournamentId);
     const rounds = tour.rounds ?? [];
+    
+    // Check registration date
+    const now = new Date();
+    const regEnd = new Date(tour.registrationEndDate);
+    const regOpen = now < regEnd;
+
     const preRound = rounds.find((r: any) => r.roundNumber === 1);
     const finalRound = rounds.find((r: any) => r.roundNumber === 2);
+
     const preRaces = preRound ? tournamentRaces.filter(r => r.roundId === preRound.roundId) : [];
     const finalRaces = finalRound ? tournamentRaces.filter(r => r.roundId === finalRound.roundId) : [];
-    const hasPre = preRaces.length > 0;
-    const preFinished = hasPre && preRaces.every(r => r.status === 'Finished');
-    const canGeneratePre = !preFinished;
+
+    const hasPre = preRound != null;
+    const hasFinal = finalRound != null;
+
+    // Auto arrange is available if registration has closed and no rounds have been generated yet
+    const canAutoArrange = !regOpen && rounds.length === 0;
+
+    // Generate Final is available if we have Pre Round, all Pre races are Finished/Completed, and no Final race yet
+    const preFinished = hasPre && preRaces.length > 0 && preRaces.every(r => r.status === 'Finished' || r.status === 'Completed');
     const canGenerateFinal = preFinished && finalRaces.length === 0;
-    const waitingLabel = hasPre && !preFinished
-      ? 'Chờ hoàn thành Pre'
-      : hasPre && preFinished && finalRaces.length === 0
-        ? 'Thiếu Final Race'
-        : '';
+
+    let statusLabel = '';
+    if (regOpen) {
+      statusLabel = 'Đang mở đăng ký';
+    } else if (rounds.length === 0) {
+      statusLabel = 'Chờ Auto Arrange';
+    } else if (hasPre && !preFinished) {
+      statusLabel = 'Đang thi đấu vòng Pre';
+    } else if (canGenerateFinal) {
+      statusLabel = 'Chờ xếp Final';
+    } else if (hasFinal) {
+      statusLabel = 'Đang thi đấu Chung kết';
+    }
 
     return {
       totalRaces: tournamentRaces.length,
-      preRaces,
-      finalRaces,
-      canGeneratePre,
+      regOpen,
+      canAutoArrange,
       canGenerateFinal,
-      waitingLabel,
+      statusLabel
     };
   }
 
@@ -267,8 +334,17 @@ export function AdminTournamentsPage() {
                       </span>
                       <span className="text-xs text-muted font-medium">ID: {tour.tournamentId}</span>
                     </div>
-                    <h3 className="text-lg font-serif text-white font-bold group-hover:text-champagne transition-colors mb-3 line-clamp-1">{tour.name}</h3>
+                    <h3 className="text-lg font-serif text-white font-bold group-hover:text-champagne transition-colors mb-1 line-clamp-1">{tour.name}</h3>
+                    <p className="text-xs text-muted/80 line-clamp-2 min-h-[32px] mb-3">{tour.description || t("Chưa có mô tả chi tiết.")}</p>
                     <div className="space-y-1.5 text-xs text-muted pt-3 border-t border-glass-border/40">
+                      <div className="flex justify-between">
+                        <span>{t("Mở đăng ký:")}</span>
+                        <span className="text-white font-medium">{formatDateTime(tour.registrationStartDate)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>{t("Đóng đăng ký:")}</span>
+                        <span className="text-white font-medium">{formatDateTime(tour.registrationEndDate)}</span>
+                      </div>
                       <div className="flex justify-between">
                         <span>{t("Ngày bắt đầu:")}</span>
                         <span className="text-white font-medium">{formatDateTime(tour.startDate)}</span>
@@ -280,6 +356,10 @@ export function AdminTournamentsPage() {
                       <div className="flex justify-between">
                         <span>{t("Vòng thi đấu:")}</span>
                         <span className="text-gold font-bold">Pre + Final</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>{t("Trạng thái đua:")}</span>
+                        <span className="text-gold font-bold">{t(raceState.statusLabel)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>{t("Cuộc đua đã tạo:")}</span>
@@ -305,14 +385,24 @@ export function AdminTournamentsPage() {
                       </div>
                     </div>
                     <div className="mt-4 flex flex-wrap gap-2">
-                      {raceState.canGeneratePre && (
+                      {raceState.regOpen && (
+                        <button
+                          onClick={() => handleCloseRegistration(tour.tournamentId)}
+                          disabled={isGenerating}
+                          className="px-3 py-2 rounded-lg text-xs font-bold text-red-400 border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 disabled:opacity-60 transition-colors flex items-center gap-1.5"
+                        >
+                          {isGenerating ? <Loader size={13} className="animate-spin" /> : <Clock size={13} />}
+                          {isGenerating ? t('Đang đóng…') : t('Đóng đăng ký')}
+                        </button>
+                      )}
+                      {raceState.canAutoArrange && (
                         <button
                           onClick={() => handleGenerateRaces(tour.tournamentId)}
                           disabled={isGenerating}
                           className="px-3 py-2 rounded-lg text-xs font-bold text-blue-400 border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 disabled:opacity-60 transition-colors flex items-center gap-1.5"
                         >
                           {isGenerating ? <Loader size={13} className="animate-spin" /> : <Shuffle size={13} />}
-                          {isGenerating ? t('Đang sắp xếp…') : t('Auto xếp làn đua')}
+                          {isGenerating ? t('Đang sắp xếp…') : t('Auto xếp làn Pre')}
                         </button>
                       )}
                       {raceState.canGenerateFinal && (
@@ -325,12 +415,12 @@ export function AdminTournamentsPage() {
                           {isGenerating ? t('Đang sắp xếp…') : t('Auto xếp Final')}
                         </button>
                       )}
-                      {!raceState.canGeneratePre && !raceState.canGenerateFinal && raceState.waitingLabel && (
+                      {!raceState.regOpen && !raceState.canAutoArrange && !raceState.canGenerateFinal && raceState.statusLabel && (
                         <button
                           disabled
                           className="px-3 py-2 rounded-lg text-xs font-bold text-muted border border-glass-border bg-white/[0.04] cursor-not-allowed"
                         >
-                          {t(raceState.waitingLabel)}
+                          {t(raceState.statusLabel)}
                         </button>
                       )}
                     </div>
@@ -362,15 +452,43 @@ export function AdminTournamentsPage() {
               <div className="flex-1 h-px bg-gradient-to-r from-gold/30 via-glass-border to-transparent" />
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
               <div>
                 <label className={LABEL}>{t("Tên giải đấu *")}</label>
                 <input value={form.name} onChange={e => set('name', e.target.value)} placeholder={t("VD: Giải Đua Mùa Thu 2026")} className={INPUT} />
               </div>
 
+              <div>
+                <label className={LABEL}>{t("Mô tả giải đấu")}</label>
+                <textarea value={form.description} onChange={e => set('description', e.target.value)} placeholder={t("Nhập mô tả chi tiết về giải đấu...")} className={`${INPUT} h-20 resize-none`} />
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className={LABEL}>{t("Ngày bắt đầu *")}</label>
+                  <label className={LABEL}>{t("Mở đăng ký *")}</label>
+                  <input
+                    type="datetime-local"
+                    value={form.registrationStartDate}
+                    onChange={e => set('registrationStartDate', e.target.value)}
+                    className={INPUT}
+                    style={{ colorScheme: 'dark' }}
+                  />
+                </div>
+                <div>
+                  <label className={LABEL}>{t("Đóng đăng ký *")}</label>
+                  <input
+                    type="datetime-local"
+                    value={form.registrationEndDate}
+                    onChange={e => set('registrationEndDate', e.target.value)}
+                    className={INPUT}
+                    style={{ colorScheme: 'dark' }}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={LABEL}>{t("Bắt đầu giải đấu *")}</label>
                   <input
                     type="datetime-local"
                     value={form.startDate}
@@ -380,7 +498,7 @@ export function AdminTournamentsPage() {
                   />
                 </div>
                 <div>
-                  <label className={LABEL}>{t("Ngày kết thúc *")}</label>
+                  <label className={LABEL}>{t("Kết thúc giải đấu *")}</label>
                   <input
                     type="datetime-local"
                     value={form.endDate}
@@ -388,6 +506,24 @@ export function AdminTournamentsPage() {
                     className={INPUT}
                     style={{ colorScheme: 'dark' }}
                   />
+                </div>
+              </div>
+
+              <div className="border-t border-glass-border/30 pt-3">
+                <span className="font-bold text-white text-[11px] uppercase tracking-wider mb-2 block">{t("Cơ cấu giải thưởng (VNĐ)")}</span>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-[10px] text-muted mb-1">Vô địch *</label>
+                    <input type="number" value={form.firstPrize} onChange={e => set('firstPrize', e.target.value)} className={INPUT} />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-muted mb-1">Hạng 2 *</label>
+                    <input type="number" value={form.secondPrize} onChange={e => set('secondPrize', e.target.value)} className={INPUT} />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-muted mb-1">Hạng 3 *</label>
+                    <input type="number" value={form.thirdPrize} onChange={e => set('thirdPrize', e.target.value)} className={INPUT} />
+                  </div>
                 </div>
               </div>
 

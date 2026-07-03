@@ -25,5 +25,7 @@ public interface ITournamentRepository
     Task RemoveRaceEntriesAsync(IEnumerable<HorseRacing.Domain.Entities.RaceEntry> entries);
     Task<List<HorseRacing.Domain.Entities.RaceEntry>> GetFinalistsFromPreRoundAsync(long tournamentId, long preRoundId);
     Task<bool> HasRaceResultsAsync(IEnumerable<long> raceIds);
+    Task AddPrizeAsync(HorseRacing.Domain.Entities.Financials.Prize prize);
+    Task ClearRoundsAndRacesAsync(long tournamentId);
 }
 

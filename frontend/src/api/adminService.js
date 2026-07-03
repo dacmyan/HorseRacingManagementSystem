@@ -10,6 +10,7 @@ export const createTournament = (data) => api.post('/admin/tournaments', data);
 
 export const generateTournamentRaces = (tournamentId) => api.post(`/admin/tournaments/${tournamentId}/generate-races`);
 export const generateFinalRace = (tournamentId) => api.post(`/admin/tournaments/${tournamentId}/generate-final`);
+export const closeTournamentRegistration = (tournamentId) => api.post(`/admin/tournaments/${tournamentId}/close-registration`);
 
 export const createRace = (data) => api.post('/admin/races', data);
 

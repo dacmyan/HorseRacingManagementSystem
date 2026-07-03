@@ -285,6 +285,28 @@ public class AdminController : ControllerBase
         }
     }
 
+    [HttpPost("tournaments/{id}/close-registration")]
+    public async Task<IActionResult> CloseRegistration(long id, [FromServices] AppDbContext context)
+    {
+        try
+        {
+            var tournament = await context.Tournaments.FindAsync(id);
+            if (tournament == null)
+            {
+                return NotFound(new { message = $"Tournament with ID {id} was not found." });
+            }
+
+            tournament.RegistrationEndDate = DateTime.UtcNow;
+            await context.SaveChangesAsync();
+
+            return Ok(new { message = "Registration closed successfully.", result = new { tournamentId = id, registrationEndDate = tournament.RegistrationEndDate } });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred closing registration", detail = ex.Message });
+        }
+    }
+
     [HttpPost("races")]
 
     public async Task<IActionResult> CreateRace([FromBody] CreateRaceRequest request)
@@ -502,6 +524,25 @@ public class AdminController : ControllerBase
             var validStatuses = new[] { "Approved", "Rejected" };
             if (!validStatuses.Contains(request.Status))
                 return BadRequest(new { message = "Status must be 'Approved' or 'Rejected'." });
+
+            if (request.Status == "Approved")
+            {
+                if (registration.Status != "Pending")
+                {
+                    return BadRequest(new { message = "Only Pending registrations can be approved." });
+                }
+
+                var contract = await context.JockeyContracts.FirstOrDefaultAsync(jc => jc.TournamentId == registration.TournamentId && jc.HorseId == registration.HorseId);
+                if (contract == null)
+                {
+                    return BadRequest(new { message = "Cannot approve registration: No jockey contract has been proposed for this horse in this tournament." });
+                }
+
+                if (contract.Status != "Accepted" && contract.Status != "Active")
+                {
+                    return BadRequest(new { message = $"Cannot approve registration: The jockey contract status is '{contract.Status}', but must be 'Accepted'." });
+                }
+            }
 
             registration.Status = request.Status;
             await context.SaveChangesAsync();

@@ -23,6 +23,7 @@ public class RaceResultServiceTests
     private readonly Mock<IBetPayoutService> _payoutMock;
     private readonly Mock<IPredictionService> _predictionMock;
     private readonly Mock<INotificationService> _notificationMock;
+    private readonly Mock<IPrizePayoutService> _prizePayoutMock;
     private readonly RaceResultService _service;
 
     public RaceResultServiceTests()
@@ -31,7 +32,8 @@ public class RaceResultServiceTests
         _payoutMock = new Mock<IBetPayoutService>();
         _predictionMock = new Mock<IPredictionService>();
         _notificationMock = new Mock<INotificationService>();
-        _service = new RaceResultService(_repoMock.Object, _payoutMock.Object, _predictionMock.Object, _notificationMock.Object);
+        _prizePayoutMock = new Mock<IPrizePayoutService>();
+        _service = new RaceResultService(_repoMock.Object, _payoutMock.Object, _predictionMock.Object, _notificationMock.Object, _prizePayoutMock.Object);
     }
 
     [Fact]

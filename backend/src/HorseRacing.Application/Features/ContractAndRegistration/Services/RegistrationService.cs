@@ -60,6 +60,16 @@ public class RegistrationService : IRegistrationService
             throw new ArgumentException($"Tournament with ID {request.TournamentId} not found.");
         }
 
+        var now = DateTime.UtcNow;
+        if (tournament.RegistrationStartDate.HasValue && now < tournament.RegistrationStartDate.Value)
+        {
+            throw new InvalidOperationException($"Registration has not started yet. It opens on {tournament.RegistrationStartDate:yyyy-MM-dd HH:mm:ss} UTC.");
+        }
+        if (tournament.RegistrationEndDate.HasValue && now > tournament.RegistrationEndDate.Value)
+        {
+            throw new InvalidOperationException("Registration is closed.");
+        }
+
         // 3. Verify horse is not already registered in this tournament
         var existing = await _registrationRepository.GetByHorseIdAndTournamentIdAsync(request.HorseId, request.TournamentId);
         if (existing != null)

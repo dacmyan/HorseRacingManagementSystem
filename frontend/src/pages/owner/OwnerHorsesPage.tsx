@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, ShieldCheck, Edit2, Trash2, Eye, Search, Trophy, Calendar } from 'lucide-react';
+import { Plus, ShieldCheck, Edit2, Trash2, Eye, Search } from 'lucide-react';
 import { Sidebar } from '../../components/layout/Sidebar';
 import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';

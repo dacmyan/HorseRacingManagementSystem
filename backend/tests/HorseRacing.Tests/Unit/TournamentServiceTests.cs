@@ -12,6 +12,7 @@ using Moq;
 using Xunit;
 
 using HorseRacing.Application.Features.Notifications.Interfaces;
+using HorseRacing.Application.Features.BettingEngine.Interfaces;
 
 namespace HorseRacing.Tests.Unit;
 
@@ -19,17 +20,19 @@ public class TournamentServiceTests
 {
     private readonly Mock<ITournamentRepository> _tournamentRepoMock;
     private readonly Mock<INotificationService> _notificationMock;
+    private readonly Mock<IBettingService> _bettingServiceMock;
     private readonly TournamentService _service;
 
     public TournamentServiceTests()
     {
         _tournamentRepoMock = new Mock<ITournamentRepository>();
         _notificationMock = new Mock<INotificationService>();
-        _service = new TournamentService(_tournamentRepoMock.Object, _notificationMock.Object);
+        _bettingServiceMock = new Mock<IBettingService>();
+        _service = new TournamentService(_tournamentRepoMock.Object, _notificationMock.Object, _bettingServiceMock.Object);
     }
 
     [Fact]
-    public async Task CreateTournamentAsync_ShouldCreateOnlyPreAndFinalRounds_WhenNumberOfRoundsIs2()
+    public async Task CreateTournamentAsync_ShouldCreateTournamentAndPrizeConfigs_WithUpcomingStatus()
     {
         // Arrange
         Tournament? createdTournament = null;
@@ -45,65 +48,57 @@ public class TournamentServiceTests
         var request = new CreateTournamentRequest
         {
             Name = "Summer Cup",
-            NumberOfRounds = 2,
+            Description = "This is a great tournament.",
             StartDate = DateTime.UtcNow.AddDays(1),
-            EndDate = DateTime.UtcNow.AddDays(3)
+            EndDate = DateTime.UtcNow.AddDays(3),
+            RegistrationStartDate = DateTime.UtcNow,
+            RegistrationEndDate = DateTime.UtcNow.AddHours(12)
         };
 
         // Act
         var response = await _service.CreateTournamentAsync(request);
 
         // Assert
-        response.Rounds.Should().HaveCount(2);
-        response.Rounds.Select(r => r.Name).Should().Equal("Pre", "Final");
-        response.Rounds.Select(r => r.RoundNumber).Should().Equal(1, 2);
-        createdTournament!.Rounds.Should().HaveCount(2);
-        createdTournament.Rounds.Single(r => r.RoundNumber == 2).Races.Should().ContainSingle()
-            .Which.Name.Should().Be("Final Race");
-    }
-
-    [Theory]
-    [InlineData(1)]
-    [InlineData(3)]
-    public async Task CreateTournamentAsync_ShouldThrowArgumentException_WhenNumberOfRoundsIsNot2(int numberOfRounds)
-    {
-        // Arrange
-        var request = new CreateTournamentRequest
-        {
-            Name = "Invalid Cup",
-            NumberOfRounds = numberOfRounds,
-            StartDate = DateTime.UtcNow.AddDays(1),
-            EndDate = DateTime.UtcNow.AddDays(3)
-        };
-
-        // Act
-        Func<Task> act = async () => await _service.CreateTournamentAsync(request);
-
-        // Assert
-        await act.Should().ThrowAsync<ArgumentException>()
-            .WithMessage("Tournament must have exactly 2 rounds: Pre and Final. (Parameter 'NumberOfRounds')");
+        response.Name.Should().Be("Summer Cup");
+        response.Description.Should().Be("This is a great tournament.");
+        response.Status.Should().Be("Upcoming");
+        createdTournament.Should().NotBeNull();
+        createdTournament!.Name.Should().Be("Summer Cup");
+        createdTournament.Status.Should().Be("Upcoming");
     }
 
     [Fact]
-    public async Task GenerateRacesForTournamentAsync_ShouldSplitPrefinalRacesIntoBalancedGroups_WhenRemainderIsTooSmall()
+    public async Task GenerateRacesForTournamentAsync_ShouldSplitPrefinalRacesIntoGroupsOf12_WhenApprovedRegistrationsAreGreaterThan12()
     {
         // Arrange
         var tournament = BuildTournament();
         var registrations = BuildRegistrations(50);
         var createdRaces = new List<Race>();
-        var createdEntries = new List<RaceEntry>();
+        var createdEntries = new List<HorseRacing.Domain.Entities.RaceEntry>();
 
+        _tournamentRepoMock.Setup(r => r.ClearRoundsAndRacesAsync(tournament.TournamentId))
+            .Returns(Task.CompletedTask);
         _tournamentRepoMock.Setup(r => r.GetByIdWithRoundsAsync(tournament.TournamentId))
             .ReturnsAsync(tournament);
-        _tournamentRepoMock.Setup(r => r.GetRacesByRoundIdAsync(101))
-            .ReturnsAsync(new List<Race>());
         _tournamentRepoMock.Setup(r => r.GetApprovedRegistrationsAsync(tournament.TournamentId))
             .ReturnsAsync(registrations);
-        _tournamentRepoMock.Setup(r => r.AddRacesAsync(It.IsAny<IEnumerable<Race>>()))
-            .Callback<IEnumerable<Race>>(races => createdRaces = races.ToList())
+        _tournamentRepoMock.Setup(r => r.GetActiveJockeyProfileIdsByHorseAsync(tournament.TournamentId, It.IsAny<IEnumerable<long>>()))
+            .ReturnsAsync(new Dictionary<long, int>());
+        _tournamentRepoMock.Setup(r => r.AddRoundAsync(It.IsAny<Round>()))
             .Returns(Task.CompletedTask);
-        _tournamentRepoMock.Setup(r => r.AddRaceEntriesAsync(It.IsAny<IEnumerable<RaceEntry>>()))
-            .Callback<IEnumerable<RaceEntry>>(entries => createdEntries = entries.ToList())
+        _tournamentRepoMock.Setup(r => r.AddRacesAsync(It.IsAny<IEnumerable<Race>>()))
+            .Callback<IEnumerable<Race>>(races => 
+            {
+                var list = races.ToList();
+                for (int i = 0; i < list.Count; i++)
+                {
+                    list[i].RaceId = i + 1;
+                }
+                createdRaces = list;
+            })
+            .Returns(Task.CompletedTask);
+        _tournamentRepoMock.Setup(r => r.AddRaceEntriesAsync(It.IsAny<IEnumerable<HorseRacing.Domain.Entities.RaceEntry>>()))
+            .Callback<IEnumerable<HorseRacing.Domain.Entities.RaceEntry>>(entries => createdEntries = entries.ToList())
             .Returns(Task.CompletedTask);
         _tournamentRepoMock.Setup(r => r.SaveChangesAsync()).Returns(Task.CompletedTask);
 
@@ -114,52 +109,42 @@ public class TournamentServiceTests
         response.Should().HaveCount(5);
         createdRaces.Should().HaveCount(5);
         createdRaces.Should().OnlyContain(r =>
-            r.RoundId == 101 &&
             r.Name!.Contains("Pre") &&
             r.DistanceMeter == 1200 &&
             r.MaxLanes == 12 &&
             r.Status == "Scheduled");
 
-        createdEntries.GroupBy(e => e.Race).Select(g => g.Count())
-            .Should().Equal(12, 12, 12, 6, 8);
+        createdEntries.GroupBy(e => e.RaceId).Select(g => g.Count())
+            .Should().Equal(12, 12, 12, 12, 2);
 
-        createdEntries.GroupBy(e => e.Race).Should().OnlyContain(group =>
+        createdEntries.GroupBy(e => e.RaceId).Should().OnlyContain(group =>
             group.Select(e => e.LaneNo).SequenceEqual(Enumerable.Range(1, group.Count())));
     }
 
     [Fact]
-    public async Task GenerateRacesForTournamentAsync_ShouldCreatePrefinalRaces_WhenApprovedRegistrationsAreAtMost12()
+    public async Task GenerateRacesForTournamentAsync_ShouldCreateFinalRaceDirectly_WhenApprovedRegistrationsAreAtMost12()
     {
         // Arrange
         var tournament = BuildTournament();
         var registrations = BuildRegistrations(12);
-        var existingFinalRace = new Race
-        {
-            RaceId = 20,
-            RoundId = 102,
-            Name = "Final Race",
-            DistanceMeter = 1600,
-            MaxLanes = 12,
-            Status = "Scheduled"
-        };
         var createdRaces = new List<Race>();
-        var createdEntries = new List<RaceEntry>();
+        var createdEntries = new List<HorseRacing.Domain.Entities.RaceEntry>();
 
+        _tournamentRepoMock.Setup(r => r.ClearRoundsAndRacesAsync(tournament.TournamentId))
+            .Returns(Task.CompletedTask);
         _tournamentRepoMock.Setup(r => r.GetByIdWithRoundsAsync(tournament.TournamentId))
             .ReturnsAsync(tournament);
-        _tournamentRepoMock.Setup(r => r.GetRacesByRoundIdAsync(101))
-            .ReturnsAsync(new List<Race>());
         _tournamentRepoMock.Setup(r => r.GetApprovedRegistrationsAsync(tournament.TournamentId))
             .ReturnsAsync(registrations);
-        _tournamentRepoMock.Setup(r => r.GetRacesByRoundIdAsync(102))
-            .ReturnsAsync(new List<Race> { existingFinalRace });
-        _tournamentRepoMock.Setup(r => r.GetRaceEntriesByRaceIdAsync(existingFinalRace.RaceId))
-            .ReturnsAsync(new List<RaceEntry>());
-        _tournamentRepoMock.Setup(r => r.AddRacesAsync(It.IsAny<IEnumerable<Race>>()))
-            .Callback<IEnumerable<Race>>(races => createdRaces = races.ToList())
+        _tournamentRepoMock.Setup(r => r.GetActiveJockeyProfileIdsByHorseAsync(tournament.TournamentId, It.IsAny<IEnumerable<long>>()))
+            .ReturnsAsync(new Dictionary<long, int>());
+        _tournamentRepoMock.Setup(r => r.AddRoundAsync(It.IsAny<Round>()))
             .Returns(Task.CompletedTask);
-        _tournamentRepoMock.Setup(r => r.AddRaceEntriesAsync(It.IsAny<IEnumerable<RaceEntry>>()))
-            .Callback<IEnumerable<RaceEntry>>(entries => createdEntries = entries.ToList())
+        _tournamentRepoMock.Setup(r => r.AddRaceAsync(It.IsAny<Race>()))
+            .Callback<Race>(race => createdRaces.Add(race))
+            .Returns(Task.CompletedTask);
+        _tournamentRepoMock.Setup(r => r.AddRaceEntriesAsync(It.IsAny<IEnumerable<HorseRacing.Domain.Entities.RaceEntry>>()))
+            .Callback<IEnumerable<HorseRacing.Domain.Entities.RaceEntry>>(entries => createdEntries = entries.ToList())
             .Returns(Task.CompletedTask);
         _tournamentRepoMock.Setup(r => r.SaveChangesAsync()).Returns(Task.CompletedTask);
 
@@ -170,8 +155,7 @@ public class TournamentServiceTests
         response.Should().HaveCount(1);
         createdRaces.Should().HaveCount(1);
         createdRaces.Should().OnlyContain(r =>
-            r.RoundId == 101 &&
-            r.Name!.Contains("Pre") &&
+            r.Name == "Final Race" &&
             r.MaxLanes == 12 &&
             r.Status == "Scheduled");
         createdEntries.Should().HaveCount(12);
@@ -179,92 +163,88 @@ public class TournamentServiceTests
     }
 
     [Fact]
-    public async Task GenerateRacesForTournamentAsync_ShouldFillExistingFinalRace_FromTopPrefinalRegistrations()
+    public async Task GenerateFinalRaceAsync_ShouldFillFinalRace_FromTopPrefinalRegistrations()
     {
         // Arrange
         var tournament = BuildTournament();
-        var prefinalRaces = new List<Race>
+        var preRound = tournament.Rounds.First(r => r.RoundNumber == 1);
+        var finalRound = tournament.Rounds.First(r => r.RoundNumber == 2);
+        
+        var preRaces = new List<Race>
         {
-            new() { RaceId = 1, RoundId = 101, Name = "Race 1 (Prefinal)", Status = "Finished" },
-            new() { RaceId = 2, RoundId = 101, Name = "Race 2 (Prefinal)", Status = "Finished" }
+            new() { RaceId = 1, RoundId = preRound.RoundId, Name = "Race 1 (Pre)", Status = "Completed" }
         };
-        var existingFinalRace = new Race
-        {
-            RaceId = 20,
-            RoundId = 102,
-            Name = "Final Race",
-            DistanceMeter = 1600,
-            MaxLanes = 12,
-            Status = "Scheduled"
-        };
-        var topRegistrations = BuildRegistrations(12);
-        var createdRaces = new List<Race>();
-        var createdEntries = new List<RaceEntry>();
+        var finalRaces = new List<Race>(); // not created yet
+
+        var topFinalists = BuildPreRoundFinalists(12);
+        var createdEntries = new List<HorseRacing.Domain.Entities.RaceEntry>();
 
         _tournamentRepoMock.Setup(r => r.GetByIdWithRoundsAsync(tournament.TournamentId))
             .ReturnsAsync(tournament);
-        _tournamentRepoMock.Setup(r => r.GetRacesByRoundIdAsync(101))
-            .ReturnsAsync(prefinalRaces);
-        _tournamentRepoMock.Setup(r => r.GetApprovedRegistrationsAsync(tournament.TournamentId))
-            .ReturnsAsync(topRegistrations);
-
-        var entriesForRace1 = topRegistrations.Take(6).Select(r => new RaceEntry { RegistrationId = r.RegistrationId }).ToList();
-        var entriesForRace2 = topRegistrations.Skip(6).Select(r => new RaceEntry { RegistrationId = r.RegistrationId }).ToList();
-        _tournamentRepoMock.Setup(r => r.GetRaceEntriesByRaceIdAsync(1)).ReturnsAsync(entriesForRace1);
-        _tournamentRepoMock.Setup(r => r.GetRaceEntriesByRaceIdAsync(2)).ReturnsAsync(entriesForRace2);
-
-        _tournamentRepoMock.Setup(r => r.GetRacesByRoundIdAsync(102))
-            .ReturnsAsync(new List<Race> { existingFinalRace });
-        _tournamentRepoMock.Setup(r => r.GetRaceEntriesByRaceIdAsync(existingFinalRace.RaceId))
-            .ReturnsAsync(new List<RaceEntry>());
-        _tournamentRepoMock.Setup(r => r.GetTopHorsesFromPrefinalAsync(tournament.TournamentId, 101))
-            .ReturnsAsync(topRegistrations);
-        _tournamentRepoMock.Setup(r => r.AddRacesAsync(It.IsAny<IEnumerable<Race>>()))
-            .Callback<IEnumerable<Race>>(races => createdRaces = races.ToList())
+        _tournamentRepoMock.Setup(r => r.GetRacesByRoundIdAsync(preRound.RoundId))
+            .ReturnsAsync(preRaces);
+        _tournamentRepoMock.Setup(r => r.HasRaceResultsAsync(It.IsAny<IEnumerable<long>>()))
+            .ReturnsAsync(true);
+        _tournamentRepoMock.Setup(r => r.GetRacesByRoundIdAsync(finalRound.RoundId))
+            .ReturnsAsync(finalRaces);
+        
+        _tournamentRepoMock.Setup(r => r.AddRaceAsync(It.IsAny<Race>()))
+            .Callback<Race>(r => finalRaces.Add(r))
             .Returns(Task.CompletedTask);
-        _tournamentRepoMock.Setup(r => r.AddRaceEntriesAsync(It.IsAny<IEnumerable<RaceEntry>>()))
-            .Callback<IEnumerable<RaceEntry>>(entries => createdEntries = entries.ToList())
+        
+        _tournamentRepoMock.Setup(r => r.GetFinalistsFromPreRoundAsync(tournament.TournamentId, preRound.RoundId))
+            .ReturnsAsync(topFinalists);
+        _tournamentRepoMock.Setup(r => r.GetRaceEntriesByRaceIdAsync(It.IsAny<long>()))
+            .ReturnsAsync(new List<HorseRacing.Domain.Entities.RaceEntry>());
+        _tournamentRepoMock.Setup(r => r.GetActiveJockeyProfileIdsByHorseAsync(tournament.TournamentId, It.IsAny<IEnumerable<long>>()))
+            .ReturnsAsync(new Dictionary<long, int>());
+        
+        _tournamentRepoMock.Setup(r => r.AddRaceEntriesAsync(It.IsAny<IEnumerable<HorseRacing.Domain.Entities.RaceEntry>>()))
+            .Callback<IEnumerable<HorseRacing.Domain.Entities.RaceEntry>>(entries => createdEntries = entries.ToList())
             .Returns(Task.CompletedTask);
         _tournamentRepoMock.Setup(r => r.SaveChangesAsync()).Returns(Task.CompletedTask);
+        _bettingServiceMock.Setup(b => b.RecalculateRaceOddsAsync(It.IsAny<long>())).Returns(Task.CompletedTask);
 
         // Act
-        var response = await _service.GenerateRacesForTournamentAsync(tournament.TournamentId);
+        var response = await _service.GenerateFinalRaceAsync(tournament.TournamentId);
 
         // Assert
-        response.Should().ContainSingle();
-        createdRaces.Should().BeEmpty();
-
+        response.Name.Should().Be("Final Race");
         createdEntries.Should().HaveCount(12);
-        createdEntries.Should().OnlyContain(e => e.RaceId == existingFinalRace.RaceId && e.Status == "Confirmed");
-        createdEntries.Select(e => e.RegistrationId).Should().Equal(topRegistrations.Select(r => r.RegistrationId));
+        createdEntries.Should().OnlyContain(e => e.Status == "Confirmed");
+        createdEntries.Select(e => e.RegistrationId).Should().Equal(topFinalists.Select(f => f.RegistrationId));
         createdEntries.Select(e => e.LaneNo).Should().Equal(Enumerable.Range(1, 12));
     }
 
     [Fact]
-    public async Task GenerateRacesForTournamentAsync_ShouldThrowInvalidOperationException_WhenFinalRaceAlreadyHasParticipants()
+    public async Task GenerateFinalRaceAsync_ShouldThrowInvalidOperationException_WhenFinalRaceIsNotScheduled()
     {
         // Arrange
         var tournament = BuildTournament();
+        var preRound = tournament.Rounds.First(r => r.RoundNumber == 1);
+        var finalRound = tournament.Rounds.First(r => r.RoundNumber == 2);
+        
+        var preRaces = new List<Race>
+        {
+            new() { RaceId = 1, RoundId = preRound.RoundId, Name = "Race 1 (Pre)", Status = "Completed" }
+        };
+        var finalRace = new Race { RaceId = 2, RoundId = finalRound.RoundId, Name = "Final Race", Status = "Running" };
 
         _tournamentRepoMock.Setup(r => r.GetByIdWithRoundsAsync(tournament.TournamentId))
             .ReturnsAsync(tournament);
-        _tournamentRepoMock.Setup(r => r.GetRacesByRoundIdAsync(101))
-            .ReturnsAsync(new List<Race> { new() { RaceId = 1, RoundId = 101 } });
-        _tournamentRepoMock.Setup(r => r.GetApprovedRegistrationsAsync(tournament.TournamentId))
-            .ReturnsAsync(new List<Registration> { new() { RegistrationId = 1, HorseId = 1 } });
-        _tournamentRepoMock.Setup(r => r.GetRaceEntriesByRaceIdAsync(1))
-            .ReturnsAsync(new List<RaceEntry> { new() { RegistrationId = 1 } });
-        _tournamentRepoMock.Setup(r => r.GetRacesByRoundIdAsync(102))
-            .ReturnsAsync(new List<Race> { new() { RaceId = 2, RoundId = 102, Name = "Final Race" } });
-        _tournamentRepoMock.Setup(r => r.GetRaceEntriesByRaceIdAsync(2))
-            .ReturnsAsync(new List<RaceEntry> { new() { RaceEntryId = 1, RaceId = 2, RegistrationId = 1 } });
+        _tournamentRepoMock.Setup(r => r.GetRacesByRoundIdAsync(preRound.RoundId))
+            .ReturnsAsync(preRaces);
+        _tournamentRepoMock.Setup(r => r.HasRaceResultsAsync(It.IsAny<IEnumerable<long>>()))
+            .ReturnsAsync(true);
+        _tournamentRepoMock.Setup(r => r.GetRacesByRoundIdAsync(finalRound.RoundId))
+            .ReturnsAsync(new List<Race> { finalRace });
 
         // Act
-        Func<Task> act = async () => await _service.GenerateRacesForTournamentAsync(tournament.TournamentId);
+        Func<Task> act = async () => await _service.GenerateFinalRaceAsync(tournament.TournamentId);
 
         // Assert
         await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("Final race already has participants.");
+            .WithMessage("Cannot generate Final Race because it has already started or completed.");
     }
 
     private static Tournament BuildTournament()
@@ -311,6 +291,20 @@ public class TournamentServiceTests
                 TournamentId = 99,
                 HorseId = i,
                 Status = "Approved"
+            })
+            .ToList();
+    }
+
+    private static List<HorseRacing.Domain.Entities.RaceEntry> BuildPreRoundFinalists(int count)
+    {
+        return Enumerable.Range(1, count)
+            .Select(i => new HorseRacing.Domain.Entities.RaceEntry
+            {
+                RaceEntryId = i,
+                RegistrationId = i,
+                Registration = new Registration { RegistrationId = i, HorseId = i, Horse = new Horse { HorseId = i, AverageTime = 90.0m } },
+                FinishTime = 90.0m + i,
+                FinishPosition = i
             })
             .ToList();
     }

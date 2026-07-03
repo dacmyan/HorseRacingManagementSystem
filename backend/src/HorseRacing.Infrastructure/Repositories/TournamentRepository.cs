@@ -242,4 +242,37 @@ public class TournamentRepository : ITournamentRepository
     {
         return await _context.RaceResults.AnyAsync(rr => raceIds.Contains(rr.RaceId));
     }
+
+    public async Task AddPrizeAsync(HorseRacing.Domain.Entities.Financials.Prize prize)
+    {
+        await _context.Prizes.AddAsync(prize);
+    }
+
+    public async Task ClearRoundsAndRacesAsync(long tournamentId)
+    {
+        var rounds = await _context.Rounds
+            .Where(r => r.TournamentId == tournamentId)
+            .ToListAsync();
+
+        foreach (var round in rounds)
+        {
+            var races = await _context.Races
+                .Where(r => r.RoundId == round.RoundId)
+                .ToListAsync();
+
+            foreach (var race in races)
+            {
+                var entries = await _context.RaceEntries
+                    .Where(re => re.RaceId == race.RaceId)
+                    .ToListAsync();
+
+                _context.RaceEntries.RemoveRange(entries);
+            }
+
+            _context.Races.RemoveRange(races);
+        }
+
+        _context.Rounds.RemoveRange(rounds);
+        await _context.SaveChangesAsync();
+    }
 }
