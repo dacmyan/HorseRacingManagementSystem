@@ -132,7 +132,13 @@ export function AdminTournamentsPage() {
         ? `${t('Tạo giải đấu thành công!')} ID = ${newId}. ${t('Giải đấu đang ở trạng thái Sắp diễn ra (Upcoming).')}`
         : t('Tạo giải đấu thành công!'));
       setForm(INIT_FORM);
+      setShowModal(false);
       loadTournaments();
+      
+      // Auto clear success message after 5 seconds
+      setTimeout(() => {
+        setSuccess('');
+      }, 5000);
     } catch (err: unknown) {
       setError(parseApiError(err as Error));
     } finally {
