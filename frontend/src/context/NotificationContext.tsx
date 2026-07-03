@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { HubConnectionBuilder, HubConnection, LogLevel } from '@microsoft/signalr';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   getNotifications,
   markNotificationRead,
@@ -191,23 +192,31 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       {children}
 
       {/* Floating Animated Toast */}
-      {toast && (
-        <div className="fixed bottom-6 right-6 z-50 max-w-sm glass-panel-elevated rounded-xl p-4 border border-gold-border/40 shadow-2xl flex flex-col gap-1.5 animate-in fade-in slide-in-from-bottom-5 duration-300 bg-[#0d1527]/95">
-          <div className="flex items-center justify-between border-b border-glass-border pb-1.5">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-gold animate-pulse" />
-              <span className="text-xs font-bold text-champagne uppercase tracking-wider">{toast.title}</span>
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.9 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            className="fixed bottom-6 right-6 z-[9999] max-w-sm glass-panel rounded-xl p-4 border border-gold/40 shadow-2xl flex flex-col gap-1.5 bg-[#0d1527]/95 backdrop-blur-md"
+          >
+            <div className="flex items-center justify-between border-b border-glass-border pb-1.5">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-gold animate-pulse" />
+                <span className="text-xs font-bold text-champagne uppercase tracking-wider">{toast.title}</span>
+              </div>
+              <button 
+                onClick={() => setToast(null)}
+                className="text-muted hover:text-white text-[10px] uppercase font-semibold cursor-pointer"
+              >
+                Đóng
+              </button>
             </div>
-            <button 
-              onClick={() => setToast(null)}
-              className="text-muted hover:text-white text-[10px] uppercase font-semibold cursor-pointer"
-            >
-              Đóng
-            </button>
-          </div>
-          <p className="text-xs text-white/90 leading-relaxed font-sans">{toast.content}</p>
-        </div>
-      )}
+            <p className="text-xs text-white/90 leading-relaxed font-sans">{toast.content}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </NotificationContext.Provider>
   );
 };
