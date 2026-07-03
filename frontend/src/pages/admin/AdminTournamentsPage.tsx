@@ -10,6 +10,7 @@ import { getRaceSchedule, getTournaments } from '../../api/publicService';
 import { parseApiError } from '../../api/authService';
 import { formatDateTime } from '../../utils/format';
 import { useLanguage } from '../../context/LanguageContext';
+import { useNotifications } from '../../context/NotificationContext';
 
 type StatusFilter = 'all' | 'upcoming' | 'active' | 'completed';
 
@@ -36,6 +37,7 @@ const INIT_FORM = {
 
 export function AdminTournamentsPage() {
   const { t } = useLanguage();
+  const { showToast } = useNotifications();
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -43,7 +45,6 @@ export function AdminTournamentsPage() {
   const [form, setForm] = useState(INIT_FORM);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
 
   const [tournaments, setTournaments] = useState<any[]>([]);
   const [races, setRaces] = useState<any[]>([]);
@@ -78,7 +79,7 @@ export function AdminTournamentsPage() {
   }
 
   async function handleCreate() {
-    setError(''); setSuccess('');
+    setError('');
     if (!form.name || !form.registrationStartDate || !form.registrationEndDate || !form.startDate || !form.endDate) {
       setError(t('Vui lòng điền đầy đủ tất cả các trường thông tin bắt buộc.'));
       return;
@@ -128,17 +129,12 @@ export function AdminTournamentsPage() {
         prizes: prizes
       });
       const newId = data?.result?.id ?? data?.result?.tournamentId;
-      setSuccess(newId != null
+      showToast(t('Thành công'), newId != null
         ? `${t('Tạo giải đấu thành công!')} ID = ${newId}. ${t('Giải đấu đang ở trạng thái Sắp diễn ra (Upcoming).')}`
         : t('Tạo giải đấu thành công!'));
       setForm(INIT_FORM);
       setShowModal(false);
       loadTournaments();
-      
-      // Auto clear success message after 5 seconds
-      setTimeout(() => {
-        setSuccess('');
-      }, 5000);
     } catch (err: unknown) {
       setError(parseApiError(err as Error));
     } finally {
@@ -148,16 +144,16 @@ export function AdminTournamentsPage() {
 
   function closeModal() {
     setShowModal(false);
-    setError(''); setSuccess('');
+    setError('');
     setForm(INIT_FORM);
   }
 
   async function handleCloseRegistration(tournamentId: number) {
     setGeneratingForTournament(tournamentId);
-    setError(''); setSuccess('');
+    setError('');
     try {
       await closeTournamentRegistration(tournamentId);
-      setSuccess(t('Đã đóng thời hạn đăng ký giải đấu thành công!'));
+      showToast(t('Thành công'), t('Đã đóng thời hạn đăng ký giải đấu thành công!'));
       await loadTournaments();
     } catch (err: unknown) {
       setError(parseApiError(err as Error));
@@ -169,10 +165,9 @@ export function AdminTournamentsPage() {
   async function handleGenerateRaces(tournamentId: number) {
     setGeneratingForTournament(tournamentId);
     setError('');
-    setSuccess('');
     try {
       await generateTournamentRaces(tournamentId);
-      setSuccess(t('Đã tự động sắp xếp cuộc đua cho giải đấu.'));
+      showToast(t('Thành công'), t('Đã tự động sắp xếp cuộc đua cho giải đấu.'));
       await loadTournaments();
     } catch (err: unknown) {
       setError(parseApiError(err as Error));
@@ -184,10 +179,9 @@ export function AdminTournamentsPage() {
   async function handleGenerateFinal(tournamentId: number) {
     setGeneratingForTournament(tournamentId);
     setError('');
-    setSuccess('');
     try {
       await generateFinalRace(tournamentId);
-      setSuccess(t('Đã tự động sắp xếp bảng Chung kết (Top 12) thành công.'));
+      showToast(t('Thành công'), t('Đã tự động sắp xếp bảng Chung kết (Top 12) thành công.'));
       await loadTournaments();
     } catch (err: unknown) {
       setError(parseApiError(err as Error));
@@ -305,9 +299,7 @@ export function AdminTournamentsPage() {
           {!showModal && error && (
             <div className="text-sm px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400">{error}</div>
           )}
-          {!showModal && success && (
-            <div className="text-sm px-4 py-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">{success}</div>
-          )}
+
 
           {/* Tournament Cards */}
           {loadingTournaments ? (
@@ -534,7 +526,6 @@ export function AdminTournamentsPage() {
               </div>
 
               {error && <div className="text-sm px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400">{error}</div>}
-              {success && <div className="text-sm px-4 py-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">{success}</div>}
             </div>
 
             <div className="flex gap-3 mt-6">

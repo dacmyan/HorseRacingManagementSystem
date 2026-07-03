@@ -8,6 +8,7 @@ import { PageAmbience } from '../../components/layout/PageAmbience';
 import { createRegistration, getMyRegistrations, getMyHorses } from '../../api/ownerService';
 import { getTournaments } from '../../api/publicService';
 import { parseApiError } from '../../api/authService';
+import { useNotifications } from '../../context/NotificationContext';
 
 type Tab = 'pending' | 'approved' | 'rejected';
 
@@ -25,6 +26,7 @@ const STATUS_CONFIG = {
 };
 
 export function OwnerRegistrationsPage() {
+  const { showToast } = useNotifications();
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [horses, setHorses] = useState<any[]>([]);
   const [tournaments, setTournaments] = useState<any[]>([]);
@@ -35,7 +37,6 @@ export function OwnerRegistrationsPage() {
   const [form, setForm] = useState({ horseId: '', tournamentId: '' });
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState('');
-  const [submitSuccess, setSubmitSuccess] = useState('');
 
   async function load() {
     setLoading(true); setError('');
@@ -58,7 +59,7 @@ export function OwnerRegistrationsPage() {
   useEffect(() => { load(); }, []);
 
   async function handleSubmit() {
-    setSubmitError(''); setSubmitSuccess('');
+    setSubmitError('');
     if (!form.horseId || !form.tournamentId) {
       setSubmitError('Vui lòng chọn ngựa và giải đấu.');
       return;
@@ -66,8 +67,9 @@ export function OwnerRegistrationsPage() {
     setSubmitLoading(true);
     try {
       await createRegistration({ horseId: Number(form.horseId), tournamentId: Number(form.tournamentId) });
-      setSubmitSuccess('Đăng ký thành công!');
+      setShowModal(false);
       setForm({ horseId: '', tournamentId: '' });
+      showToast('Thành công', 'Đăng ký ngựa thi đấu thành công!');
       load();
     } catch (err: unknown) {
       setSubmitError(parseApiError(err as Error));
@@ -78,7 +80,7 @@ export function OwnerRegistrationsPage() {
 
   function closeModal() {
     setShowModal(false);
-    setSubmitError(''); setSubmitSuccess('');
+    setSubmitError('');
     setForm({ horseId: '', tournamentId: '' });
   }
 
@@ -206,7 +208,6 @@ export function OwnerRegistrationsPage() {
                 )}
               </div>
               {submitError && <div className="text-sm px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400">{submitError}</div>}
-              {submitSuccess && <div className="text-sm px-4 py-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">{submitSuccess}</div>}
             </div>
             <div className="flex gap-3 mt-6">
               <button onClick={closeModal} className="flex-1 py-2.5 rounded-lg border border-glass-border text-muted hover:text-white hover:bg-white/5 text-sm font-medium transition-colors">Hủy</button>

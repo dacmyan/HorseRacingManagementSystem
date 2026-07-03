@@ -8,6 +8,7 @@ import { PageHero } from '../../components/layout/PageHero';
 import { useNavigate } from 'react-router-dom';
 import { getContracts, respondContract, getJockeyStats, getAssignedHorses } from '../../api/jockeyService';
 import { getCurrentUser, parseApiError } from '../../api/authService';
+import { useNotifications } from '../../context/NotificationContext';
 
 const child = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { duration: 0.35 } } };
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.08 } } };
@@ -15,6 +16,7 @@ const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.08 } } };
 export function JockeyDashboardPage() {
   const navigate = useNavigate();
   const user = getCurrentUser();
+  const { showToast } = useNotifications();
 
   const [contracts, setContracts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,8 +57,12 @@ export function JockeyDashboardPage() {
     try {
       await respondContract(id, status);
       setContracts(prev => prev.map(c => c.id === id ? {...c, status} : c));
+      showToast(
+        status === 'Active' ? 'Chấp nhận hợp đồng thành công' : 'Từ chối hợp đồng thành công',
+        `Hợp đồng #${id} đã được xử lý.`
+      );
     } catch (err: unknown) {
-      alert(parseApiError(err as Error));
+      showToast('Thất bại', parseApiError(err as Error));
     } finally {
       setRespondingId(null);
     }

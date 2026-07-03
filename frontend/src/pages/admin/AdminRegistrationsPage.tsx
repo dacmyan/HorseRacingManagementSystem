@@ -6,7 +6,7 @@ import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
 import { getRegistrations, updateRegistrationStatus } from '../../api/adminService';
-
+import { useNotifications } from '../../context/NotificationContext';
 
 type TabType = 'pending' | 'approved' | 'rejected';
 
@@ -28,6 +28,7 @@ interface Registration {
 }
 
 export function AdminRegistrationsPage() {
+  const { showToast } = useNotifications();
   const [tab, setTab] = useState<TabType>('pending');
   const [search, setSearch] = useState('');
   const [registrations, setRegistrations] = useState<Registration[]>([]);
@@ -62,11 +63,14 @@ export function AdminRegistrationsPage() {
     try {
       setProcessingId(registrationId);
       await updateRegistrationStatus(registrationId, status);
-
+      showToast(
+        status === 'Approved' ? 'Duyệt thành công' : 'Từ chối thành công',
+        `Yêu cầu đăng ký #${registrationId} đã được xử lý.`
+      );
       await loadRegistrations();
     } catch (err: any) {
       console.error('Error reviewing registration:', err);
-      alert(err?.message || 'Có lỗi xảy ra khi cập nhật trạng thái');
+      showToast('Thất bại', err?.message || 'Có lỗi xảy ra khi cập nhật trạng thái');
     } finally {
       setProcessingId(null);
     }

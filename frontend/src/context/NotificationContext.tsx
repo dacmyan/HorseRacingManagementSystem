@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { HubConnectionBuilder, HubConnection, LogLevel } from '@microsoft/signalr';
 import {
   getNotifications,
@@ -32,6 +32,7 @@ interface NotificationContextType {
   markAllAsRead: () => Promise<void>;
   deleteNoti: (id: number) => Promise<void>;
   fetchRecent: () => Promise<void>;
+  showToast: (title: string, content: string) => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -50,6 +51,18 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [loading, setLoading] = useState<boolean>(false);
   const [connection, setConnection] = useState<HubConnection | null>(null);
   const [toast, setToast] = useState<{ title: string; content: string } | null>(null);
+  const toastTimerRef = useRef<any>(null);
+
+  const showToast = useCallback((title: string, content: string) => {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+    setToast({ title, content });
+    toastTimerRef.current = setTimeout(() => {
+      setToast(null);
+      toastTimerRef.current = null;
+    }, 5000);
+  }, []);
 
   const user = getCurrentUser();
 
@@ -172,7 +185,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       markAsRead,
       markAllAsRead,
       deleteNoti,
-      fetchRecent
+      fetchRecent,
+      showToast
     }}>
       {children}
 

@@ -8,6 +8,7 @@ import { PageAmbience } from '../../components/layout/PageAmbience';
 import { getMyHorses, createHorse, getHorse, updateHorse, deleteHorse, getOwnerResults } from '../../api/ownerService';
 import { parseApiError } from '../../api/authService';
 import { calculateAge, formatDateOnly } from '../../utils/format';
+import { useNotifications } from '../../context/NotificationContext';
 
 const INPUT = 'w-full bg-navy/50 border border-glass-border rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-muted/60 outline-none focus:border-gold/40 transition-colors';
 const LABEL = 'block text-xs font-bold text-muted uppercase tracking-wider mb-1.5';
@@ -16,6 +17,7 @@ const INIT_CREATE = { name: '', breed: '', age: '', gender: 'Male' };
 const INIT_EDIT   = { name: '', breed: '', age: '', gender: 'Male', healthStatus: '' };
 
 export function OwnerHorsesPage() {
+  const { showToast } = useNotifications();
   const [horses, setHorses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -64,6 +66,7 @@ export function OwnerHorsesPage() {
       await createHorse({ name: createForm.name, breed: createForm.breed, age: createForm.age, gender: createForm.gender });
       setShowCreate(false);
       setCreateForm(INIT_CREATE);
+      showToast('Thành công', 'Đã thêm ngựa mới thành công!');
       loadHorses();
     } catch (err: unknown) {
       setCreateError(parseApiError(err as Error));
@@ -85,6 +88,7 @@ export function OwnerHorsesPage() {
     try {
       await updateHorse(editHorse.id, { name: editForm.name, breed: editForm.breed, age: editForm.age, gender: editForm.gender, healthStatus: editForm.healthStatus });
       setEditHorse(null);
+      showToast('Thành công', 'Đã cập nhật thông tin ngựa thành công!');
       loadHorses();
     } catch (err: unknown) {
       setEditError(parseApiError(err as Error));
@@ -125,8 +129,9 @@ export function OwnerHorsesPage() {
     try {
       await deleteHorse(id);
       setHorses(prev => prev.filter(h => h.id !== id));
+      showToast('Thành công', 'Đã xóa ngựa thành công!');
     } catch (err: unknown) {
-      alert(parseApiError(err as Error));
+      showToast('Thất bại', parseApiError(err as Error));
     } finally {
       setDeletingId(null);
     }
