@@ -65,10 +65,9 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }, 5000);
   }, []);
 
-  const user = getCurrentUser();
-
   const fetchRecent = useCallback(async () => {
-    if (!user) {
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
       setNotifications([]);
       setUnreadCount(0);
       return;
@@ -93,7 +92,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, []);
 
   const markAsRead = async (id: number) => {
     try {
@@ -129,9 +128,12 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   // SignalR setup
+  const user = getCurrentUser();
+  const userId = user?.id || user?.userId || null;
+  const token = localStorage.getItem('token');
+
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!user || !token) {
+    if (!userId || !token) {
       if (connection) {
         connection.stop();
         setConnection(null);
@@ -163,7 +165,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return () => {
       newConnection.stop();
     };
-  }, [user]);
+  }, [userId, token, fetchRecent]);
 
   // Initial load
   useEffect(() => {
