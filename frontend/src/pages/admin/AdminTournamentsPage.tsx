@@ -480,7 +480,7 @@ export function AdminTournamentsPage() {
               <div className="flex-1 h-px bg-gradient-to-r from-gold/30 via-glass-border to-transparent" />
             </div>
 
-            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+            <div className="space-y-4">
               <div>
                 <label className={LABEL}>{t("Tên giải đấu *")}</label>
                 <input value={form.name} onChange={e => set('name', e.target.value)} placeholder={t("VD: Giải Đua Mùa Thu 2026")} className={INPUT} />
