@@ -129,9 +129,9 @@ export function OwnerHorsesPage() {
     try {
       await deleteHorse(id);
       setHorses(prev => prev.filter(h => h.id !== id));
-      showToast('Thành công', 'Đã xóa ngựa thành công!');
+      showToast('Thành công', 'Đã xóa ngựa thành công!', 'success');
     } catch (err: unknown) {
-      showToast('Thất bại', parseApiError(err as Error));
+      showToast('Thất bại', parseApiError(err as Error), 'error');
     } finally {
       setDeletingId(null);
     }

@@ -33,7 +33,7 @@ interface NotificationContextType {
   markAllAsRead: () => Promise<void>;
   deleteNoti: (id: number) => Promise<void>;
   fetchRecent: () => Promise<void>;
-  showToast: (title: string, content: string) => void;
+  showToast: (title: string, content: string, type?: 'success' | 'error' | 'info') => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -51,14 +51,14 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
   const [connection, setConnection] = useState<HubConnection | null>(null);
-  const [toast, setToast] = useState<{ title: string; content: string } | null>(null);
+  const [toast, setToast] = useState<{ title: string; content: string; type: 'success' | 'error' | 'info' } | null>(null);
   const toastTimerRef = useRef<any>(null);
 
-  const showToast = useCallback((title: string, content: string) => {
+  const showToast = useCallback((title: string, content: string, type: 'success' | 'error' | 'info' = 'success') => {
     if (toastTimerRef.current) {
       clearTimeout(toastTimerRef.current);
     }
-    setToast({ title, content });
+    setToast({ title, content, type });
     toastTimerRef.current = setTimeout(() => {
       setToast(null);
       toastTimerRef.current = null;
@@ -149,15 +149,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       .build();
 
     newConnection.on('ReceiveNotification', (noti: NotificationItem) => {
-      // Show dynamic toast alert
-      setToast({ title: noti.title || 'Thông báo mới', content: noti.content || noti.message });
-      
-      // Clear toast after 5s
-      setTimeout(() => {
-        setToast(null);
-      }, 5000);
-
-      // Refresh list
+      showToast(noti.title || 'Thông báo mới', noti.content || noti.message, 'info');
       fetchRecent();
     });
 
@@ -193,29 +185,44 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       {/* Floating Animated Toast */}
       <AnimatePresence>
-        {toast && (
-          <motion.div
-            initial={{ opacity: 0, y: 50, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.9 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="fixed bottom-6 right-6 z-[9999] max-w-sm glass-panel rounded-xl p-4 border border-gold/40 shadow-2xl flex flex-col gap-1.5 bg-[#0d1527]/95 backdrop-blur-md"
-          >
-            <div className="flex items-center justify-between border-b border-glass-border pb-1.5">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-gold animate-pulse" />
-                <span className="text-xs font-bold text-champagne uppercase tracking-wider">{toast.title}</span>
+        {toast && (() => {
+          const styles = toast.type === 'success' ? {
+            border: 'border-emerald-500/40',
+            dot: 'bg-emerald-400',
+            text: 'text-emerald-400'
+          } : toast.type === 'error' ? {
+            border: 'border-red-500/40',
+            dot: 'bg-red-400',
+            text: 'text-red-400'
+          } : {
+            border: 'border-gold/40',
+            dot: 'bg-gold',
+            text: 'text-champagne'
+          };
+          return (
+            <motion.div
+              initial={{ opacity: 0, y: -50, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.9 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className={`fixed top-6 right-6 z-[9999] max-w-sm glass-panel rounded-xl p-4 border ${styles.border} shadow-2xl flex flex-col gap-1.5 bg-[#0d1527]/95 backdrop-blur-md`}
+            >
+              <div className="flex items-center justify-between border-b border-glass-border pb-1.5">
+                <div className="flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full ${styles.dot} animate-pulse`} />
+                  <span className={`text-xs font-bold ${styles.text} uppercase tracking-wider`}>{toast.title}</span>
+                </div>
+                <button 
+                  onClick={() => setToast(null)}
+                  className="text-muted hover:text-white text-[10px] uppercase font-semibold cursor-pointer"
+                >
+                  Đóng
+                </button>
               </div>
-              <button 
-                onClick={() => setToast(null)}
-                className="text-muted hover:text-white text-[10px] uppercase font-semibold cursor-pointer"
-              >
-                Đóng
-              </button>
-            </div>
-            <p className="text-xs text-white/90 leading-relaxed font-sans">{toast.content}</p>
-          </motion.div>
-        )}
+              <p className="text-xs text-white/90 leading-relaxed font-sans">{toast.content}</p>
+            </motion.div>
+          );
+        })()}
       </AnimatePresence>
     </NotificationContext.Provider>
   );

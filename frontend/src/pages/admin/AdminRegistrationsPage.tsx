@@ -65,12 +65,13 @@ export function AdminRegistrationsPage() {
       await updateRegistrationStatus(registrationId, status);
       showToast(
         status === 'Approved' ? 'Duyệt thành công' : 'Từ chối thành công',
-        `Yêu cầu đăng ký #${registrationId} đã được xử lý.`
+        `Yêu cầu đăng ký #${registrationId} đã được xử lý.`,
+        'success'
       );
       await loadRegistrations();
     } catch (err: any) {
       console.error('Error reviewing registration:', err);
-      showToast('Thất bại', err?.message || 'Có lỗi xảy ra khi cập nhật trạng thái');
+      showToast('Thất bại', err?.message || 'Có lỗi xảy ra khi cập nhật trạng thái', 'error');
     } finally {
       setProcessingId(null);
     }

@@ -59,10 +59,11 @@ export function JockeyDashboardPage() {
       setContracts(prev => prev.map(c => c.id === id ? {...c, status} : c));
       showToast(
         status === 'Active' ? 'Chấp nhận hợp đồng thành công' : 'Từ chối hợp đồng thành công',
-        `Hợp đồng #${id} đã được xử lý.`
+        `Hợp đồng #${id} đã được xử lý.`,
+        'success'
       );
     } catch (err: unknown) {
-      showToast('Thất bại', parseApiError(err as Error));
+      showToast('Thất bại', parseApiError(err as Error), 'error');
     } finally {
       setRespondingId(null);
     }
