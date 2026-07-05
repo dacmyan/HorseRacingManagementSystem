@@ -205,6 +205,24 @@ public class OwnerController : ControllerBase
         }
     }
 
+    [HttpGet("jockeys/{jockeyId:int}/check-busy/{tournamentId:long}")]
+    public async Task<IActionResult> CheckJockeyBusy(int jockeyId, long tournamentId, [FromServices] AppDbContext context)
+    {
+        try
+        {
+            var isBusy = await context.JockeyContracts
+                .AnyAsync(jc => jc.JockeyId == jockeyId 
+                    && jc.TournamentId == tournamentId 
+                    && (jc.Status == "Active" || jc.Status == "Accepted"));
+                    
+            return Ok(new { isBusy });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Error checking jockey status", detail = ex.Message });
+        }
+    }
+
     [HttpDelete("jockey-contracts/{id:int}")]
     public async Task<IActionResult> CancelContract(int id)
     {

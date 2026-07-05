@@ -296,7 +296,7 @@ public class AdminController : ControllerBase
                 return NotFound(new { message = $"Tournament with ID {id} was not found." });
             }
 
-            tournament.RegistrationEndDate = DateTime.UtcNow;
+            tournament.RegistrationEndDate = DateTime.Now;
             await context.SaveChangesAsync();
 
             return Ok(new { message = "Registration closed successfully.", result = new { tournamentId = id, registrationEndDate = tournament.RegistrationEndDate } });

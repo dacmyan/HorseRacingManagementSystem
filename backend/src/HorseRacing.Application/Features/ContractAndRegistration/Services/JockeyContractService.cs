@@ -101,6 +101,11 @@ public class JockeyContractService : IJockeyContractService
         {
             throw new ArgumentException($"Tournament with ID {request.TournamentId} not found.");
         }
+        if ((!tournament.RegistrationStartDate.HasValue || tournament.RegistrationStartDate.Value > DateTime.Now) &&
+            (!tournament.StartDate.HasValue || tournament.StartDate.Value > DateTime.Now))
+        {
+            throw new InvalidOperationException("Tournament has not started yet.");
+        }
         if (!tournament.StartDate.HasValue || !tournament.EndDate.HasValue)
         {
             throw new InvalidOperationException("Tournament dates are not configured.");
@@ -182,19 +187,33 @@ public class JockeyContractService : IJockeyContractService
     public async Task<IEnumerable<JockeyContractResponse>> GetContractsForJockeyAsync(int jockeyUserId)
     {
         var contracts = await _contractRepository.GetByJockeyIdAsync(jockeyUserId);
-        return contracts.Select(MapToResponse);
+        var now = DateTime.Now;
+        var filteredContracts = contracts.Where(c => c.Tournament == null || 
+            (c.Tournament.RegistrationStartDate.HasValue && c.Tournament.RegistrationStartDate.Value <= now) || 
+            (c.Tournament.StartDate.HasValue && c.Tournament.StartDate.Value <= now));
+        return filteredContracts.Select(MapToResponse);
     }
 
     public async Task<IEnumerable<JockeyContractResponse>> GetContractsForOwnerAsync(int ownerUserId)
     {
         var contracts = await _contractRepository.GetByOwnerIdAsync(ownerUserId);
-        return contracts.Select(MapToResponse);
+        var now = DateTime.Now;
+        var filteredContracts = contracts.Where(c => c.Tournament == null || 
+            (c.Tournament.RegistrationStartDate.HasValue && c.Tournament.RegistrationStartDate.Value <= now) || 
+            (c.Tournament.StartDate.HasValue && c.Tournament.StartDate.Value <= now));
+        return filteredContracts.Select(MapToResponse);
     }
 
     public async Task<JockeyContractResponse> RespondToContractAsync(int jockeyUserId, int contractId, RespondToContractRequest request)
     {
         var contract = await _contractRepository.GetByIdAsync(contractId);
         if (contract == null)
+        {
+            throw new ArgumentException($"Jockey contract with ID {contractId} not found.");
+        }
+        if (contract.Tournament != null && 
+            (!contract.Tournament.RegistrationStartDate.HasValue || contract.Tournament.RegistrationStartDate.Value > DateTime.Now) && 
+            (!contract.Tournament.StartDate.HasValue || contract.Tournament.StartDate.Value > DateTime.Now))
         {
             throw new ArgumentException($"Jockey contract with ID {contractId} not found.");
         }

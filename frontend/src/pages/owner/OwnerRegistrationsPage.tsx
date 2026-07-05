@@ -91,6 +91,16 @@ export function OwnerRegistrationsPage() {
     rejected: registrations.filter(r => normalizeStatus(r.status) === 'rejected').length,
   };
 
+  const filteredTournamentsForRegister = form.horseId
+    ? tournaments.filter(t => 
+        !registrations.some(r => 
+          String(r.horseId) === String(form.horseId) && 
+          r.tournamentId === t.tournamentId && 
+          normalizeStatus(r.status) !== 'rejected'
+        )
+      )
+    : tournaments;
+
   return (
     <div className="min-h-screen text-body font-sans flex" style={{backgroundColor: '#0b101e'}}>
       <Sidebar />
@@ -184,23 +194,51 @@ export function OwnerRegistrationsPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-muted uppercase tracking-wider mb-1.5">Chọn ngựa *</label>
-                <select value={form.horseId} onChange={e => setForm(p => ({...p, horseId: e.target.value}))}
-                  className="w-full bg-navy/50 border border-glass-border rounded-lg px-4 py-2.5 text-sm text-white outline-none focus:border-gold/40">
+                <select 
+                  value={form.horseId} 
+                  onChange={e => {
+                    const nextHorseId = e.target.value;
+                    setForm(p => {
+                      const isInvalid = p.tournamentId && registrations.some(r => 
+                        String(r.horseId) === String(nextHorseId) && 
+                        String(r.tournamentId) === String(p.tournamentId) &&
+                        normalizeStatus(r.status) !== 'rejected'
+                      );
+                      return {
+                        ...p,
+                        horseId: nextHorseId,
+                        tournamentId: isInvalid ? '' : p.tournamentId
+                      };
+                    });
+                  }}
+                  className="w-full bg-navy/50 border border-glass-border rounded-lg px-4 py-2.5 text-sm text-white outline-none focus:border-gold/40"
+                >
                   <option value="">-- Chọn ngựa --</option>
                   {horses.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-xs font-bold text-muted uppercase tracking-wider mb-1.5">Chọn giải đấu *</label>
-                <select value={form.tournamentId} onChange={e => setForm(p => ({...p, tournamentId: e.target.value}))}
-                  className="w-full bg-navy/50 border border-glass-border rounded-lg px-4 py-2.5 text-sm text-white outline-none focus:border-gold/40">
-                  <option value="">-- Chọn giải đấu --</option>
-                  {tournaments.map(t => (
+                <select 
+                  value={form.tournamentId} 
+                  onChange={e => setForm(p => ({...p, tournamentId: e.target.value}))}
+                  className="w-full bg-navy/50 border border-glass-border rounded-lg px-4 py-2.5 text-sm text-white outline-none focus:border-gold/40"
+                  disabled={!form.horseId}
+                >
+                  <option value="">
+                    {!form.horseId ? '-- Chọn ngựa trước --' : '-- Chọn giải đấu --'}
+                  </option>
+                  {filteredTournamentsForRegister.map(t => (
                     <option key={t.tournamentId} value={t.tournamentId}>
-                      {t.name} #{t.tournamentId}
+                      {t.name}
                     </option>
                   ))}
                 </select>
+                {form.horseId && filteredTournamentsForRegister.length === 0 && (
+                  <div className="text-[11px] text-yellow-400 mt-1.5">
+                    Con ngựa này đã đăng ký tham gia tất cả các giải đấu hiện tại.
+                  </div>
+                )}
                 {tournaments.length === 0 && (
                   <div className="text-[11px] text-yellow-400 mt-1.5">
                     Chưa có giải đấu nào. Admin cần tạo giải đấu trước khi đăng ký ngựa.

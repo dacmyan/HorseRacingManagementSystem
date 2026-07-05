@@ -360,7 +360,6 @@ export function AdminTournamentsPage() {
                       <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${config.color} flex items-center gap-1.5`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${config.dot}`} /> {t(config.label)}
                       </span>
-                      <span className="text-xs text-muted font-medium">ID: {tour.tournamentId}</span>
                     </div>
                     <h3 className="text-lg font-serif text-white font-bold group-hover:text-champagne transition-colors mb-1 line-clamp-1">{tour.name}</h3>
                     <p className="text-xs text-muted/80 line-clamp-2 min-h-[32px] mb-3">{tour.description || t("Chưa có mô tả chi tiết.")}</p>

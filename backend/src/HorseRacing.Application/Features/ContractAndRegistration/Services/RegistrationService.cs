@@ -59,8 +59,13 @@ public class RegistrationService : IRegistrationService
         {
             throw new ArgumentException($"Tournament with ID {request.TournamentId} not found.");
         }
+        if ((!tournament.RegistrationStartDate.HasValue || tournament.RegistrationStartDate.Value > DateTime.Now) &&
+            (!tournament.StartDate.HasValue || tournament.StartDate.Value > DateTime.Now))
+        {
+            throw new InvalidOperationException("Tournament has not started yet.");
+        }
 
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
         if (tournament.RegistrationStartDate.HasValue && now < tournament.RegistrationStartDate.Value)
         {
             throw new InvalidOperationException($"Registration has not started yet. It opens on {tournament.RegistrationStartDate:yyyy-MM-dd HH:mm:ss} UTC.");
@@ -96,7 +101,11 @@ public class RegistrationService : IRegistrationService
     public async Task<IEnumerable<RegistrationResponse>> GetRegistrationsByOwnerAsync(int ownerUserId)
     {
         var regs = await _registrationRepository.GetByOwnerIdAsync(ownerUserId);
-        return regs.Select(MapToResponse);
+        var now = DateTime.Now;
+        var filteredRegs = regs.Where(r => r.Tournament == null || 
+            (r.Tournament.RegistrationStartDate.HasValue && r.Tournament.RegistrationStartDate.Value <= now) || 
+            (r.Tournament.StartDate.HasValue && r.Tournament.StartDate.Value <= now));
+        return filteredRegs.Select(MapToResponse);
     }
 
     public async Task<RegistrationResponse> ReviewRegistrationAsync(long id, ReviewRegistrationRequest request)

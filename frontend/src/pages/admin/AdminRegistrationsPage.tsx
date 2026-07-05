@@ -6,6 +6,7 @@ import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
 import { getRegistrations, updateRegistrationStatus } from '../../api/adminService';
+import { parseApiError } from '../../api/authService';
 import { useNotifications } from '../../context/NotificationContext';
 
 type TabType = 'pending' | 'approved' | 'rejected';
@@ -71,7 +72,7 @@ export function AdminRegistrationsPage() {
       await loadRegistrations();
     } catch (err: any) {
       console.error('Error reviewing registration:', err);
-      showToast('Thất bại', err?.message || 'Có lỗi xảy ra khi cập nhật trạng thái', 'error');
+      showToast('Thất bại', parseApiError(err), 'error');
     } finally {
       setProcessingId(null);
     }

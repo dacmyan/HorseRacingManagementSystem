@@ -21,7 +21,9 @@ public class JockeyContractRepository : IJockeyContractRepository
     {
         return await _context.JockeyContracts
             .Include(jc => jc.Horse)
+                .ThenInclude(h => h.Owner)
             .Include(jc => jc.Jockey)
+            .Include(jc => jc.Tournament)
             .FirstOrDefaultAsync(jc => jc.ContractId == id);
     }
 
@@ -29,6 +31,8 @@ public class JockeyContractRepository : IJockeyContractRepository
     {
         return await _context.JockeyContracts
             .Include(jc => jc.Horse)
+                .ThenInclude(h => h.Owner)
+            .Include(jc => jc.Tournament)
             .Where(jc => jc.JockeyId == jockeyUserId)
             .ToListAsync();
     }
@@ -37,7 +41,9 @@ public class JockeyContractRepository : IJockeyContractRepository
     {
         return await _context.JockeyContracts
             .Include(jc => jc.Horse)
+                .ThenInclude(h => h.Owner)
             .Include(jc => jc.Jockey)
+            .Include(jc => jc.Tournament)
             .Where(jc => jc.Horse != null && jc.Horse.OwnerId == ownerUserId)
             .ToListAsync();
     }

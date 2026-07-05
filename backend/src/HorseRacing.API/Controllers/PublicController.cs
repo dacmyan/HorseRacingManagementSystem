@@ -210,6 +210,27 @@ private readonly IRaceResultService _resultService;
         try
         {
             var schedule = await _raceService.GetPublicRaceScheduleAsync();
+
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+            bool isAdmin = string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase);
+
+            if (!isAdmin)
+            {
+                var now = DateTime.Now;
+                var futureTournamentIds = await _context.Tournaments
+                    .Where(t => 
+                        (!t.RegistrationStartDate.HasValue || t.RegistrationStartDate.Value > now) && 
+                        (!t.StartDate.HasValue || t.StartDate.Value > now)
+                    )
+                    .Select(t => t.TournamentId)
+                    .ToListAsync();
+
+                if (futureTournamentIds.Any())
+                {
+                    schedule = schedule.Where(s => !futureTournamentIds.Contains(s.TournamentId)).ToList();
+                }
+            }
+
             return Ok(new { message = "Public race schedule retrieved successfully", result = schedule });
         }
         catch (Exception)
@@ -222,6 +243,21 @@ private readonly IRaceResultService _resultService;
     [AllowAnonymous]
     public async Task<IActionResult> GetRoundsByTournament(long tournamentId)
     {
+        var tournament = await _tournamentService.GetTournamentByIdAsync(tournamentId);
+        if (tournament == null)
+        {
+            return NotFound(new { message = $"Tournament with ID {tournamentId} was not found." });
+        }
+
+        var role = User.FindFirst(ClaimTypes.Role)?.Value;
+        bool isAdmin = string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase);
+        if (!isAdmin && 
+            (!tournament.RegistrationStartDate.HasValue || tournament.RegistrationStartDate.Value > DateTime.Now) && 
+            (!tournament.StartDate.HasValue || tournament.StartDate.Value > DateTime.Now))
+        {
+            return NotFound(new { message = $"Tournament with ID {tournamentId} was not found." });
+        }
+
         var rounds = await _roundService.GetRoundsByTournamentIdAsync(tournamentId);
         if (rounds == null)
         {
@@ -241,138 +277,229 @@ private readonly IRaceResultService _resultService;
             return NotFound(new { message = $"Round with ID {roundId} was not found." });
         }
 
+        var role = User.FindFirst(ClaimTypes.Role)?.Value;
+        bool isAdmin = string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase);
+        if (!isAdmin)
+        {
+            var tournament = await _context.Tournaments.FindAsync(round.TournamentId);
+            if (tournament != null && 
+                (!tournament.RegistrationStartDate.HasValue || tournament.RegistrationStartDate.Value > DateTime.Now) && 
+                (!tournament.StartDate.HasValue || tournament.StartDate.Value > DateTime.Now))
+            {
+                return NotFound(new { message = $"Round with ID {roundId} was not found." });
+            }
+        }
+
         return Ok(new { message = "Round details retrieved successfully", result = round });
     }
+
     [HttpGet("tournaments")]
-[AllowAnonymous]
-public async Task<IActionResult> GetTournaments()
-{
-    try
+    [AllowAnonymous]
+    public async Task<IActionResult> GetTournaments()
     {
-        var tournaments = await _tournamentService.GetAllTournamentsAsync();
-        
-        var tournamentIds = tournaments.Select(t => t.TournamentId).ToList();
-        var prizes = await _context.Prizes
-            .Where(p => tournamentIds.Contains(p.TournamentId))
-            .ToListAsync();
-
-        var prizesGrouped = prizes.GroupBy(p => p.TournamentId)
-            .ToDictionary(g => g.Key, g => g.ToList());
-
-        var result = tournaments.Select(t => new {
-    t.TournamentId,
-    t.Name,
-    t.StartDate,
-    t.EndDate,
-    t.Status,
-    t.Rounds,
-    Prizes = prizesGrouped.ContainsKey(t.TournamentId)
-        ? prizesGrouped[t.TournamentId].Select(p => (object)new { p.Id, p.RankPosition, p.Amount }).ToList()
-        : new List<object>()
-}).ToList();
-
-        return Ok(new { message = "Tournaments retrieved successfully", result = result });
-    }
-    catch (Exception ex)
-    {
-        return StatusCode(500, new { message = "An error occurred retrieving tournaments", detail = ex.Message });
-    }
-}
-
-[HttpGet("tournaments/{id}")]
-[AllowAnonymous]
-public async Task<IActionResult> GetTournamentDetail(long id)
-{
-    try
-    {
-        var tournament = await _tournamentService.GetTournamentByIdAsync(id);
-        if (tournament == null)
+        try
         {
-            return NotFound(new { message = $"Tournament with ID {id} was not found." });
+            var tournaments = await _tournamentService.GetAllTournamentsAsync();
+            
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+            bool isAdmin = string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase);
+
+            if (!isAdmin)
+            {
+                var now = DateTime.Now;
+                tournaments = tournaments.Where(t => 
+                    (t.RegistrationStartDate.HasValue && t.RegistrationStartDate.Value <= now) || 
+                    (t.StartDate.HasValue && t.StartDate.Value <= now) ||
+                    (!t.RegistrationStartDate.HasValue && !t.StartDate.HasValue)
+                ).ToList();
+            }
+
+            var tournamentIds = tournaments.Select(t => t.TournamentId).ToList();
+            var prizes = await _context.Prizes
+                .Where(p => tournamentIds.Contains(p.TournamentId))
+                .ToListAsync();
+
+            var prizesGrouped = prizes.GroupBy(p => p.TournamentId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            var result = tournaments.Select(t => new {
+                t.TournamentId,
+                t.Name,
+                t.RegistrationStartDate,
+                t.RegistrationEndDate,
+                t.StartDate,
+                t.EndDate,
+                t.Status,
+                t.Rounds,
+                Prizes = prizesGrouped.ContainsKey(t.TournamentId)
+                    ? prizesGrouped[t.TournamentId].Select(p => (object)new { p.Id, p.RankPosition, p.Amount }).ToList()
+                    : new List<object>()
+            }).ToList();
+
+            return Ok(new { message = "Tournaments retrieved successfully", result = result });
         }
-
-        var prizes = await _context.Prizes
-            .Where(p => p.TournamentId == id)
-            .Select(p => new { p.Id, p.RankPosition, p.Amount })
-            .ToListAsync();
-
-        var result = new {
-            tournament.TournamentId,
-            tournament.Name,
-            tournament.StartDate,
-            tournament.EndDate,
-            tournament.Status,
-            tournament.Rounds,
-            Prizes = prizes
-        };
-
-        return Ok(new { message = "Tournament details retrieved successfully", result = result });
-    }
-    catch (Exception ex)
-    {
-        return StatusCode(500, new { message = "An error occurred retrieving tournament details", detail = ex.Message });
-    }
-}
-
-[HttpGet("races/{id}")]
-[AllowAnonymous]
-public async Task<IActionResult> GetRaceDetail(long id)
-{
-    try
-    {
-        var race = await _raceService.GetRaceByIdAsync(id);
-        if (race == null)
+        catch (Exception ex)
         {
-            return NotFound(new { message = $"Race with ID {id} was not found." });
+            return StatusCode(500, new { message = "An error occurred retrieving tournaments", detail = ex.Message });
         }
-
-        return Ok(new { message = "Race details retrieved successfully", result = race });
     }
-    catch (Exception ex)
-    {
-        return StatusCode(500, new { message = "An error occurred retrieving race details", detail = ex.Message });
-    }
-}
 
-[HttpGet("races/{raceId}/entries")]
-[AllowAnonymous]
-public async Task<IActionResult> GetRaceEntries(long raceId)
-{
-    try
+    [HttpGet("tournaments/{id}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetTournamentDetail(long id)
     {
-        var entries = await _raceService.GetRaceEntriesByRaceIdAsync(raceId);
-        if (entries == null)
+        try
         {
-            return NotFound(new { message = $"Race with ID {raceId} was not found." });
+            var tournament = await _tournamentService.GetTournamentByIdAsync(id);
+            if (tournament == null)
+            {
+                return NotFound(new { message = $"Tournament with ID {id} was not found." });
+            }
+
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+            bool isAdmin = string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase);
+            if (!isAdmin && 
+                (!tournament.RegistrationStartDate.HasValue || tournament.RegistrationStartDate.Value > DateTime.Now) && 
+                (!tournament.StartDate.HasValue || tournament.StartDate.Value > DateTime.Now))
+            {
+                return NotFound(new { message = $"Tournament with ID {id} was not found." });
+            }
+
+            var prizes = await _context.Prizes
+                .Where(p => p.TournamentId == id)
+                .Select(p => new { p.Id, p.RankPosition, p.Amount })
+                .ToListAsync();
+
+            var result = new {
+                tournament.TournamentId,
+                tournament.Name,
+                tournament.RegistrationStartDate,
+                tournament.RegistrationEndDate,
+                tournament.StartDate,
+                tournament.EndDate,
+                tournament.Status,
+                tournament.Rounds,
+                Prizes = prizes
+            };
+
+            return Ok(new { message = "Tournament details retrieved successfully", result = result });
         }
-
-        return Ok(new { message = "Race entries retrieved successfully", result = entries });
-    }
-    catch (Exception ex)
-    {
-        return StatusCode(500, new { message = "An error occurred retrieving race entries", detail = ex.Message });
-    }
-}
-
-[HttpGet("races/{raceId}/results")]
-[AllowAnonymous]
-public async Task<IActionResult> GetRaceResults(long raceId)
-{
-    try
-    {
-        var response = await _resultService.GetPublicResultsByRaceIdAsync(raceId);
-        if (response == null)
+        catch (Exception ex)
         {
-            return NotFound(new { message = $"Race with ID {raceId} was not found." });
+            return StatusCode(500, new { message = "An error occurred retrieving tournament details", detail = ex.Message });
         }
+    }
 
-        return Ok(new { message = "Race results retrieved successfully", result = response });
-    }
-    catch (Exception ex)
+    [HttpGet("races/{id}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetRaceDetail(long id)
     {
-        return StatusCode(500, new { message = "An error occurred retrieving race results", detail = ex.Message });
+        try
+        {
+            var race = await _raceService.GetRaceByIdAsync(id);
+            if (race == null)
+            {
+                return NotFound(new { message = $"Race with ID {id} was not found." });
+            }
+
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+            bool isAdmin = string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase);
+            if (!isAdmin)
+            {
+                var tournament = await _context.Tournaments.FindAsync(race.TournamentId);
+                if (tournament != null && 
+                    (!tournament.RegistrationStartDate.HasValue || tournament.RegistrationStartDate.Value > DateTime.Now) && 
+                    (!tournament.StartDate.HasValue || tournament.StartDate.Value > DateTime.Now))
+                {
+                    return NotFound(new { message = $"Race with ID {id} was not found." });
+                }
+            }
+
+            return Ok(new { message = "Race details retrieved successfully", result = race });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving race details", detail = ex.Message });
+        }
     }
-}
+
+    [HttpGet("races/{raceId}/entries")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetRaceEntries(long raceId)
+    {
+        try
+        {
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+            bool isAdmin = string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase);
+            if (!isAdmin)
+            {
+                var race = await _context.Races
+                    .Include(r => r.Round)
+                    .FirstOrDefaultAsync(r => r.RaceId == raceId);
+                if (race != null && race.Round != null)
+                {
+                    var tournament = await _context.Tournaments.FindAsync(race.Round.TournamentId);
+                    if (tournament != null && 
+                        (!tournament.RegistrationStartDate.HasValue || tournament.RegistrationStartDate.Value > DateTime.Now) && 
+                        (!tournament.StartDate.HasValue || tournament.StartDate.Value > DateTime.Now))
+                    {
+                        return NotFound(new { message = $"Race with ID {raceId} was not found." });
+                    }
+                }
+            }
+
+            var entries = await _raceService.GetRaceEntriesByRaceIdAsync(raceId);
+            if (entries == null)
+            {
+                return NotFound(new { message = $"Race with ID {raceId} was not found." });
+            }
+
+            return Ok(new { message = "Race entries retrieved successfully", result = entries });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving race entries", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("races/{raceId}/results")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetRaceResults(long raceId)
+    {
+        try
+        {
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+            bool isAdmin = string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase);
+            if (!isAdmin)
+            {
+                var race = await _context.Races
+                    .Include(r => r.Round)
+                    .FirstOrDefaultAsync(r => r.RaceId == raceId);
+                if (race != null && race.Round != null)
+                {
+                    var tournament = await _context.Tournaments.FindAsync(race.Round.TournamentId);
+                    if (tournament != null && 
+                        (!tournament.RegistrationStartDate.HasValue || tournament.RegistrationStartDate.Value > DateTime.Now) && 
+                        (!tournament.StartDate.HasValue || tournament.StartDate.Value > DateTime.Now))
+                    {
+                        return NotFound(new { message = $"Race with ID {raceId} was not found." });
+                    }
+                }
+            }
+
+            var response = await _resultService.GetPublicResultsByRaceIdAsync(raceId);
+            if (response == null)
+            {
+                return NotFound(new { message = $"Race with ID {raceId} was not found." });
+            }
+
+            return Ok(new { message = "Race results retrieved successfully", result = response });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving race results", detail = ex.Message });
+        }
+    }
 
 [HttpGet("races/live")]
 [AllowAnonymous]

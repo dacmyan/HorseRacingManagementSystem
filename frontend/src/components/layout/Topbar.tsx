@@ -57,7 +57,11 @@ export function Topbar() {
     if (!dateStr) return '';
     try {
       const now = new Date();
-      const past = new Date(dateStr);
+      let adjustedDateStr = dateStr;
+      if (typeof adjustedDateStr === 'string' && !adjustedDateStr.endsWith('Z') && !adjustedDateStr.includes('+')) {
+        adjustedDateStr = adjustedDateStr + 'Z';
+      }
+      const past = new Date(adjustedDateStr);
       const diffMs = now.getTime() - past.getTime();
       const diffMins = Math.floor(diffMs / 60000);
       const diffHours = Math.floor(diffMins / 60);

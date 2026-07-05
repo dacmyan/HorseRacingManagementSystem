@@ -7,6 +7,8 @@ import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
 import { getRoles, createAccount, getAccounts, updateUserStatus } from '../../api/adminService';
 import { parseApiError } from '../../api/authService';
+import { useNotifications } from '../../context/NotificationContext';
+import { formatDateTime, formatUtcDateTime } from '../../utils/format';
 
 type RoleFilter = 'all' | 'owner' | 'jockey' | 'referee' | 'spectator' | 'admin';
 
@@ -20,6 +22,7 @@ const INPUT = 'w-full bg-navy/50 border border-glass-border rounded-lg px-4 py-2
 const LABEL = 'block text-xs font-bold text-muted uppercase tracking-wider mb-1.5';
 
 export function AdminUsersPage() {
+  const { showToast } = useNotifications();
   const [filter, setFilter] = useState<RoleFilter>('all');
   const [search, setSearch] = useState('');
 
@@ -101,8 +104,8 @@ export function AdminUsersPage() {
       }
       const data: any = await createAccount(body);
       const newId = data?.result?.id ?? data?.result?.accountId ?? data?.result?.user?.id;
-      setSuccess(newId != null ? `Đã tạo tài khoản thành công! ID = ${newId}` : 'Tạo tài khoản thành công!');
-      setForm(INIT_FORM);
+      showToast('Thành công', newId != null ? `Đã tạo tài khoản thành công! ID = ${newId}` : 'Tạo tài khoản thành công!');
+      closeModal();
       fetchAccounts();
     } catch (err: unknown) {
       setError(parseApiError(err as Error));
@@ -216,7 +219,6 @@ export function AdminUsersPage() {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-glass-border text-xs text-muted uppercase font-bold tracking-wider">
-                      <th className="py-4 px-6">ID</th>
                       <th className="py-4 px-6">Họ và tên</th>
                       <th className="py-4 px-6">Email</th>
                       <th className="py-4 px-6">Vai trò</th>
@@ -228,7 +230,6 @@ export function AdminUsersPage() {
                   <tbody className="divide-y divide-glass-border/30 text-sm">
                     {filteredAccounts.map((user) => (
                       <tr key={user.userId} className="hover:bg-white/[0.02] transition-colors">
-                        <td className="py-4 px-6 text-muted font-mono">#{user.userId}</td>
                         <td className="py-4 px-6 font-semibold text-white">{user.fullName}</td>
                         <td className="py-4 px-6 text-muted">{user.email}</td>
                         <td className="py-4 px-6">
@@ -251,13 +252,7 @@ export function AdminUsersPage() {
                           </span>
                         </td>
                         <td className="py-4 px-6 text-muted">
-                          {new Date(user.createdAt).toLocaleDateString('vi-VN', {
-                            year: 'numeric',
-                            month: '2-digit',
-                            day: '2-digit',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
+                          {formatUtcDateTime(user.createdAt)}
                         </td>
                         <td className="py-4 px-6 text-right">
                           <button

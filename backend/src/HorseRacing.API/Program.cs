@@ -90,9 +90,6 @@ using (var scope = app.Services.CreateScope())
         var dataSeeder = services.GetRequiredService<DataSeeder>();
         await dataSeeder.SeedAsync();
 
-        logger.LogInformation("Seeding demo data...");
-        var demoSeeder = services.GetRequiredService<DemoDataSeeder>();
-        await demoSeeder.SeedAsync();
     }
     catch (Exception ex)
     {

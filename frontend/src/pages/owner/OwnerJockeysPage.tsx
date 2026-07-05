@@ -5,9 +5,10 @@ import { Sidebar } from '../../components/layout/Sidebar';
 import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
-import { getMyProposals, createJockeyContract, getMyHorses, cancelJockeyContract } from '../../api/ownerService';
+import { getMyProposals, createJockeyContract, getMyHorses, cancelJockeyContract, getMyRegistrations, checkJockeyBusy } from '../../api/ownerService';
 import { getJockeyRankings, getTournaments } from '../../api/publicService';
 import { parseApiError } from '../../api/authService';
+import { useNotifications } from '../../context/NotificationContext';
 
 const STATUS_CFG: Record<string, { label: string; color: string; Icon: typeof Clock }> = {
   Active:   { label: 'Đã xác nhận',  color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', Icon: CheckCircle },
@@ -29,7 +30,10 @@ const toDateInputValue = (value?: string) => {
   if (!value) return '';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  return date.toISOString().slice(0, 10);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 };
 
 const formatDate = (value?: string) => {
@@ -40,10 +44,12 @@ const formatDate = (value?: string) => {
 };
 
 export function OwnerJockeysPage() {
+  const { showToast } = useNotifications();
   const [proposals, setProposals] = useState<any[]>([]);
   const [horses, setHorses] = useState<any[]>([]);
   const [jockeys, setJockeys] = useState<any[]>([]);
   const [tournaments, setTournaments] = useState<any[]>([]);
+  const [registrations, setRegistrations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showInvite, setShowInvite] = useState(false);
@@ -55,11 +61,12 @@ export function OwnerJockeysPage() {
   async function load() {
     setLoading(true); setError('');
     try {
-      const [propData, horseData, jockeyData, tournamentData] = await Promise.all([
+      const [propData, horseData, jockeyData, tournamentData, regData] = await Promise.all([
         getMyProposals(),
         getMyHorses(),
         getJockeyRankings(),
         getTournaments(),
+        getMyRegistrations().catch(() => ({ result: [] })),
       ]);
       setProposals(propData?.result ?? (Array.isArray(propData) ? propData : []));
       setHorses(horseData?.result ?? (Array.isArray(horseData) ? horseData : []));
@@ -72,6 +79,7 @@ export function OwnerJockeysPage() {
         email: j.email ?? j.Email,
       })));
       setTournaments(tournamentData?.result ?? (Array.isArray(tournamentData) ? tournamentData : []));
+      setRegistrations(regData?.result ?? (Array.isArray(regData) ? regData : []));
     } catch (err: unknown) {
       setError(parseApiError(err as Error));
     } finally {
@@ -119,8 +127,8 @@ export function OwnerJockeysPage() {
         rentalFee: rentalFeeVal,
         winningBonusPercentage: Number(form.winningBonusPercentage || 0),
       });
-      setSubmitSuccess('Gửi lời mời thành công!');
-      setForm(INIT_FORM);
+      closeInvite();
+      showToast('Thành công', 'Gửi lời mời Jockey thành công!', 'success');
       load();
     } catch (err: unknown) {
       setSubmitError(parseApiError(err as Error));
@@ -140,15 +148,41 @@ export function OwnerJockeysPage() {
     }
   }
 
+  const [jockeyBusyError, setJockeyBusyError] = useState('');
+
+  useEffect(() => {
+    if (form.jockeyId && form.tournamentId) {
+      setJockeyBusyError('');
+      checkJockeyBusy(Number(form.jockeyId), Number(form.tournamentId))
+        .then((res: any) => {
+          if (res?.result?.isBusy || res?.isBusy) {
+            setJockeyBusyError('This jockey is already contracted to another horse in this tournament.');
+          }
+        })
+        .catch(() => {
+          setJockeyBusyError('');
+        });
+    } else {
+      setJockeyBusyError('');
+    }
+  }, [form.jockeyId, form.tournamentId]);
+
   function closeInvite() {
     setShowInvite(false);
     setSubmitError(''); setSubmitSuccess('');
+    setJockeyBusyError('');
     setForm(INIT_FORM);
   }
 
   const selectedInviteTournament = tournaments.find((t: any) => String(t.tournamentId) === String(form.tournamentId));
   const inviteMinDate = toDateInputValue(selectedInviteTournament?.startDate);
   const inviteMaxDate = toDateInputValue(selectedInviteTournament?.endDate);
+
+  const filteredTournamentsForSelect = form.horseId
+    ? tournaments.filter((t: any) => 
+        registrations.some((r: any) => String(r.horseId) === String(form.horseId) && r.tournamentId === t.tournamentId)
+      )
+    : [];
 
   return (
     <div className="min-h-screen text-body font-sans flex" style={{backgroundColor: '#0b101e'}}>
@@ -247,7 +281,7 @@ export function OwnerJockeysPage() {
             <div className="space-y-4">
               <div>
                 <label className={LABEL}>Chọn ngựa *</label>
-                <select value={form.horseId} onChange={e => setForm(p => ({...p, horseId: e.target.value}))} className={INPUT}>
+                <select value={form.horseId} onChange={e => setForm(p => ({...p, horseId: e.target.value, tournamentId: '', startDate: '', endDate: ''}))} className={INPUT}>
                   <option value="">-- Chọn ngựa của bạn --</option>
                   {horses.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
                 </select>
@@ -265,18 +299,41 @@ export function OwnerJockeysPage() {
                   ))}
                 </select>
                 {jockeys.length === 0 && <p className="text-[10px] text-muted/60 mt-1">Danh sách jockey đang tải hoặc trống.</p>}
+                {jockeyBusyError && (
+                  <p className="text-[11px] text-red-400 mt-1.5 font-medium">
+                    {jockeyBusyError}
+                  </p>
+                )}
               </div>
               <div>
                 <label className={LABEL}>Chọn giải đấu *</label>
-                <select value={form.tournamentId} onChange={e => setForm(p => ({...p, tournamentId: e.target.value, startDate: '', endDate: ''}))} className={INPUT}>
-                  <option value="">-- Chọn giải đấu --</option>
-                  {tournaments.map(t => (
+                <select 
+                  value={form.tournamentId} 
+                  onChange={e => {
+                    const tId = e.target.value;
+                    const selected = tournaments.find((t: any) => String(t.tournamentId) === String(tId));
+                    setForm(p => ({
+                      ...p, 
+                      tournamentId: tId, 
+                      startDate: selected ? toDateInputValue(selected.startDate) : '', 
+                      endDate: selected ? toDateInputValue(selected.endDate) : ''
+                    }));
+                  }} 
+                  className={INPUT}
+                  disabled={!form.horseId}
+                >
+                  <option value="">
+                    {!form.horseId ? '-- Chọn ngựa trước --' : '-- Chọn giải đấu --'}
+                  </option>
+                  {filteredTournamentsForSelect.map(t => (
                     <option key={t.tournamentId} value={t.tournamentId}>
-                      {t.name} #{t.tournamentId}
+                      {t.name}
                     </option>
                   ))}
                 </select>
-                {tournaments.length === 0 && <p className="text-[10px] text-yellow-400 mt-1">Chưa có giải đấu nào — Admin cần tạo giải đấu trước.</p>}
+                {form.horseId && filteredTournamentsForSelect.length === 0 && (
+                  <p className="text-[10px] text-yellow-400 mt-1">Con ngựa này chưa đăng ký tham gia giải đấu nào.</p>
+                )}
                 {selectedInviteTournament?.startDate && selectedInviteTournament?.endDate && (
                   <p className="text-[10px] text-muted/70 mt-1">
                     Thời gian giải: {formatDate(selectedInviteTournament.startDate)} - {formatDate(selectedInviteTournament.endDate)}
@@ -285,12 +342,12 @@ export function OwnerJockeysPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className={LABEL}>Ngày bắt đầu *</label>
-                  <input type="date" value={form.startDate} min={inviteMinDate} max={inviteMaxDate} onChange={e => setForm(p => ({...p, startDate: e.target.value}))} className={INPUT} style={{colorScheme:'dark'}} />
+                  <label className={LABEL}>Ngày bắt đầu</label>
+                  <input type="date" value={form.startDate} disabled className={`${INPUT} opacity-60 cursor-not-allowed`} style={{colorScheme:'dark'}} />
                 </div>
                 <div>
-                  <label className={LABEL}>Ngày kết thúc *</label>
-                  <input type="date" value={form.endDate} min={form.startDate || inviteMinDate} max={inviteMaxDate} onChange={e => setForm(p => ({...p, endDate: e.target.value}))} className={INPUT} style={{colorScheme:'dark'}} />
+                  <label className={LABEL}>Ngày kết thúc</label>
+                  <input type="date" value={form.endDate} disabled className={`${INPUT} opacity-60 cursor-not-allowed`} style={{colorScheme:'dark'}} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -312,7 +369,7 @@ export function OwnerJockeysPage() {
             </div>
             <div className="flex gap-3 mt-6">
               <button onClick={closeInvite} className="flex-1 py-2.5 rounded-lg border border-glass-border text-muted hover:text-white hover:bg-white/5 text-sm font-medium transition-colors">Hủy</button>
-              <button onClick={handleInvite} disabled={submitLoading} className="flex-1 btn-gold py-2.5 rounded-lg text-sm font-bold disabled:opacity-60">
+              <button onClick={handleInvite} disabled={submitLoading || !!jockeyBusyError} className="flex-1 btn-gold py-2.5 rounded-lg text-sm font-bold disabled:opacity-60">
                 {submitLoading ? 'Đang gửi…' : 'Gửi lời mời'}
               </button>
             </div>

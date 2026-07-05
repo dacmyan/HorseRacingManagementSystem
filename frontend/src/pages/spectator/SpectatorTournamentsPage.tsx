@@ -81,10 +81,17 @@ export function SpectatorTournamentsPage() {
                       <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${config.color} flex items-center gap-1.5`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${config.dot}`} /> {t(config.label)}
                       </span>
-                      <span className="text-xs text-muted font-medium">ID: {tour.tournamentId}</span>
                     </div>
                     <h3 className="text-lg font-serif text-white font-bold group-hover:text-champagne transition-colors mb-3 line-clamp-1">{tour.name}</h3>
                     <div className="space-y-1.5 text-xs text-muted pt-3 border-t border-glass-border/40">
+                      <div className="flex justify-between">
+                        <span>{t("Mở đăng ký:")}</span>
+                        <span className="text-white font-medium">{formatDateTime(tour.registrationStartDate)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>{t("Đóng đăng ký:")}</span>
+                        <span className="text-white font-medium">{formatDateTime(tour.registrationEndDate)}</span>
+                      </div>
                       <div className="flex justify-between">
                         <span>{t("Ngày bắt đầu:")}</span>
                         <span className="text-white font-medium">{formatDateTime(tour.startDate)}</span>

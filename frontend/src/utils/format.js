@@ -18,6 +18,7 @@ export function formatCurrencyVND(value) {
 }
 
 export function formatDate(date) {
+  if (!date) return "—";
   return new Intl.DateTimeFormat('vi-VN', {
     dateStyle: 'medium',
     timeStyle: 'short',
@@ -27,6 +28,36 @@ export function formatDate(date) {
 export function formatDateTime(value) {
   if (!value) return "—";
   const date = new Date(value);
+  if (isNaN(date.getTime())) return "—";
+  
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  
+  return `${day}/${month}/${year} ${hours}:${minutes}`;
+}
+
+export function formatUtcDate(date) {
+  if (!date) return "—";
+  let dateStr = date;
+  if (typeof dateStr === 'string' && !dateStr.endsWith('Z') && !dateStr.includes('+')) {
+    dateStr = dateStr + 'Z';
+  }
+  return new Intl.DateTimeFormat('vi-VN', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(dateStr));
+}
+
+export function formatUtcDateTime(value) {
+  if (!value) return "—";
+  let dateStr = value;
+  if (typeof dateStr === 'string' && !dateStr.endsWith('Z') && !dateStr.includes('+')) {
+    dateStr = dateStr + 'Z';
+  }
+  const date = new Date(dateStr);
   if (isNaN(date.getTime())) return "—";
   
   const day = String(date.getDate()).padStart(2, '0');
