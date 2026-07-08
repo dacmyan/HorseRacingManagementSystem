@@ -14,6 +14,8 @@ namespace HorseRacing.Application.Features.ContractAndRegistration.Services;
 
 public class JockeyContractService : IJockeyContractService
 {
+    private static DateTime VietnamNow => TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
+
     private readonly IJockeyContractRepository _contractRepository;
     private readonly IHorseRepository _horseRepository;
     private readonly IUserRepository _userRepository;
@@ -99,8 +101,8 @@ public class JockeyContractService : IJockeyContractService
         {
             throw new ArgumentException($"Tournament with ID {request.TournamentId} not found.");
         }
-        if ((!tournament.RegistrationStartDate.HasValue || tournament.RegistrationStartDate.Value > DateTime.Now) &&
-            (!tournament.StartDate.HasValue || tournament.StartDate.Value > DateTime.Now))
+        if ((!tournament.RegistrationStartDate.HasValue || tournament.RegistrationStartDate.Value > VietnamNow) &&
+            (!tournament.StartDate.HasValue || tournament.StartDate.Value > VietnamNow))
         {
             throw new InvalidOperationException("Tournament has not started yet.");
         }
@@ -181,7 +183,7 @@ public class JockeyContractService : IJockeyContractService
     public async Task<IEnumerable<JockeyContractResponse>> GetContractsForJockeyAsync(int jockeyUserId)
     {
         var contracts = await _contractRepository.GetByJockeyIdAsync(jockeyUserId);
-        var now = DateTime.Now;
+        var now = VietnamNow;
         var filteredContracts = contracts.Where(c => c.Tournament == null || 
             (c.Tournament.RegistrationStartDate.HasValue && c.Tournament.RegistrationStartDate.Value <= now) || 
             (c.Tournament.StartDate.HasValue && c.Tournament.StartDate.Value <= now));
@@ -191,7 +193,7 @@ public class JockeyContractService : IJockeyContractService
     public async Task<IEnumerable<JockeyContractResponse>> GetContractsForOwnerAsync(int ownerUserId)
     {
         var contracts = await _contractRepository.GetByOwnerIdAsync(ownerUserId);
-        var now = DateTime.Now;
+        var now = VietnamNow;
         var filteredContracts = contracts.Where(c => c.Tournament == null || 
             (c.Tournament.RegistrationStartDate.HasValue && c.Tournament.RegistrationStartDate.Value <= now) || 
             (c.Tournament.StartDate.HasValue && c.Tournament.StartDate.Value <= now));
@@ -206,8 +208,8 @@ public class JockeyContractService : IJockeyContractService
             throw new ArgumentException($"Jockey contract with ID {contractId} not found.");
         }
         if (contract.Tournament != null && 
-            (!contract.Tournament.RegistrationStartDate.HasValue || contract.Tournament.RegistrationStartDate.Value > DateTime.Now) && 
-            (!contract.Tournament.StartDate.HasValue || contract.Tournament.StartDate.Value > DateTime.Now))
+            (!contract.Tournament.RegistrationStartDate.HasValue || contract.Tournament.RegistrationStartDate.Value > VietnamNow) && 
+            (!contract.Tournament.StartDate.HasValue || contract.Tournament.StartDate.Value > VietnamNow))
         {
             throw new ArgumentException($"Jockey contract with ID {contractId} not found.");
         }

@@ -21,6 +21,8 @@ namespace HorseRacing.API.Controllers;
 [Route("api/[controller]")]
 public class PublicController : ControllerBase
 {
+    private static DateTime VietnamNow => TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
+
 private readonly AppDbContext _context;
 private readonly INotificationService _notificationService;
 private readonly IRaceService _raceService;
@@ -216,7 +218,7 @@ private readonly IRaceResultService _resultService;
 
             if (!isAdmin)
             {
-                var now = DateTime.Now;
+                var now = VietnamNow;
                 var futureTournamentIds = await _context.Tournaments
                     .Where(t => 
                         (!t.RegistrationStartDate.HasValue || t.RegistrationStartDate.Value > now) && 
@@ -252,8 +254,8 @@ private readonly IRaceResultService _resultService;
         var role = User.FindFirst(ClaimTypes.Role)?.Value;
         bool isAdmin = string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase);
         if (!isAdmin && 
-            (!tournament.RegistrationStartDate.HasValue || tournament.RegistrationStartDate.Value > DateTime.Now) && 
-            (!tournament.StartDate.HasValue || tournament.StartDate.Value > DateTime.Now))
+            (!tournament.RegistrationStartDate.HasValue || tournament.RegistrationStartDate.Value > VietnamNow) && 
+            (!tournament.StartDate.HasValue || tournament.StartDate.Value > VietnamNow))
         {
             return NotFound(new { message = $"Tournament with ID {tournamentId} was not found." });
         }
@@ -283,8 +285,8 @@ private readonly IRaceResultService _resultService;
         {
             var tournament = await _context.Tournaments.FindAsync(round.TournamentId);
             if (tournament != null && 
-                (!tournament.RegistrationStartDate.HasValue || tournament.RegistrationStartDate.Value > DateTime.Now) && 
-                (!tournament.StartDate.HasValue || tournament.StartDate.Value > DateTime.Now))
+                (!tournament.RegistrationStartDate.HasValue || tournament.RegistrationStartDate.Value > VietnamNow) && 
+                (!tournament.StartDate.HasValue || tournament.StartDate.Value > VietnamNow))
             {
                 return NotFound(new { message = $"Round with ID {roundId} was not found." });
             }
@@ -306,7 +308,7 @@ private readonly IRaceResultService _resultService;
 
             if (!isAdmin)
             {
-                var now = DateTime.Now;
+                var now = VietnamNow;
                 tournaments = tournaments.Where(t => 
                     (t.RegistrationStartDate.HasValue && t.RegistrationStartDate.Value <= now) || 
                     (t.StartDate.HasValue && t.StartDate.Value <= now) ||
@@ -359,8 +361,8 @@ private readonly IRaceResultService _resultService;
             var role = User.FindFirst(ClaimTypes.Role)?.Value;
             bool isAdmin = string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase);
             if (!isAdmin && 
-                (!tournament.RegistrationStartDate.HasValue || tournament.RegistrationStartDate.Value > DateTime.Now) && 
-                (!tournament.StartDate.HasValue || tournament.StartDate.Value > DateTime.Now))
+                (!tournament.RegistrationStartDate.HasValue || tournament.RegistrationStartDate.Value > VietnamNow) && 
+                (!tournament.StartDate.HasValue || tournament.StartDate.Value > VietnamNow))
             {
                 return NotFound(new { message = $"Tournament with ID {id} was not found." });
             }
@@ -408,8 +410,8 @@ private readonly IRaceResultService _resultService;
             {
                 var tournament = await _context.Tournaments.FindAsync(race.TournamentId);
                 if (tournament != null && 
-                    (!tournament.RegistrationStartDate.HasValue || tournament.RegistrationStartDate.Value > DateTime.Now) && 
-                    (!tournament.StartDate.HasValue || tournament.StartDate.Value > DateTime.Now))
+                    (!tournament.RegistrationStartDate.HasValue || tournament.RegistrationStartDate.Value > VietnamNow) && 
+                    (!tournament.StartDate.HasValue || tournament.StartDate.Value > VietnamNow))
                 {
                     return NotFound(new { message = $"Race with ID {id} was not found." });
                 }
@@ -440,8 +442,8 @@ private readonly IRaceResultService _resultService;
                 {
                     var tournament = await _context.Tournaments.FindAsync(race.Round.TournamentId);
                     if (tournament != null && 
-                        (!tournament.RegistrationStartDate.HasValue || tournament.RegistrationStartDate.Value > DateTime.Now) && 
-                        (!tournament.StartDate.HasValue || tournament.StartDate.Value > DateTime.Now))
+                        (!tournament.RegistrationStartDate.HasValue || tournament.RegistrationStartDate.Value > VietnamNow) && 
+                        (!tournament.StartDate.HasValue || tournament.StartDate.Value > VietnamNow))
                     {
                         return NotFound(new { message = $"Race with ID {raceId} was not found." });
                     }
@@ -479,8 +481,8 @@ private readonly IRaceResultService _resultService;
                 {
                     var tournament = await _context.Tournaments.FindAsync(race.Round.TournamentId);
                     if (tournament != null && 
-                        (!tournament.RegistrationStartDate.HasValue || tournament.RegistrationStartDate.Value > DateTime.Now) && 
-                        (!tournament.StartDate.HasValue || tournament.StartDate.Value > DateTime.Now))
+                        (!tournament.RegistrationStartDate.HasValue || tournament.RegistrationStartDate.Value > VietnamNow) && 
+                        (!tournament.StartDate.HasValue || tournament.StartDate.Value > VietnamNow))
                     {
                         return NotFound(new { message = $"Race with ID {raceId} was not found." });
                     }

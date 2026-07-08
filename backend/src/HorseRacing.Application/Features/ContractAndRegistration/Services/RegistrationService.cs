@@ -12,6 +12,8 @@ namespace HorseRacing.Application.Features.ContractAndRegistration.Services;
 
 public class RegistrationService : IRegistrationService
 {
+    private static DateTime VietnamNow => TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
+
     private readonly IRegistrationRepository _registrationRepository;
     private readonly IHorseRepository _horseRepository;
     private readonly IBetRepository _betRepository;
@@ -59,13 +61,13 @@ public class RegistrationService : IRegistrationService
         {
             throw new ArgumentException($"Tournament with ID {request.TournamentId} not found.");
         }
-        if ((!tournament.RegistrationStartDate.HasValue || tournament.RegistrationStartDate.Value > DateTime.Now) &&
-            (!tournament.StartDate.HasValue || tournament.StartDate.Value > DateTime.Now))
+        if ((!tournament.RegistrationStartDate.HasValue || tournament.RegistrationStartDate.Value > VietnamNow) &&
+            (!tournament.StartDate.HasValue || tournament.StartDate.Value > VietnamNow))
         {
             throw new InvalidOperationException("Tournament has not started yet.");
         }
 
-        var now = DateTime.Now;
+        var now = VietnamNow;
         if (tournament.RegistrationStartDate.HasValue && now < tournament.RegistrationStartDate.Value)
         {
             throw new InvalidOperationException($"Registration has not started yet. It opens on {tournament.RegistrationStartDate:yyyy-MM-dd HH:mm:ss} UTC.");
@@ -101,7 +103,7 @@ public class RegistrationService : IRegistrationService
     public async Task<IEnumerable<RegistrationResponse>> GetRegistrationsByOwnerAsync(int ownerUserId)
     {
         var regs = await _registrationRepository.GetByOwnerIdAsync(ownerUserId);
-        var now = DateTime.Now;
+        var now = VietnamNow;
         var filteredRegs = regs.Where(r => r.Tournament == null || 
             (r.Tournament.RegistrationStartDate.HasValue && r.Tournament.RegistrationStartDate.Value <= now) || 
             (r.Tournament.StartDate.HasValue && r.Tournament.StartDate.Value <= now));
