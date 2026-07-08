@@ -1,7 +1,7 @@
 // Cấu hình gốc cho tất cả API calls
 // Tự động gắn Bearer token từ localStorage vào mỗi request
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const BASE_URL = import.meta.env.VITE_API_URL || 'https://hrms-backend-a4dwfmgmgfagf7ax.southeastasia-01.azurewebsites.net/api';
 
 async function request(method, endpoint, data) {
   const token = localStorage.getItem('token');

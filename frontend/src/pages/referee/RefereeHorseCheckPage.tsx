@@ -25,6 +25,32 @@ interface HorseCheck {
   status: string;
 }
 
+// Nhãn + màu cho từng tình trạng sức khỏe chuẩn (đồng bộ với dropdown bên trang Chủ ngựa)
+const HEALTH_META: Record<string, { label: string; ok: boolean }> = {
+  healthy:    { label: 'Khỏe mạnh',       ok: true },
+  good:       { label: 'Khỏe mạnh',       ok: true },
+  injured:    { label: 'Chấn thương',     ok: false },
+  sick:       { label: 'Bị bệnh',         ok: false },
+  recovering: { label: 'Đang hồi phục',   ok: false },
+  retired:    { label: 'Ngừng thi đấu',   ok: false },
+};
+
+function healthMeta(medicalStatus?: string) {
+  const key = (medicalStatus ?? '').toLowerCase();
+  return HEALTH_META[key] ?? { label: medicalStatus || 'Không rõ', ok: false };
+}
+
+// Trạng thái kiểm tra SUY RA từ cả entry status lẫn sức khỏe — để 2 cột không mâu thuẫn:
+// ngựa sức khỏe không đạt thì KHÔNG thể hiển thị "Đã duyệt" dù entry đã Ready.
+type CheckState = 'pending' | 'approved' | 'blocked' | 'rejected';
+function checkState(hc: HorseCheck): CheckState {
+  const st = (hc.status ?? '').toLowerCase();
+  if (st === 'disqualified' || st === 'rejected') return 'rejected';
+  if (!healthMeta(hc.medicalStatus).ok) return 'blocked';
+  if (st === 'pending') return 'pending';
+  return 'approved'; // Ready / Confirmed / Checked...
+}
+
 export function RefereeHorseCheckPage() {
   const [tab, setTab] = useState<Tab>('all');
   const [search, setSearch] = useState('');
@@ -78,13 +104,13 @@ export function RefereeHorseCheckPage() {
       });
   }, [selectedRaceId]);
 
-  // Filter logic
+  // Filter logic — tab dùng CÙNG trạng thái suy ra với cột hiển thị, không còn lệch nhau
   const filteredChecks = horseChecks.filter(hc => {
-    // Tab filter
+    const state = checkState(hc);
     let tabMatch = true;
-    if (tab === 'pending') tabMatch = hc.status?.toLowerCase() === 'pending';
-    else if (tab === 'approved') tabMatch = hc.status?.toLowerCase() === 'confirmed' || hc.status?.toLowerCase() === 'checked' || hc.status?.toLowerCase() === 'ready' || hc.medicalStatus?.toLowerCase() === 'good' || hc.medicalStatus?.toLowerCase() === 'healthy';
-    else if (tab === 'rejected') tabMatch = hc.status?.toLowerCase() === 'disqualified' || hc.medicalStatus?.toLowerCase() === 'unhealthy' || hc.medicalStatus?.toLowerCase() === 'sick';
+    if (tab === 'pending') tabMatch = state === 'pending';
+    else if (tab === 'approved') tabMatch = state === 'approved';
+    else if (tab === 'rejected') tabMatch = state === 'blocked' || state === 'rejected';
 
     // Search filter
     const query = search.toLowerCase();
@@ -116,6 +142,13 @@ export function RefereeHorseCheckPage() {
               {error}
             </div>
           )}
+
+          {/* Sức khỏe do Chủ ngựa quản lý (PUT /horses chỉ mở cho role HorseOwner) — trọng tài chưa sửa
+              trực tiếp được cho tới khi BE bổ sung API ghi horse-check. Ngựa không đủ sức khỏe sẽ tự
+              hiển thị "Không đủ điều kiện" ở cột Trạng thái. */}
+          <div className="text-[11px] text-champagne/80 bg-gold/5 border border-gold/15 rounded-lg px-3 py-2 leading-relaxed">
+            ⓘ Tình trạng sức khỏe do <b>Chủ ngựa</b> cập nhật trên hồ sơ ngựa. Ngựa có sức khỏe không đạt sẽ tự động hiển thị <b>"Không đủ điều kiện"</b> dù đã được ghép làn — nếu phát hiện sai lệch thực tế, hãy yêu cầu chủ ngựa cập nhật hoặc ghi nhận vi phạm ở trang Xử lý vi phạm.
+          </div>
 
           {/* Select Race Dropdown + Search */}
           <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
@@ -190,7 +223,10 @@ export function RefereeHorseCheckPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-glass-border/40 text-sm text-white">
-                    {filteredChecks.map((hc) => (
+                    {filteredChecks.map((hc) => {
+                      const hm = healthMeta(hc.medicalStatus);
+                      const state = checkState(hc);
+                      return (
                       <tr key={hc.raceEntryId} className="hover:bg-white/[0.01] transition-colors">
                         <td className="px-6 py-4 font-mono text-gold font-bold">Làn #{hc.laneNo}</td>
                         <td className="px-6 py-4 font-medium">{hc.horseName}</td>
@@ -198,27 +234,26 @@ export function RefereeHorseCheckPage() {
                         <td className="px-6 py-4 text-muted">{hc.jockeyName}</td>
                         <td className="px-6 py-4">
                           <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold ${
-                            hc.medicalStatus?.toLowerCase() === 'good' || hc.medicalStatus?.toLowerCase() === 'healthy' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
+                            hm.ok ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
                           }`}>
-                            {hc.medicalStatus?.toLowerCase() === 'good' || hc.medicalStatus?.toLowerCase() === 'healthy' ? (
-                              <><Heart size={11} /> Khỏe mạnh</>
-                            ) : (
-                              <><ShieldAlert size={11} /> Gặp sự cố / Yếu</>
-                            )}
+                            {hm.ok ? <Heart size={11} /> : <ShieldAlert size={11} />} {hm.label}
                           </span>
                         </td>
                         <td className="px-6 py-4">
                           <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                            hc.status?.toLowerCase() === 'pending' ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20' :
-                            hc.status?.toLowerCase() === 'confirmed' || hc.status?.toLowerCase() === 'checked' || hc.status?.toLowerCase() === 'ready' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                            state === 'pending' ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20' :
+                            state === 'approved' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                            state === 'blocked' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' :
                             'bg-red-500/10 text-red-400 border border-red-500/20'
                           }`}>
-                            {hc.status?.toLowerCase() === 'pending' ? 'Chờ kiểm tra' :
-                             hc.status?.toLowerCase() === 'confirmed' || hc.status?.toLowerCase() === 'checked' || hc.status?.toLowerCase() === 'ready' ? 'Đã duyệt' : 'Bị loại'}
+                            {state === 'pending' ? 'Chờ kiểm tra' :
+                             state === 'approved' ? 'Đã duyệt' :
+                             state === 'blocked' ? '⚠ Không đủ điều kiện (sức khỏe)' : 'Bị loại'}
                           </span>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

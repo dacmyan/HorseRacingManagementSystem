@@ -6,6 +6,7 @@ import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
 import { getPredictionStats, getPredictions } from '../../api/adminService';
+import { Pager, paginate } from '../../components/ui/Pager';
 
 type TabType = 'all' | 'correct' | 'incorrect' | 'pending';
 
@@ -30,6 +31,7 @@ interface PredictionStats {
 export function AdminPredictionsPage() {
   const [tab, setTab] = useState<TabType>('all');
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [stats, setStats] = useState<PredictionStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -81,6 +83,7 @@ export function AdminPredictionsPage() {
   };
 
   const filteredPredictions = getFilteredPredictions();
+  const { paged: pagedPredictions, totalPages, total, page: safePage } = paginate(filteredPredictions, page, 10);
 
   // Calculated reward paid points
   const totalRewardedPoints = predictions
@@ -146,7 +149,7 @@ export function AdminPredictionsPage() {
               return (
                 <button
                   key={t}
-                  onClick={() => setTab(t)}
+                  onClick={() => { setTab(t); setPage(1); }}
                   className={`px-5 py-3 text-sm font-medium border-b-2 -mb-px transition-all ${tab === t ? 'text-gold border-gold' : 'text-muted border-transparent hover:text-white'}`}
                 >
                   {label}
@@ -158,7 +161,7 @@ export function AdminPredictionsPage() {
               <Search size={13} className="text-muted shrink-0" />
               <input 
                 value={search} 
-                onChange={e => setSearch(e.target.value)} 
+                onChange={e => { setSearch(e.target.value); setPage(1); }} 
                 placeholder="Tìm khán giả, ngựa..." 
                 className="bg-transparent text-sm text-white placeholder:text-muted/60 outline-none w-full" 
               />
@@ -196,7 +199,7 @@ export function AdminPredictionsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-glass-border/40 text-sm text-white">
-                    {filteredPredictions.map((pred) => (
+                    {pagedPredictions.map((pred) => (
                       <tr key={pred.predictionId} className="hover:bg-white/[0.01] transition-colors">
                         <td className="px-6 py-4 font-mono text-xs text-muted">#{pred.predictionId}</td>
                         <td className="px-6 py-4 font-medium">{pred.spectatorName}</td>
@@ -220,6 +223,7 @@ export function AdminPredictionsPage() {
                   </tbody>
                 </table>
               </div>
+              <Pager page={safePage} totalPages={totalPages} total={total} onChange={setPage} />
             </motion.div>
           )}
 

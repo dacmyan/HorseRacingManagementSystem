@@ -10,8 +10,8 @@ import { Topbar } from '../../components/layout/Topbar';
 import { PageAmbience } from '../../components/layout/PageAmbience';
 import { PageHero } from '../../components/layout/PageHero';
 import { getCurrentUser } from '../../api/authService';
-import { getRaceSchedule, getTournaments } from '../../api/publicService';
-import { getDashboardStats, getRegistrations } from '../../api/adminService';
+import { getRaceSchedule } from '../../api/publicService';
+import { getDashboardStats, getRegistrations, getActivityLog } from '../../api/adminService';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
 
@@ -34,7 +34,6 @@ export function AdminDashboardPage() {
   const [schedule, setSchedule] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [registrations, setRegistrations] = useState<any[]>([]);
-  const [tournaments, setTournaments] = useState<any[]>([]);
   const [regLoading, setRegLoading] = useState(true);
   const [activities, setActivities] = useState<any[]>([]);
   const [activitiesLoading, setActivitiesLoading] = useState(true);
@@ -53,16 +52,6 @@ export function AdminDashboardPage() {
     getDashboardStats()
       .then((res: any) => setStats(res?.result))
       .catch(() => setStats(null));
-
-    getTournaments()
-      .then((d: any) => {
-        const raw = d?.result ?? (Array.isArray(d) ? d : []);
-        setTournaments(raw.map((item: any) => ({
-          ...item,
-          name: fixMojibake(item.name)
-        })));
-      })
-      .catch(() => setTournaments([]));
 
     setRegLoading(true);
     getRegistrations()
@@ -84,143 +73,38 @@ export function AdminDashboardPage() {
           tournamentName: fixMojibake(item.tournamentName)
         }));
 
-        // Filter pending registrations from the API
-        let pending = dataList.filter((r: any) => r.status === 'Pending');
-
-        // If no pending registrations exist, add mock ones for F1 racing feel
-        if (pending.length === 0) {
-          pending = [
-            {
-              registrationId: 101,
-              horseName: "Red Bull Speed",
-              ownerName: "Christian Horner",
-              tournamentName: "Formula 1 Equestria Cup",
-              registeredAt: new Date(Date.now() - 3600000).toISOString(),
-              status: "Pending"
-            },
-            {
-              registrationId: 102,
-              horseName: "Ferrari Swift",
-              ownerName: "Fred Vasseur",
-              tournamentName: "Monaco Grand Prix",
-              registeredAt: new Date(Date.now() - 7200000).toISOString(),
-              status: "Pending"
-            },
-            {
-              registrationId: 103,
-              horseName: "Mercedes Silver",
-              ownerName: "Toto Wolff",
-              tournamentName: "Silverstone Trophy",
-              registeredAt: new Date(Date.now() - 10800000).toISOString(),
-              status: "Pending"
-            }
-          ];
-        }
-        setRegistrations(dataList.length > 0 ? [...dataList, ...pending.filter((p: any) => !dataList.some((d: any) => d.registrationId === p.registrationId))] : pending);
+        setRegistrations(dataList);
       })
       .catch(() => setRegistrations([]))
       .finally(() => setRegLoading(false));
-  }, []);
 
-  useEffect(() => {
+    // Hoạt động gần đây: dùng API thật GET /admin/activity-log (user mới, đăng ký, cược, thông báo, giao dịch ví)
     setActivitiesLoading(true);
-    const list: any[] = [];
-    
-    // 1. Add registrations activities
-    registrations.forEach((reg) => {
-      const date = reg.registeredAt ? new Date(reg.registeredAt) : new Date();
-      if (reg.status === 'Pending') {
-        list.push({
-          id: `reg-pend-${reg.registrationId}`,
-          title: t("Đăng ký mới chờ duyệt"),
-          desc: `${t("Ngựa")} ${reg.horseName} (${t("Chủ")} ${reg.ownerName}) ${t("đăng ký tham gia")} ${reg.tournamentName}`,
-          date: date,
-          type: 'registration',
-          status: 'pending'
-        });
-      } else if (reg.status === 'Approved') {
-        list.push({
-          id: `reg-appr-${reg.registrationId}`,
-          title: t("Đã duyệt đăng ký"),
-          desc: `${t("Chấp nhận ngựa")} ${reg.horseName} ${t("tham gia")} ${reg.tournamentName}`,
-          date: date,
-          type: 'registration',
-          status: 'approved'
-        });
-      }
-    });
-
-    // 2. Add tournaments activities
-    tournaments.forEach((tour) => {
-      const date = tour.startDate ? new Date(tour.startDate) : new Date();
-      list.push({
-        id: `tour-${tour.tournamentId}`,
-        title: t("Cập nhật giải đấu"),
-        desc: `${t("Giải đấu")} "${tour.name}" ${t("trạng thái")}: ${t(tour.status || 'upcoming')}`,
-        date: date,
-        type: 'tournament',
-        status: tour.status?.toLowerCase()
-      });
-    });
-
-    // 3. Add schedule activities
-    schedule.forEach((race) => {
-      const date = race.raceDate ? new Date(race.raceDate) : new Date();
-      list.push({
-        id: `race-${race.raceId}`,
-        title: t("Lịch đua mới"),
-        desc: `${t("Cuộc đua")} "${race.name}" ${t("quãng đường")} ${race.distanceMeter}m`,
-        date: date,
-        type: 'race',
-        status: race.status?.toLowerCase()
-      });
-    });
-
-    // Sort by date descending
-    list.sort((a, b) => b.date.getTime() - a.date.getTime());
-
-    // If the list is empty, generate some mock/seeded realistic F1 racing activities
-    if (list.length === 0) {
-      const now = new Date();
-      list.push(
-        {
-          id: 'mock-1',
-          title: t("Tạo giải đấu vô địch quốc gia"),
-          desc: t("Giải đấu Grand Prix Quốc Gia 2026 đã được khởi tạo"),
-          date: new Date(now.getTime() - 15 * 60 * 1000),
-          type: 'tournament',
-          status: 'upcoming'
-        },
-        {
-          id: 'mock-2',
-          title: t("Đăng ký tham gia mới"),
-          desc: t("Chủ ngựa HorseOwner đã đăng ký ngựa Thunder tham gia giải đấu Grand Prix"),
-          date: new Date(now.getTime() - 2 * 60 * 60 * 1000),
-          type: 'registration',
-          status: 'pending'
-        },
-        {
-          id: 'mock-3',
-          title: t("Phân công trọng tài hoàn tất"),
-          desc: t("Trọng tài Referee đã được phân công cho cuộc đua Vòng 1"),
-          date: new Date(now.getTime() - 5 * 60 * 60 * 1000),
-          type: 'race',
-          status: 'assigned'
-        },
-        {
-          id: 'mock-4',
-          title: t("Xuất bản kết quả cuộc đua"),
-          desc: t("Admin đã công bố kết quả chính thức cho Giải đua Khang Lẹo"),
-          date: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000),
-          type: 'result',
-          status: 'published'
-        }
-      );
-    }
-
-    setActivities(list);
-    setActivitiesLoading(false);
-  }, [registrations, tournaments, schedule, t]);
+    getActivityLog()
+      .then((d: any) => {
+        const raw: any[] = d?.result ?? (Array.isArray(d) ? d : []);
+        const typeMap: Record<string, string> = {
+          user: 'user',
+          registration: 'registration',
+          bet: 'bet',
+          notification: 'notification',
+          transaction: 'transaction'
+        };
+        setActivities(raw.map((a: any, i: number) => {
+          const beType = String(a.type ?? '').toLowerCase();
+          return {
+            id: `act-${i}`,
+            title: fixMojibake(a.title ?? ''),
+            desc: fixMojibake(a.description ?? ''),
+            date: a.createdAt ? new Date(a.createdAt) : new Date(),
+            type: typeMap[beType] ?? 'other',
+            status: /pending/i.test(a.title ?? '') ? 'pending' : undefined
+          };
+        }));
+      })
+      .catch(() => setActivities([]))
+      .finally(() => setActivitiesLoading(false));
+  }, []);
 
   const upcomingRaces = schedule.length;
   const pendingRegs = registrations.filter((r: any) => r.status === 'Pending');
@@ -413,6 +297,15 @@ export function AdminDashboardPage() {
                     } else if (act.type === 'race') {
                       Icon = Calendar;
                       colorClass = 'text-purple-400 bg-purple-500/10 border-purple-500/20';
+                    } else if (act.type === 'user') {
+                      Icon = Users;
+                      colorClass = 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20';
+                    } else if (act.type === 'bet' || act.type === 'transaction') {
+                      Icon = TrendingUp;
+                      colorClass = 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+                    } else if (act.type === 'notification') {
+                      Icon = Megaphone;
+                      colorClass = 'text-blue-400 bg-blue-500/10 border-blue-500/20';
                     }
 
                     const timeStr = act.date ? formatRelativeTime(act.date) : '';

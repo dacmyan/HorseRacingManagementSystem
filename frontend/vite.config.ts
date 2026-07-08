@@ -7,11 +7,11 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'https://hrms-backend-a4dwfmgmgfagf7ax.southeastasia-01.azurewebsites.net',
         changeOrigin: true,
       },
       '/hubs': {
-        target: 'http://localhost:5000',
+        target: 'https://hrms-backend-a4dwfmgmgfagf7ax.southeastasia-01.azurewebsites.net',
         ws: true,
         changeOrigin: true,
       },

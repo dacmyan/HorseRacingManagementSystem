@@ -98,7 +98,7 @@ export function LoginPage() {
       <header className="absolute top-0 left-0 w-full px-12 py-8 z-20">
         <div
           className="tracking-widest font-semibold cursor-pointer"
-          style={{ fontFamily: '"Poppins", sans-serif', color: '#d4af37', fontSize: '26px' }}
+          style={{ fontFamily: '"Playfair Display", serif', color: '#d4af37', fontSize: '26px' }}
           onClick={() => navigate('/')}
         >
           EQUESTRIA
@@ -144,7 +144,7 @@ export function LoginPage() {
             <div className="mb-10">
               <h1
                 className="italic font-medium mb-6 leading-tight"
-                style={{ fontFamily: '"Poppins", sans-serif', color: '#e9c46a', fontSize: '52px', lineHeight: '1.15' }}
+                style={{ fontFamily: '"Playfair Display", serif', color: '#e9c46a', fontSize: '52px', lineHeight: '1.15' }}
               >
                 "Where Champions<br/>Are Made."
               </h1>
@@ -196,7 +196,7 @@ export function LoginPage() {
               <motion.div variants={fadeUp} className="text-center mb-8 relative z-10">
                 <h2
                   className="text-2xl tracking-widest mb-2"
-                  style={{ fontFamily: '"Poppins", sans-serif', color: '#d4af37' }}
+                  style={{ fontFamily: '"Playfair Display", serif', color: '#d4af37' }}
                 >
                   EQUESTRIA
                 </h2>

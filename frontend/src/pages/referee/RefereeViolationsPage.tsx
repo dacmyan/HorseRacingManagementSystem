@@ -6,6 +6,8 @@ import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
 import { getViolations, createViolation, getRefereeDashboard, updateViolation } from '../../api/refereeService';
+import { getRaceEntries } from '../../api/publicService';
+import { Pager, paginate } from '../../components/ui/Pager';
 import { parseApiError } from '../../api/authService';
 
 type Tab = 'active' | 'decided';
@@ -19,6 +21,7 @@ export function RefereeViolationsPage() {
   const [editPenalty, setEditPenalty] = useState('');
   const [editDesc, setEditDesc] = useState('');
   const [violations, setViolations] = useState<any[]>([]);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
 
   const [races, setRaces] = useState<any[]>([]);
@@ -26,6 +29,22 @@ export function RefereeViolationsPage() {
   const [form, setForm] = useState(INIT_FORM);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState('');
+
+  // Danh sách ngựa/jockey đã ghép làn của cuộc đua đang chọn — cho dropdown "Ngựa / Nài ngựa vi phạm"
+  const [raceEntries, setRaceEntries] = useState<any[]>([]);
+  const [entriesLoading, setEntriesLoading] = useState(false);
+
+  async function handleRaceChange(rid: string) {
+    setForm(p => ({ ...p, raceId: rid, horseOrJockey: '' }));
+    setRaceEntries([]);
+    if (!rid) return;
+    setEntriesLoading(true);
+    try {
+      const d: any = await getRaceEntries(Number(rid));
+      setRaceEntries(d?.result ?? (Array.isArray(d) ? d : []));
+    } catch { setRaceEntries([]); }
+    finally { setEntriesLoading(false); }
+  }
 
   useEffect(() => {
     fetchData();
@@ -93,6 +112,8 @@ export function RefereeViolationsPage() {
     }
   }
 
+  const { paged: pagedViolations, totalPages: vioTotalPages, total: vioTotal, page: vioSafePage } = paginate(violations, page, 9);
+
   return (
     <div className="min-h-screen text-body font-sans flex" style={{backgroundColor: '#0b101e'}}>
       <Sidebar />
@@ -155,8 +176,9 @@ export function RefereeViolationsPage() {
               <div className="text-muted text-sm">Chưa có vi phạm nào được ghi nhận</div>
             </div>
           ) : (
+            <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {violations.map((v: any) => (
+              {pagedViolations.map((v: any) => (
                 <div key={v.violationId} className="glass-panel p-5 rounded-xl border border-glass-border relative overflow-hidden">
                   <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-red-500/40 to-transparent pointer-events-none" />
                   <div className="flex justify-between items-start mb-3">
@@ -175,6 +197,12 @@ export function RefereeViolationsPage() {
                 </div>
               ))}
             </div>
+            {vioTotalPages > 1 && (
+              <div className="glass-panel rounded-xl overflow-hidden">
+                <Pager page={vioSafePage} totalPages={vioTotalPages} total={vioTotal} onChange={setPage} />
+              </div>
+            )}
+            </>
           )}
 
           {/* Add modal */}
@@ -194,7 +222,7 @@ export function RefereeViolationsPage() {
                   
                   <div>
                     <label className="block text-xs text-muted font-medium mb-1.5">Cuộc đua *</label>
-                    <select value={form.raceId} onChange={e => setF('raceId', e.target.value)} className="w-full bg-[#0B1628] border border-glass-border rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-gold/40" style={{colorScheme: 'dark'}}>
+                    <select value={form.raceId} onChange={e => handleRaceChange(e.target.value)} className="w-full bg-[#0B1628] border border-glass-border rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-gold/40" style={{colorScheme: 'dark'}}>
                       <option value="">-- Chọn cuộc đua --</option>
                       {races.map(r => (
                         <option key={r.raceId} value={r.raceId}>ID {r.raceId}: {r.raceName}</option>
@@ -204,7 +232,17 @@ export function RefereeViolationsPage() {
 
                   <div>
                     <label className="block text-xs text-muted font-medium mb-1.5">Ngựa / Nài ngựa vi phạm</label>
-                    <input value={form.horseOrJockey} onChange={e => setF('horseOrJockey', e.target.value)} placeholder="Nhập tên..." className="w-full bg-white/[0.04] border border-glass-border rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-muted/60 outline-none focus:border-gold/40 transition-colors" />
+                    <select value={form.horseOrJockey} onChange={e => setF('horseOrJockey', e.target.value)}
+                      disabled={!form.raceId || entriesLoading}
+                      className="w-full bg-[#0B1628] border border-glass-border rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-gold/40 disabled:opacity-50" style={{colorScheme: 'dark'}}>
+                      <option value="">
+                        {!form.raceId ? '-- Chọn cuộc đua trước --' : entriesLoading ? '-- Đang tải danh sách... --' : raceEntries.length === 0 ? '-- Cuộc đua chưa ghép ngựa vào làn --' : '-- Chọn ngựa / nài ngựa --'}
+                      </option>
+                      {raceEntries.map((en: any, i: number) => {
+                        const label = `Làn ${en.laneNo} • ${en.horseName ?? `Ngựa #${en.horseId}`}${en.jockeyName ? ` / ${en.jockeyName}` : ''}`;
+                        return <option key={en.raceEntryId ?? i} value={label}>{label}</option>;
+                      })}
+                    </select>
                   </div>
                   
                   <div>

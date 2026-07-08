@@ -8,6 +8,7 @@ import { PageAmbience } from '../../components/layout/PageAmbience';
 import { getRegistrations, updateRegistrationStatus } from '../../api/adminService';
 import { parseApiError } from '../../api/authService';
 import { useNotifications } from '../../context/NotificationContext';
+import { Pager, paginate } from '../../components/ui/Pager';
 
 type TabType = 'pending' | 'approved' | 'rejected';
 
@@ -32,6 +33,7 @@ export function AdminRegistrationsPage() {
   const { showToast } = useNotifications();
   const [tab, setTab] = useState<TabType>('pending');
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -72,7 +74,15 @@ export function AdminRegistrationsPage() {
       await loadRegistrations();
     } catch (err: any) {
       console.error('Error reviewing registration:', err);
-      showToast('Thất bại', parseApiError(err), 'error');
+      // BE tự chặn duyệt khi ngựa chưa có hợp đồng jockey Accepted — dịch thông báo cho dễ hiểu
+      const raw = parseApiError(err) ?? '';
+      let msg = raw;
+      if (/no jockey contract/i.test(raw)) {
+        msg = 'Không thể duyệt: ngựa này CHƯA có hợp đồng jockey nào cho giải đấu. Chủ ngựa cần mời jockey và được jockey chấp nhận trước.';
+      } else if (/jockey contract status/i.test(raw)) {
+        msg = 'Không thể duyệt: hợp đồng jockey của ngựa này chưa được jockey chấp nhận (trạng thái chưa phải Accepted).';
+      }
+      showToast('Thất bại', msg, 'error');
     } finally {
       setProcessingId(null);
     }
@@ -88,6 +98,8 @@ export function AdminRegistrationsPage() {
       r.tournamentName?.toLowerCase().includes(query);
     return statusMatch && searchMatch;
   });
+
+  const { paged: pagedRegistrations, totalPages, total, page: safePage } = paginate(filteredRegistrations, page, 10);
 
   const getCount = (t: TabType) => {
     const statusVal = TAB_CONFIG[t].statusValue.toLowerCase();
@@ -117,7 +129,7 @@ export function AdminRegistrationsPage() {
               return (
                 <button
                   key={t}
-                  onClick={() => setTab(t)}
+                  onClick={() => { setTab(t); setPage(1); }}
                   className={`px-5 py-3 text-sm font-medium border-b-2 -mb-px transition-all ${
                     isActive ? `${cfg.color} border-current` : 'text-muted border-transparent hover:text-white'
                   }`}
@@ -141,7 +153,7 @@ export function AdminRegistrationsPage() {
                 <Search size={13} className="text-muted shrink-0" />
                 <input
                   value={search}
-                  onChange={e => setSearch(e.target.value)}
+                  onChange={e => { setSearch(e.target.value); setPage(1); }}
                   placeholder="Tìm ngựa, chủ ngựa..."
                   className="bg-transparent text-sm text-white placeholder:text-muted/60 outline-none w-full"
                 />
@@ -162,6 +174,15 @@ export function AdminRegistrationsPage() {
               );
             })}
           </div>
+
+          {/* Điều kiện duyệt: BE chỉ cho Approve khi ngựa đã có hợp đồng jockey Accepted cho giải đó.
+              Hiện API GET /admin/registrations chưa trả thông tin jockey nên FE chưa hiển thị trước được
+              — khi bấm Duyệt, hệ thống sẽ tự kiểm tra và báo rõ nếu thiếu jockey. */}
+          {tab === 'pending' && (
+            <div className="text-[11px] text-champagne/80 bg-gold/5 border border-gold/15 rounded-lg px-3 py-2 leading-relaxed">
+              ⓘ Chỉ duyệt được đơn khi ngựa <b>đã có jockey nhận hợp đồng (Accepted)</b> cho giải đấu đó — hệ thống tự kiểm tra khi bấm Duyệt và báo lỗi rõ ràng nếu ngựa chưa có jockey.
+            </div>
+          )}
 
           {/* Error state */}
           {error && (
@@ -206,7 +227,7 @@ export function AdminRegistrationsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-glass-border/40 text-sm text-white">
-                    {filteredRegistrations.map(reg => (
+                    {pagedRegistrations.map(reg => (
                       <tr key={reg.registrationId} className="hover:bg-white/[0.01] transition-colors">
                         <td className="px-6 py-4 font-mono text-xs text-muted">#{reg.registrationId}</td>
                         <td className="px-6 py-4 font-medium">🐴 {reg.horseName}</td>
@@ -251,6 +272,7 @@ export function AdminRegistrationsPage() {
                   </tbody>
                 </table>
               </div>
+              <Pager page={safePage} totalPages={totalPages} total={total} onChange={setPage} />
             </motion.div>
           )}
 

@@ -6,6 +6,7 @@ import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
 import { getViolations, updateViolationStatus } from '../../api/adminService';
+import { Pager, paginate } from '../../components/ui/Pager';
 
 type Tab = 'pending' | 'confirmed' | 'rejected';
 
@@ -22,6 +23,7 @@ interface Violation {
 
 export function AdminViolationsPage() {
   const [tab, setTab] = useState<Tab>('pending');
+  const [page, setPage] = useState(1);
   const [violations, setViolations] = useState<Violation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -65,6 +67,10 @@ export function AdminViolationsPage() {
   const pendingViolations = violations.filter(v => (v.status || 'Pending') === 'Pending');
   const confirmedViolations = violations.filter(v => v.status === 'Confirmed');
   const rejectedViolations = violations.filter(v => v.status === 'Rejected');
+
+  // Phân trang cho tab đang mở
+  const activeList = tab === 'pending' ? pendingViolations : tab === 'confirmed' ? confirmedViolations : rejectedViolations;
+  const { paged: pagedViolations, totalPages, total, page: safePage } = paginate(activeList, page, 10);
 
   return (
     <div className="min-h-screen text-body font-sans flex" style={{ backgroundColor: '#0b101e' }}>
@@ -136,7 +142,7 @@ export function AdminViolationsPage() {
               ['confirmed', `Đã xác nhận (${loading ? 0 : confirmedViolations.length})`, 'text-red-400 border-red-400'],
               ['rejected', `Đã bác bỏ (${loading ? 0 : rejectedViolations.length})`, 'text-emerald-400 border-emerald-400'],
             ] as [Tab, string, string][]).map(([t, label, ac]) => (
-              <button key={t} onClick={() => setTab(t)}
+              <button key={t} onClick={() => { setTab(t); setPage(1); }}
                 className={`px-5 py-3 text-sm font-medium border-b-2 -mb-px transition-all ${tab === t ? ac : 'text-muted border-transparent hover:text-white'}`}>
                 {label}
               </button>
@@ -172,7 +178,7 @@ export function AdminViolationsPage() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-glass-border/40 text-sm text-white">
-                          {pendingViolations.map((v) => (
+                          {pagedViolations.map((v) => (
                             <tr key={v.violationId} className="hover:bg-white/[0.01] transition-colors">
                               <td className="px-6 py-4 font-mono text-xs text-muted">#{v.violationId}</td>
                               <td className="px-6 py-4 font-medium">{v.raceName}</td>
@@ -210,6 +216,7 @@ export function AdminViolationsPage() {
                         </tbody>
                       </table>
                     </div>
+                    <Pager page={safePage} totalPages={totalPages} total={total} onChange={setPage} />
                   </motion.div>
                 )
               )}
@@ -236,7 +243,7 @@ export function AdminViolationsPage() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-glass-border/40 text-sm text-white">
-                          {confirmedViolations.map((v) => (
+                          {pagedViolations.map((v) => (
                             <tr key={v.violationId} className="hover:bg-white/[0.01] transition-colors">
                               <td className="px-6 py-4 font-mono text-xs text-muted">#{v.violationId}</td>
                               <td className="px-6 py-4 font-medium">{v.raceName}</td>
@@ -258,6 +265,7 @@ export function AdminViolationsPage() {
                         </tbody>
                       </table>
                     </div>
+                    <Pager page={safePage} totalPages={totalPages} total={total} onChange={setPage} />
                   </motion.div>
                 )
               )}
@@ -284,7 +292,7 @@ export function AdminViolationsPage() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-glass-border/40 text-sm text-white">
-                          {rejectedViolations.map((v) => (
+                          {pagedViolations.map((v) => (
                             <tr key={v.violationId} className="hover:bg-white/[0.01] transition-colors">
                               <td className="px-6 py-4 font-mono text-xs text-muted">#{v.violationId}</td>
                               <td className="px-6 py-4 font-medium">{v.raceName}</td>
@@ -302,6 +310,7 @@ export function AdminViolationsPage() {
                         </tbody>
                       </table>
                     </div>
+                    <Pager page={safePage} totalPages={totalPages} total={total} onChange={setPage} />
                   </motion.div>
                 )
               )}

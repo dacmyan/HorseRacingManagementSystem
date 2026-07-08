@@ -175,8 +175,6 @@ export function OwnerJockeysPage() {
   }
 
   const selectedInviteTournament = tournaments.find((t: any) => String(t.tournamentId) === String(form.tournamentId));
-  const inviteMinDate = toDateInputValue(selectedInviteTournament?.startDate);
-  const inviteMaxDate = toDateInputValue(selectedInviteTournament?.endDate);
 
   const filteredTournamentsForSelect = form.horseId
     ? tournaments.filter((t: any) => 

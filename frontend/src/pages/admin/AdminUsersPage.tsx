@@ -8,7 +8,8 @@ import { PageAmbience } from '../../components/layout/PageAmbience';
 import { getRoles, createAccount, getAccounts, updateUserStatus } from '../../api/adminService';
 import { parseApiError } from '../../api/authService';
 import { useNotifications } from '../../context/NotificationContext';
-import { formatDateTime, formatUtcDateTime } from '../../utils/format';
+import { formatUtcDateTime } from '../../utils/format';
+import { Pager, paginate } from '../../components/ui/Pager';
 
 type RoleFilter = 'all' | 'owner' | 'jockey' | 'referee' | 'spectator' | 'admin';
 
@@ -25,6 +26,7 @@ export function AdminUsersPage() {
   const { showToast } = useNotifications();
   const [filter, setFilter] = useState<RoleFilter>('all');
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
 
   const [showModal, setShowModal] = useState(false);
   const [roles, setRoles] = useState<string[]>([]);
@@ -146,6 +148,8 @@ export function AdminUsersPage() {
     return true;
   });
 
+  const { paged: pagedAccounts, totalPages, total, page: safePage } = paginate(filteredAccounts, page, 10);
+
   return (
     <div className="min-h-screen text-body font-sans flex" style={{ backgroundColor: '#0b101e' }}>
       <Sidebar />
@@ -171,7 +175,7 @@ export function AdminUsersPage() {
             {(['all', 'admin', 'owner', 'jockey', 'referee', 'spectator'] as RoleFilter[]).map((r) => (
               <button
                 key={r}
-                onClick={() => setFilter(r)}
+                onClick={() => { setFilter(r); setPage(1); }}
                 className={`glass-panel rounded-xl p-4 text-left border transition-all relative overflow-hidden group ${filter === r ? 'border-gold/40 bg-gold/5' : 'border-glass-border hover:border-gold/30 hover:bg-gold/[0.03]'}`}
               >
                 <div className="absolute top-0 left-3 right-3 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
@@ -198,7 +202,7 @@ export function AdminUsersPage() {
                 <Search size={15} className="text-muted shrink-0" />
                 <input
                   value={search}
-                  onChange={e => setSearch(e.target.value)}
+                  onChange={e => { setSearch(e.target.value); setPage(1); }}
                   placeholder="Tìm theo tên hoặc email..."
                   className="bg-transparent text-sm text-white placeholder:text-muted/60 outline-none w-full"
                 />
@@ -228,7 +232,7 @@ export function AdminUsersPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-glass-border/30 text-sm">
-                    {filteredAccounts.map((user) => (
+                    {pagedAccounts.map((user) => (
                       <tr key={user.userId} className="hover:bg-white/[0.02] transition-colors">
                         <td className="py-4 px-6 font-semibold text-white">{user.fullName}</td>
                         <td className="py-4 px-6 text-muted">{user.email}</td>
@@ -273,6 +277,7 @@ export function AdminUsersPage() {
                 </table>
               </div>
             )}
+            <Pager page={safePage} totalPages={totalPages} total={total} onChange={setPage} />
           </motion.div>
 
         </main>

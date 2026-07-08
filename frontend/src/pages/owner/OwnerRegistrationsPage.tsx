@@ -58,10 +58,23 @@ export function OwnerRegistrationsPage() {
 
   useEffect(() => { load(); }, []);
 
+  // Gate sức khỏe theo quy trình: chỉ ngựa Khỏe mạnh (Healthy) mới được đăng ký vào giải.
+  // Chủ ngựa là role duy nhất đọc được healthStatus qua API nên chặn tại bước này.
+  const isHealthy = (h: any) => {
+    const s = String(h?.healthStatus ?? 'Healthy').toLowerCase();
+    return s === 'healthy' || s === 'good';
+  };
+  const unhealthyHorses = horses.filter(h => !isHealthy(h));
+
   async function handleSubmit() {
     setSubmitError('');
     if (!form.horseId || !form.tournamentId) {
       setSubmitError('Vui lòng chọn ngựa và giải đấu.');
+      return;
+    }
+    const selectedHorse = horses.find(h => String(h.id) === String(form.horseId));
+    if (selectedHorse && !isHealthy(selectedHorse)) {
+      setSubmitError(`Ngựa "${selectedHorse.name}" đang có tình trạng "${selectedHorse.healthStatus}" — chỉ ngựa Khỏe mạnh (Healthy) mới được đăng ký thi đấu. Hãy cập nhật tình trạng ở trang Ngựa của tôi khi ngựa đã hồi phục.`);
       return;
     }
     setSubmitLoading(true);
@@ -214,8 +227,19 @@ export function OwnerRegistrationsPage() {
                   className="w-full bg-navy/50 border border-glass-border rounded-lg px-4 py-2.5 text-sm text-white outline-none focus:border-gold/40"
                 >
                   <option value="">-- Chọn ngựa --</option>
-                  {horses.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+                  {/* Ngựa không đủ sức khỏe bị khóa chọn — gate quy trình trước khi ghép làn */}
+                  {horses.map(h => (
+                    <option key={h.id} value={h.id} disabled={!isHealthy(h)}>
+                      {h.name}{!isHealthy(h) ? ` — không đủ sức khỏe (${h.healthStatus})` : ''}
+                    </option>
+                  ))}
                 </select>
+                {unhealthyHorses.length > 0 && (
+                  <div className="text-[11px] text-yellow-400/90 mt-1.5 leading-relaxed">
+                    ⚠ {unhealthyHorses.length} ngựa bị khóa vì sức khỏe không đạt: {unhealthyHorses.map(h => h.name).join(', ')}.
+                    Chỉ ngựa <b>Khỏe mạnh (Healthy)</b> được đăng ký — cập nhật tình trạng tại trang Ngựa của tôi khi đã hồi phục.
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-xs font-bold text-muted uppercase tracking-wider mb-1.5">Chọn giải đấu *</label>

@@ -23,7 +23,7 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
     { icon: Trophy, label: 'Tournaments', path: '/admin/tournaments' },
     { icon: Calendar, label: 'Race Schedule', path: '/admin/races' },
     { icon: ClipboardList, label: 'Registrations', path: '/admin/registrations' },
-    { icon: UserCheck, label: 'Assign Referees', path: '/admin/referees' },
+    { icon: UserCheck, label: 'Referee Management', path: '/admin/referees' },
     { icon: Megaphone, label: 'Publish Results', path: '/admin/results' },
     { icon: AlertTriangle, label: 'Violations', path: '/admin/violations' },
     { icon: Target, label: 'Predictions', path: '/admin/predictions' },

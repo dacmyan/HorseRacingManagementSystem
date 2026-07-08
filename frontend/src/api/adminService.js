@@ -50,3 +50,5 @@ export const getDashboardStats = () => api.get('/admin/dashboard');
 export const updateViolationStatus = (id, status) => api.put(`/admin/violations/${id}/status`, { status });
 
 export const getRacesRefereeAssignments = () => api.get('/admin/races/referee-assignments');
+
+export const getActivityLog = () => api.get('/admin/activity-log');

@@ -137,6 +137,7 @@ const TRANSLATIONS: Record<Language, Record<string, string>> = {
     "Race Schedule": "Lịch đua",
     "Registrations": "Đăng ký",
     "Assign Referees": "Phân công trọng tài",
+    "Referee Management": "Quản lý trọng tài",
     "Publish Results": "Công bố kết quả",
     "Violations": "Vi phạm",
     "Predictions": "Dự đoán",
