@@ -104,14 +104,25 @@ export function OwnerRegistrationsPage() {
     rejected: registrations.filter(r => normalizeStatus(r.status) === 'rejected').length,
   };
 
+  const now = new Date();
   const filteredTournamentsForRegister = form.horseId
-    ? tournaments.filter(t => 
-        !registrations.some(r => 
+    ? tournaments.filter(t => {
+        // Only show tournaments where the horse is not yet registered
+        const alreadyRegistered = registrations.some(r => 
           String(r.horseId) === String(form.horseId) && 
           r.tournamentId === t.tournamentId && 
           normalizeStatus(r.status) !== 'rejected'
-        )
-      )
+        );
+        if (alreadyRegistered) return false;
+
+        // Only show tournaments with active registration windows
+        const regStart = t.registrationStartDate ? new Date(t.registrationStartDate) : null;
+        const regEnd = t.registrationEndDate ? new Date(t.registrationEndDate) : null;
+        if (regStart && now < regStart) return false;
+        if (regEnd && now > regEnd) return false;
+
+        return true;
+      })
     : tournaments;
 
   return (
