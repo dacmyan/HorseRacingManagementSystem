@@ -105,25 +105,23 @@ export function OwnerRegistrationsPage() {
   };
 
   const now = new Date();
+  const openTournaments = tournaments.filter(t => {
+    const regStart = t.registrationStartDate ? new Date(t.registrationStartDate) : null;
+    const regEnd = t.registrationEndDate ? new Date(t.registrationEndDate) : null;
+    if (regStart && now < regStart) return false;
+    if (regEnd && now > regEnd) return false;
+    return true;
+  });
+
   const filteredTournamentsForRegister = form.horseId
-    ? tournaments.filter(t => {
-        // Only show tournaments where the horse is not yet registered
-        const alreadyRegistered = registrations.some(r => 
+    ? openTournaments.filter(t => 
+        !registrations.some(r => 
           String(r.horseId) === String(form.horseId) && 
           r.tournamentId === t.tournamentId && 
           normalizeStatus(r.status) !== 'rejected'
-        );
-        if (alreadyRegistered) return false;
-
-        // Only show tournaments with active registration windows
-        const regStart = t.registrationStartDate ? new Date(t.registrationStartDate) : null;
-        const regEnd = t.registrationEndDate ? new Date(t.registrationEndDate) : null;
-        if (regStart && now < regStart) return false;
-        if (regEnd && now > regEnd) return false;
-
-        return true;
-      })
-    : tournaments;
+        )
+      )
+    : openTournaments;
 
   return (
     <div className="min-h-screen text-body font-sans flex" style={{backgroundColor: '#0b101e'}}>
@@ -271,7 +269,9 @@ export function OwnerRegistrationsPage() {
                 </select>
                 {form.horseId && filteredTournamentsForRegister.length === 0 && (
                   <div className="text-[11px] text-yellow-400 mt-1.5">
-                    Con ngựa này đã đăng ký tham gia tất cả các giải đấu hiện tại.
+                    {openTournaments.length === 0 
+                      ? "Hiện tại không có giải đấu nào đang trong thời gian mở đăng ký."
+                      : "Con ngựa này đã đăng ký tham gia tất cả các giải đấu đang mở."}
                   </div>
                 )}
                 {tournaments.length === 0 && (
