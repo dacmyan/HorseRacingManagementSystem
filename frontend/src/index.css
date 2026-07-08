@@ -255,6 +255,13 @@ h1, h2, h3, h4, h5, h6 {
   border-color: rgba(181, 138, 48, 0.2) !important;
 }
 
+/* Base Input, select, and textarea styles */
+input,
+select,
+textarea {
+  color-scheme: dark;
+}
+
 /* Input, select, and textarea overrides */
 [data-theme="light"] input,
 [data-theme="light"] select,
@@ -262,6 +269,7 @@ h1, h2, h3, h4, h5, h6 {
   background-color: #FFFFFF !important;
   color: #0F172A !important;
   border-color: rgba(15, 23, 42, 0.15) !important;
+  color-scheme: light !important;
 }
 [data-theme="light"] input::placeholder {
   color: #94A3B8 !important;
