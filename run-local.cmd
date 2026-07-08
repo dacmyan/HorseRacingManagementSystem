@@ -5,17 +5,13 @@ echo =====================================================================
 echo                HORSE RACING MANAGEMENT SYSTEM
 echo =====================================================================
 echo.
-echo [1/2] Khoi dong Backend API (cong 5000)...
-start "Backend API" /D "%~dp0backend" cmd /k dotnet run --project src/HorseRacing.API -- --urls http://localhost:5000
-
-echo [2/2] Khoi dong Frontend (cong 5173)...
-start "Frontend Dev" /D "%~dp0frontend" cmd /k npm run dev
-
+echo Dang khoi dong Backend API (cong 5000) va Frontend Dev Server (cong 5173)...
 echo.
-echo =====================================================================
-echo  Khoi dong hoan tat! Backend va Frontend dang chay o 2 cua so rieng.
-echo  - Swagger: http://localhost:5000/swagger
-echo  - Frontend: http://localhost:5173
+echo - Log cua Backend se co tien to [Backend] mau xanh duong.
+echo - Log cua Frontend se co tien to [Frontend] mau xanh la.
+echo - Nhan Ctrl+C (hoac dong terminal) de dung ca 2 dich vu cung luc.
 echo =====================================================================
 echo.
-pause
+
+npx concurrently -k -p "[{name}]" -n "Backend,Frontend" -c "blue.bold,green.bold" "cd backend && dotnet run --project src/HorseRacing.API -- --urls http://localhost:5000" "cd frontend && npm run dev"
+
