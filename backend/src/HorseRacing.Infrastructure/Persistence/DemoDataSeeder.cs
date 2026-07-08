@@ -49,6 +49,7 @@ public class DemoDataSeeder
             _context.RaceRefereeAssignments.RemoveRange(_context.RaceRefereeAssignments);
             _context.RaceEntries.RemoveRange(_context.RaceEntries);
             _context.JockeyContracts.RemoveRange(_context.JockeyContracts);
+            _context.MedicalCheckRecords.RemoveRange(_context.MedicalCheckRecords);
             _context.Registrations.RemoveRange(_context.Registrations);
             _context.Races.RemoveRange(_context.Races);
             _context.Rounds.RemoveRange(_context.Rounds);
@@ -85,7 +86,8 @@ public class DemoDataSeeder
                 new() { Username = "referee",   Email = "referee@gmail.com",   FullName = "Trọng tài Nam",    RoleId = 4 },
                 new() { Username = "spectator", Email = "spectator@gmail.com", FullName = "Khán giả Bình",    RoleId = 5 },
                 new() { Username = "spectator2", Email = "spectator2@gmail.com", FullName = "Khán giả Hoàng",   RoleId = 5 },
-                new() { Username = "spectator3", Email = "spectator3@gmail.com", FullName = "Khán giả Dung",    RoleId = 5 }
+                new() { Username = "spectator3", Email = "spectator3@gmail.com", FullName = "Khán giả Dung",    RoleId = 5 },
+                new() { Username = "vet",        Email = "vet@gmail.com",        FullName = "Bác sĩ Thú y",     RoleId = 6 }
             };
 
             for (int i = 1; i <= 10; i++)

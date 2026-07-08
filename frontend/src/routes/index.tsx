@@ -38,6 +38,10 @@ import { RefereeViolationsPage } from '../pages/referee/RefereeViolationsPage';
 import { RefereeConfirmResultsPage } from '../pages/referee/RefereeConfirmResultsPage';
 import { RefereeReportsPage } from '../pages/referee/RefereeReportsPage';
 
+// Veterinarian
+import { VetDashboardPage } from '../pages/vet/VetDashboardPage';
+import { MedicalCheckPage } from '../pages/vet/MedicalCheckPage';
+
 // Spectator
 import { SpectatorDashboardPage } from '../pages/spectator/SpectatorDashboardPage';
 import { SpectatorTournamentsPage } from '../pages/spectator/SpectatorTournamentsPage';
@@ -95,6 +99,10 @@ export function AppRoutes() {
         <Route path="/referee/violations" element={<PrivateRoute><RefereeViolationsPage /></PrivateRoute>} />
         <Route path="/referee/confirm-results" element={<PrivateRoute><RefereeConfirmResultsPage /></PrivateRoute>} />
         <Route path="/referee/reports" element={<PrivateRoute><RefereeReportsPage /></PrivateRoute>} />
+
+        {/* Veterinarian */}
+        <Route path="/vet/dashboard" element={<PrivateRoute><VetDashboardPage /></PrivateRoute>} />
+        <Route path="/vet/medical-check" element={<PrivateRoute><MedicalCheckPage /></PrivateRoute>} />
 
         {/* Spectator */}
         <Route path="/spectator/dashboard" element={<PrivateRoute><SpectatorDashboardPage /></PrivateRoute>} />

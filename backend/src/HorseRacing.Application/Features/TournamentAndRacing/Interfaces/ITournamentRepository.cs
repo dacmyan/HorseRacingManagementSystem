@@ -27,5 +27,7 @@ public interface ITournamentRepository
     Task<bool> HasRaceResultsAsync(IEnumerable<long> raceIds);
     Task AddPrizeAsync(HorseRacing.Domain.Entities.Financials.Prize prize);
     Task ClearRoundsAndRacesAsync(long tournamentId);
+    Task<List<HorseRacing.Domain.Entities.MedicalCheckRecord>> GetMedicalCheckRecordsForTournamentAsync(long tournamentId);
+    Task<List<HorseRacing.Domain.Entities.Registration>> GetRegistrationsByTournamentIdAsync(long tournamentId);
 }
 

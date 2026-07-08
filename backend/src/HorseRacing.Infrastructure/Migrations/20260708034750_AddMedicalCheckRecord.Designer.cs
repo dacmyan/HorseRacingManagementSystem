@@ -4,6 +4,7 @@ using HorseRacing.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HorseRacing.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260708034750_AddMedicalCheckRecord")]
+    partial class AddMedicalCheckRecord
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -764,11 +767,6 @@ namespace HorseRacing.Infrastructure.Migrations
                         {
                             RoleId = 5,
                             Name = "Spectator"
-                        },
-                        new
-                        {
-                            RoleId = 6,
-                            Name = "Veterinarian"
                         });
                 });
 
@@ -1157,7 +1155,7 @@ namespace HorseRacing.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("HorseRacing.Domain.Entities.AppUser", "Veterinarian")
+                    b.HasOne("HorseRacing.Domain.Entities.AppUser", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -1165,7 +1163,7 @@ namespace HorseRacing.Infrastructure.Migrations
 
                     b.Navigation("Registration");
 
-                    b.Navigation("Veterinarian");
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("HorseRacing.Domain.Entities.Notification", b =>

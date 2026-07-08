@@ -12,4 +12,5 @@ public interface ITournamentService
     Task<TournamentResponse?> GetTournamentByIdAsync(long id);
     Task<List<RaceScheduleResponse>> GenerateRacesForTournamentAsync(long tournamentId);
     Task<RaceScheduleResponse> GenerateFinalRaceAsync(long tournamentId);
+    Task<QualifiedHorsesResponse> GetQualifiedHorsesAsync(long id);
 }

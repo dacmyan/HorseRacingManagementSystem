@@ -33,6 +33,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<HorseStatistic>    HorseStatistics { get; set; }
     public DbSet<RefereeReport>     RefereeReports { get; set; }
     public DbSet<Prediction>        Predictions  { get; set; }
+    public DbSet<MedicalCheckRecord> MedicalCheckRecords { get; set; }
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -393,6 +394,27 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<RaceViolation>().ToTable("RaceViolation");
 
+        modelBuilder.Entity<MedicalCheckRecord>(entity =>
+        {
+            entity.ToTable("MedicalCheckRecord");
+            entity.HasKey(m => m.Id);
+            entity.Property(m => m.Weight).HasPrecision(10, 2);
+            entity.Property(m => m.Temperature).HasPrecision(10, 2);
+
+            entity.Property(m => m.RegistrationId)
+                .HasConversion<int>();
+
+            entity.HasOne(m => m.Registration)
+                .WithMany()
+                .HasForeignKey(m => m.RegistrationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(m => m.Veterinarian)
+                .WithMany()
+                .HasForeignKey(m => m.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
         modelBuilder.SeedData();
 
         base.OnModelCreating(modelBuilder);
@@ -408,7 +430,8 @@ public static class ModelBuilderExtensions
             new Role { RoleId = 2, Name = "HorseOwner" },
             new Role { RoleId = 3, Name = "Jockey" },
             new Role { RoleId = 4, Name = "Referee" },
-            new Role { RoleId = 5, Name = "Spectator" }
+            new Role { RoleId = 5, Name = "Spectator" },
+            new Role { RoleId = 6, Name = "Veterinarian" }
         );
     }
 }

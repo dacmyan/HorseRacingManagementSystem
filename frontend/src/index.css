@@ -243,6 +243,9 @@ h1, h2, h3, h4, h5, h6 {
 [data-theme="light"] .text-muted\/70 {
   color: rgba(100, 116, 139, 0.7) !important;
 }
+[data-theme="light"] .text-yellow-400 {
+  color: #0F172A !important;
+}
 
 /* Hover styles for light sidebar buttons */
 [data-theme="light"] aside button:hover {

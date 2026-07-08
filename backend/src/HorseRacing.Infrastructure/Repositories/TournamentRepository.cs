@@ -274,5 +274,20 @@ public class TournamentRepository : ITournamentRepository
 
         _context.Rounds.RemoveRange(rounds);
         await _context.SaveChangesAsync();
+     }
+
+    public async Task<List<HorseRacing.Domain.Entities.MedicalCheckRecord>> GetMedicalCheckRecordsForTournamentAsync(long tournamentId)
+    {
+        return await _context.MedicalCheckRecords
+            .Where(m => m.Registration != null && m.Registration.TournamentId == tournamentId)
+            .ToListAsync();
+    }
+
+    public async Task<List<HorseRacing.Domain.Entities.Registration>> GetRegistrationsByTournamentIdAsync(long tournamentId)
+    {
+        return await _context.Set<HorseRacing.Domain.Entities.Registration>()
+            .Include(r => r.Horse)
+            .Where(r => r.TournamentId == tournamentId)
+            .ToListAsync();
     }
 }

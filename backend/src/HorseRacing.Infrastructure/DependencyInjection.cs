@@ -10,6 +10,8 @@ using HorseRacing.Application.Features.HorseManagement.Interfaces;
 using HorseRacing.Application.Features.ContractAndRegistration.Interfaces;
 using HorseRacing.Application.Features.TournamentAndRacing.Interfaces;
 using HorseRacing.Application.Features.OfficiatingAndResults.Interfaces;
+using HorseRacing.Application.Features.MedicalCheck.Interfaces;
+using HorseRacing.Application.Features.MedicalCheck.Services;
 using HorseRacing.Application.Common.Interfaces;
 using HorseRacing.Infrastructure.Repositories;
 using HorseRacing.Infrastructure.ExternalServices;
@@ -43,6 +45,8 @@ public static class DependencyInjection
         services.AddScoped<IRefereeReportRepository, RefereeReportRepository>();
         services.AddScoped<IResultRepository, ResultRepository>();
         services.AddScoped<IPredictionRepository, PredictionRepository>();
+        services.AddScoped<IMedicalCheckRepository, MedicalCheckRepository>();
+        services.AddScoped<IMedicalCheckService, MedicalCheckService>();
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
         services.AddScoped<DataSeeder>();
         services.AddScoped<DemoDataSeeder>();

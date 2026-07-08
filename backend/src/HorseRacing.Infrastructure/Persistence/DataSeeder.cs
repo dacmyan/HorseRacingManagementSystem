@@ -32,7 +32,8 @@ public class DataSeeder
                 new Role { RoleId = 2, Name = "HorseOwner" },
                 new Role { RoleId = 3, Name = "Jockey" },
                 new Role { RoleId = 4, Name = "Referee" },
-                new Role { RoleId = 5, Name = "Spectator" }
+                new Role { RoleId = 5, Name = "Spectator" },
+                new Role { RoleId = 6, Name = "Veterinarian" }
             };
 
             bool roleAdded = false;
@@ -72,6 +73,28 @@ public class DataSeeder
                 _context.Users.Add(adminUser);
                 await _context.SaveChangesAsync();
                 _logger.LogInformation("Default Admin user ('admin@gmail.com' / '123456') seeded successfully.");
+            }
+
+            // 3. Seed Default Veterinarian User
+            var defaultVetEmail = "vet@gmail.com";
+            var defaultVetUsername = "vet";
+
+            if (!await _context.Users.AnyAsync(u => u.Email == defaultVetEmail || u.Username == defaultVetUsername))
+            {
+                var vetUser = new AppUser
+                {
+                    Username = defaultVetUsername,
+                    Email = defaultVetEmail,
+                    FullName = "System Veterinarian",
+                    RoleId = 6, // Veterinarian Role
+                    Status = "Active",
+                    CreatedAt = DateTime.UtcNow
+                };
+                vetUser.PasswordHash = hasher.HashPassword(vetUser, "123456");
+
+                _context.Users.Add(vetUser);
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("Default Veterinarian user ('vet@gmail.com' / '123456') seeded successfully.");
             }
 
             _logger.LogInformation("Mandatory data seeding completed successfully.");

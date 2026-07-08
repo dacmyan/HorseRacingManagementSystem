@@ -201,10 +201,52 @@ public class TournamentService : ITournamentService
         return MapToResponse(tournament);
     }
 
+    private static DateTime VietnamNow => TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
+
     public async Task<List<RaceScheduleResponse>> GenerateRacesForTournamentAsync(long tournamentId)
     {
         var tournament = await _tournamentRepository.GetByIdWithRoundsAsync(tournamentId);
         if (tournament == null) throw new KeyNotFoundException($"Tournament {tournamentId} not found.");
+
+        DateTime vietnamNow = VietnamNow;
+
+        // Validation 1: RegistrationEndDate must be in the past
+        if (tournament.RegistrationEndDate.HasValue && vietnamNow < tournament.RegistrationEndDate.Value)
+        {
+            throw new InvalidOperationException("Registration period has not ended yet.");
+        }
+
+        // Validation 2: Tournament must not have already generated races
+        if (string.Equals(tournament.Status, "Active", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(tournament.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Races have already been generated for this tournament.");
+        }
+
+        // Fetch registrations and medical checks to filter qualified horses
+        var registrations = await _tournamentRepository.GetApprovedRegistrationsAsync(tournamentId);
+        var medicalChecks = await _tournamentRepository.GetMedicalCheckRecordsForTournamentAsync(tournamentId);
+
+        var qualifiedRegistrations = registrations.Where(r => 
+        {
+            var check = medicalChecks.FirstOrDefault(mc => mc.RegistrationId == r.RegistrationId);
+            if (check == null) return false;
+            bool isMedicalPassed = string.Equals(check.MedicalResult, "Pass", StringComparison.OrdinalIgnoreCase) || 
+                                   string.Equals(check.MedicalResult, "Passed", StringComparison.OrdinalIgnoreCase);
+            bool isDopingNegative = !string.Equals(check.DopingResult, "Positive", StringComparison.OrdinalIgnoreCase);
+            return isMedicalPassed && isDopingNegative;
+        }).ToList();
+
+        // Validation 3: Qualified horse count boundaries (12 to 48)
+        int N = qualifiedRegistrations.Count;
+        if (N < 12)
+        {
+            throw new InvalidOperationException("Minimum 12 qualified horses are required.");
+        }
+        if (N > 48)
+        {
+            throw new InvalidOperationException("Maximum 48 qualified horses are allowed.");
+        }
 
         // Clear any existing rounds/races for this tournament to perform a clean Auto Arrange.
         await _tournamentRepository.ClearRoundsAndRacesAsync(tournamentId);
@@ -212,11 +254,7 @@ public class TournamentService : ITournamentService
         tournament = await _tournamentRepository.GetByIdWithRoundsAsync(tournamentId);
         if (tournament == null) throw new KeyNotFoundException($"Tournament {tournamentId} not found.");
 
-        var registrations = await _tournamentRepository.GetApprovedRegistrationsAsync(tournamentId);
-        if (!registrations.Any()) throw new InvalidOperationException("No approved registrations found for this tournament.");
-
-        int N = registrations.Count;
-        var activeJockeys = await _tournamentRepository.GetActiveJockeyProfileIdsByHorseAsync(tournamentId, registrations.Select(r => r.HorseId)) ?? new Dictionary<long, int>();
+        var activeJockeys = await _tournamentRepository.GetActiveJockeyProfileIdsByHorseAsync(tournamentId, qualifiedRegistrations.Select(r => r.HorseId)) ?? new Dictionary<long, int>();
         var resultRaces = new List<RaceScheduleResponse>();
 
         if (N <= 12)
@@ -248,7 +286,7 @@ public class TournamentService : ITournamentService
 
             var entries = new List<HorseRacing.Domain.Entities.RaceEntry>();
             int lane = 1;
-            foreach (var reg in registrations)
+            foreach (var reg in qualifiedRegistrations)
             {
                 entries.Add(new HorseRacing.Domain.Entities.RaceEntry
                 {
@@ -290,7 +328,7 @@ public class TournamentService : ITournamentService
             await _tournamentRepository.AddRoundAsync(preRound);
             await _tournamentRepository.SaveChangesAsync();
 
-            var registrationsList = registrations.ToList();
+            var registrationsList = qualifiedRegistrations.ToList();
             var maxHorsePerRace = 12;
             var horseGroups = BuildRaceGroups(registrationsList, maxHorsePerRace);
 
@@ -357,6 +395,77 @@ public class TournamentService : ITournamentService
         await _tournamentRepository.SaveChangesAsync();
 
         return resultRaces;
+    }
+
+    public async Task<QualifiedHorsesResponse> GetQualifiedHorsesAsync(long id)
+    {
+        var tournament = await _tournamentRepository.GetByIdAsync(id);
+        if (tournament == null) throw new KeyNotFoundException($"Tournament {id} not found.");
+
+        var allRegistrations = await _tournamentRepository.GetRegistrationsByTournamentIdAsync(id);
+        var approvedRegistrations = allRegistrations.Where(r => string.Equals(r.Status, "Approved", StringComparison.OrdinalIgnoreCase)).ToList();
+
+        var medicalChecks = await _tournamentRepository.GetMedicalCheckRecordsForTournamentAsync(id);
+
+        int totalRegistration = allRegistrations.Count;
+        int approvedRegistration = approvedRegistrations.Count;
+
+        int medicalPassed = approvedRegistrations.Count(r => 
+        {
+            var check = medicalChecks.FirstOrDefault(mc => mc.RegistrationId == r.RegistrationId);
+            if (check == null) return false;
+            return string.Equals(check.MedicalResult, "Pass", StringComparison.OrdinalIgnoreCase) || 
+                   string.Equals(check.MedicalResult, "Passed", StringComparison.OrdinalIgnoreCase);
+        });
+
+        var qualifiedRegistrations = approvedRegistrations.Where(r => 
+        {
+            var check = medicalChecks.FirstOrDefault(mc => mc.RegistrationId == r.RegistrationId);
+            if (check == null) return false;
+            bool isMedicalPassed = string.Equals(check.MedicalResult, "Pass", StringComparison.OrdinalIgnoreCase) || 
+                                   string.Equals(check.MedicalResult, "Passed", StringComparison.OrdinalIgnoreCase);
+            bool isDopingNegative = !string.Equals(check.DopingResult, "Positive", StringComparison.OrdinalIgnoreCase);
+            return isMedicalPassed && isDopingNegative;
+        }).ToList();
+
+        int qualifiedHorsesCount = qualifiedRegistrations.Count;
+
+        DateTime vietnamNow = VietnamNow;
+
+        bool canAutoArrange = true;
+        string? validationMessage = null;
+
+        if (tournament.RegistrationEndDate.HasValue && vietnamNow < tournament.RegistrationEndDate.Value)
+        {
+            canAutoArrange = false;
+            validationMessage = "Registration period has not ended yet.";
+        }
+        else if (string.Equals(tournament.Status, "Active", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(tournament.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+        {
+            canAutoArrange = false;
+            validationMessage = "Races have already been generated for this tournament.";
+        }
+        else if (qualifiedHorsesCount < 12)
+        {
+            canAutoArrange = false;
+            validationMessage = "Minimum 12 qualified horses are required.";
+        }
+        else if (qualifiedHorsesCount > 48)
+        {
+            canAutoArrange = false;
+            validationMessage = "Maximum 48 qualified horses are allowed.";
+        }
+
+        return new QualifiedHorsesResponse
+        {
+            TotalRegistration = totalRegistration,
+            ApprovedRegistration = approvedRegistration,
+            MedicalPassed = medicalPassed,
+            QualifiedHorses = qualifiedHorsesCount,
+            CanAutoArrange = canAutoArrange,
+            ValidationMessage = validationMessage
+        };
     }
 
     private async Task<HorseRacing.Domain.Entities.Tournaments.Race> GetSingleFinalRaceAsync(long finalRoundId)

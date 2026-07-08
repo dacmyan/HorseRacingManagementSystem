@@ -392,6 +392,25 @@ private readonly IRaceResultService _resultService;
         }
     }
 
+    [HttpGet("tournaments/{id}/qualified-horses")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetQualifiedHorses(long id)
+    {
+        try
+        {
+            var result = await _tournamentService.GetQualifiedHorsesAsync(id);
+            return Ok(new { message = "Qualified horses retrieved successfully", result = result });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving qualified horses", detail = ex.Message });
+        }
+    }
+
     [HttpGet("races/{id}")]
     [AllowAnonymous]
     public async Task<IActionResult> GetRaceDetail(long id)
