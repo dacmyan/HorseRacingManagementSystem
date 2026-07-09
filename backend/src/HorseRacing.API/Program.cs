@@ -11,25 +11,27 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddSignalR();
+
+// 1. CẤU HÌNH CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("FrontendCors", policy =>
+    options.AddPolicy("CorsPolicy", policy =>
     {
-        policy.WithOrigins("http://localhost:5173", "http://localhost:5174")
+        policy.WithOrigins(
+                "https://horse-tournament-management.vercel.app", 
+                "http://localhost:5173", 
+                "http://localhost:5174"
+              )
               .AllowAnyHeader()
               .AllowAnyMethod()
-              .AllowCredentials();
-    });
-    options.AddPolicy("AllowVercelApp", policy =>
-    {
-        policy.AllowAnyOrigin()
-              .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowCredentials(); 
     });
 });
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerExtensions();
 
+// 2. CẤU HÌNH AUTHENTICATION (Kèm xử lý Token cho WebSockets/SignalR)
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -48,6 +50,8 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = jwtSettings["Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["Key"] ?? throw new InvalidOperationException("JWT Key is not configured.")))
     };
+    
+    // Rất quan trọng để FE gọi được Hub Notification
     options.Events = new JwtBearerEvents
     {
         OnMessageReceived = context =>
@@ -68,21 +72,31 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
 
+// 3. THỨ TỰ MIDDLEWARE (BẮT BUỘC PHẢI CHUẨN)
 app.UseSwagger();
 app.UseSwaggerUI();
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
 }
+
+// Bắt đầu luồng xử lý Request
 app.UseRouting();
-app.UseCors("AllowVercelApp");
+
+// Mở cửa CORS ngay sau Routing
+app.UseCors("CorsPolicy"); 
+
+// Xác thực danh tính sau khi đã qua cửa CORS
 app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapControllers();
 app.MapHub<HorseRacing.API.Hubs.NotificationHub>("/hubs/notification");
 
+// 4. MIGRATION & SEEDING (Tự động cập nhật Database)
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -96,7 +110,6 @@ using (var scope = app.Services.CreateScope())
 
         var dataSeeder = services.GetRequiredService<DataSeeder>();
         await dataSeeder.SeedAsync();
-
     }
     catch (Exception ex)
     {
