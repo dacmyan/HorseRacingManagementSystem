@@ -20,6 +20,12 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod()
               .AllowCredentials();
     });
+    options.AddPolicy("AllowVercelApp", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
 });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerExtensions();
@@ -70,7 +76,8 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
 }
-app.UseCors("FrontendCors");
+app.UseRouting();
+app.UseCors("AllowVercelApp");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
