@@ -10,6 +10,7 @@ using HorseRacing.Application.Features.BettingEngine.Interfaces;
 using System.Linq;
 
 using HorseRacing.Application.Features.Notifications.Interfaces;
+using HorseRacing.Application.Features.TournamentAndRacing.Services;
 
 namespace HorseRacing.Application.Features.OfficiatingAndResults.Services;
 
@@ -20,19 +21,22 @@ public class RaceResultService : IRaceResultService
     private readonly IPredictionService _predictionService;
     private readonly INotificationService _notificationService;
     private readonly IPrizePayoutService _prizePayoutService;
+    private readonly ITournamentService _tournamentService;
 
     public RaceResultService(
         IResultRepository repository,
         IBetPayoutService betPayoutService,
         IPredictionService predictionService,
         INotificationService notificationService,
-        IPrizePayoutService prizePayoutService)
+        IPrizePayoutService prizePayoutService,
+        ITournamentService tournamentService)
     {
         _repository = repository;
         _betPayoutService = betPayoutService;
         _predictionService = predictionService;
         _notificationService = notificationService;
         _prizePayoutService = prizePayoutService;
+        _tournamentService = tournamentService;
     }
 
     public async Task<RaceResultResponse> SubmitResultAsync(SubmitRaceResultRequest request)
@@ -82,7 +86,7 @@ public class RaceResultService : IRaceResultService
         var existingResult = await _repository.GetResultByRaceIdAsync(request.RaceId);
         if (existingResult != null)
         {
-            throw new InvalidOperationException($"A result has already been submitted for race with ID {request.RaceId}.");
+            throw new InvalidOperationException("A result has already been submitted for this race.");
         }
 
         // Generate or save times and positions for all entries in that race if they exist
@@ -137,6 +141,9 @@ public class RaceResultService : IRaceResultService
 
         await _repository.AddResultAsync(result);
         await _repository.SaveChangesAsync();
+
+        // Auto-trigger Final Race generation if all Pre-round races are completed
+        await TryAutoGenerateFinalRaceAsync(race);
 
         return new RaceResultResponse
         {
@@ -357,5 +364,46 @@ public class RaceResultService : IRaceResultService
                 CreatedAt = result.CreatedAt
             }
         };
+    }
+
+    /// <summary>
+    /// After a Pre-round race result is submitted, check if ALL Pre-round races in the same
+    /// tournament are now completed/finished. If so, automatically generate the Final Race
+    /// with the top 12 horses. Failures are swallowed so the result submission never rolls back.
+    /// </summary>
+    private async Task TryAutoGenerateFinalRaceAsync(Race race)
+    {
+        try
+        {
+            // Only apply to Pre-round (RoundNumber == 1)
+            if (race.Round == null || race.Round.RoundNumber != 1)
+                return;
+
+            long preRoundId = race.Round.RoundId;
+            long tournamentId = race.Round.TournamentId;
+
+            // Fetch all races in this Pre-round
+            var preRaces = await _repository.GetRacesByRoundIdAsync(preRoundId);
+            if (preRaces.Count == 0)
+                return;
+
+            // Check if all Pre-round races are Completed or Finished
+            bool allDone = preRaces.All(r =>
+                string.Equals(r.Status, "Completed", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(r.Status, "Finished", StringComparison.OrdinalIgnoreCase));
+
+            if (!allDone)
+                return;
+
+            // All Pre races are done — auto-generate Final Race with top 12 finalists
+            Console.WriteLine($"[AutoFinal] All Pre races in tournament {tournamentId} are completed. Auto-generating Final Race...");
+            await _tournamentService.GenerateFinalRaceAsync(tournamentId);
+            Console.WriteLine($"[AutoFinal] Final Race generated successfully for tournament {tournamentId}.");
+        }
+        catch (Exception ex)
+        {
+            // Non-blocking: log and continue — admin can manually trigger if needed
+            Console.WriteLine($"[AutoFinal] Could not auto-generate Final Race: {ex.Message}");
+        }
     }
 }

@@ -52,7 +52,7 @@ public class JockeyContractRepository : IJockeyContractRepository
     {
         return await _context.JockeyContracts
             .Include(jc => jc.Jockey)
-            .FirstOrDefaultAsync(jc => jc.HorseId == horseId && jc.Status == "Active");
+            .FirstOrDefaultAsync(jc => jc.HorseId == horseId && (jc.Status == "Accepted" || jc.Status == "Active"));
     }
 
     public async Task<JockeyContract?> GetByTournamentHorseAndJockeyAsync(long tournamentId, long horseId, int jockeyUserId)
@@ -72,6 +72,14 @@ public class JockeyContractRepository : IJockeyContractRepository
             .AnyAsync(jc => jc.JockeyId == jockeyUserId 
                 && jc.TournamentId == tournamentId 
                 && (jc.Status == "Active" || jc.Status == "Accepted"));
+    }
+
+    public async Task<bool> HasPendingOrActiveContractForHorseInTournamentAsync(long horseId, long tournamentId)
+    {
+        return await _context.JockeyContracts
+            .AnyAsync(jc => jc.HorseId == horseId 
+                && jc.TournamentId == tournamentId 
+                && (jc.Status == "Pending" || jc.Status == "Active" || jc.Status == "Accepted"));
     }
 
     public async Task AddAsync(JockeyContract contract)

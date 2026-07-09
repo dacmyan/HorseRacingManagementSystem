@@ -538,7 +538,7 @@ public class AdminController : ControllerBase
                     return BadRequest(new { message = "Cannot approve registration: No jockey contract has been proposed for this horse in this tournament." });
                 }
 
-                if (contract.Status != "Accepted" && contract.Status != "Active")
+                if (!contract.Status.Equals("Accepted", StringComparison.OrdinalIgnoreCase))
                 {
                     return BadRequest(new { message = $"Cannot approve registration: The jockey contract status is '{contract.Status}', but must be 'Accepted'." });
                 }

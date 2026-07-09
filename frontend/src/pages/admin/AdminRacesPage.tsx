@@ -614,11 +614,11 @@ export function AdminRacesPage() {
                                           🏁 {race.name}
                                         </h4>
                                         <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${
-                                          race.status === 'Finished' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                                          (race.status === 'Finished' || race.status === 'Completed') ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
                                           race.status === 'Live' ? 'bg-red-500/10 text-red-400 border border-red-500/20 animate-pulse' :
                                           'bg-blue-500/10 text-blue-400 border border-blue-500/20'
                                         }`}>
-                                          {race.status === 'Finished' ? 'Đã hoàn thành' : race.status === 'Live' ? 'Đang diễn ra' : 'Đã lên lịch'}
+                                          {(race.status === 'Finished' || race.status === 'Completed') ? 'Đã hoàn thành' : race.status === 'Live' ? 'Đang diễn ra' : 'Đã lên lịch'}
                                         </span>
                                       </div>
                                       <div className="text-right">

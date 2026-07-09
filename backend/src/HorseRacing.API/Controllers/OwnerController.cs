@@ -223,6 +223,24 @@ public class OwnerController : ControllerBase
         }
     }
 
+    [HttpGet("horses/{horseId:int}/check-busy/{tournamentId:long}")]
+    public async Task<IActionResult> CheckHorseBusy(int horseId, long tournamentId, [FromServices] AppDbContext context)
+    {
+        try
+        {
+            var isBusy = await context.JockeyContracts
+                .AnyAsync(jc => jc.HorseId == horseId 
+                    && jc.TournamentId == tournamentId 
+                    && (jc.Status == "Pending" || jc.Status == "Active" || jc.Status == "Accepted"));
+                    
+            return Ok(new { isBusy });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Error checking horse status", detail = ex.Message });
+        }
+    }
+
     [HttpDelete("jockey-contracts/{id:int}")]
     public async Task<IActionResult> CancelContract(int id)
     {

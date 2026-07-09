@@ -22,6 +22,9 @@ export function RefereeConfirmResultsPage() {
   const [raceEntries, setRaceEntries] = useState<any[]>([]);
   const [loadingEntries, setLoadingEntries] = useState(false);
 
+  const selectedRace = races.find(r => r.raceId === Number(form.raceId));
+  const isCompleted = selectedRace && (selectedRace.status === 'Completed' || selectedRace.status === 'Finished');
+
   useEffect(() => {
     getRefereeDashboard()
       .then((data: any) => {
@@ -109,11 +112,29 @@ export function RefereeConfirmResultsPage() {
     }
   }, [raceEntries]);
 
+  useEffect(() => {
+    if (form.raceId) {
+      const race = races.find(r => r.raceId === Number(form.raceId));
+      if (race && (race.status === 'Completed' || race.status === 'Finished')) {
+        setError('A result has already been submitted for this race.');
+      } else {
+        setError('');
+      }
+    } else {
+      setError('');
+    }
+  }, [form.raceId, races]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(''); setSuccess('');
     if (!form.raceId) {
       setError('Vui lòng chọn trận đua.');
+      return;
+    }
+
+    if (isCompleted) {
+      setError('A result has already been submitted for this race.');
       return;
     }
     
@@ -194,24 +215,24 @@ export function RefereeConfirmResultsPage() {
                 
                 <div>
                   <label className={LABEL}>Ngựa chiến thắng *</label>
-                  <input value={form.winner} onChange={e => setF('winner', e.target.value)} placeholder="Tên ngựa hoặc ID ngựa" className={INPUT} />
+                  <input disabled={!!isCompleted} value={form.winner} onChange={e => setF('winner', e.target.value)} placeholder="Tên ngựa hoặc ID ngựa" className={INPUT} />
                 </div>
                 
                 <div>
                   <label className={LABEL}>Thời gian hoàn thành (Winning Time) *</label>
-                  <input value={form.winningTime} onChange={e => setF('winningTime', e.target.value)} placeholder="VD: 01:23.45" className={INPUT} />
+                  <input disabled={!!isCompleted} value={form.winningTime} onChange={e => setF('winningTime', e.target.value)} placeholder="VD: 01:23.45" className={INPUT} />
                 </div>
                 
                 <div>
                   <label className={LABEL}>Ghi chú thêm</label>
-                  <textarea rows={3} value={form.remarks} onChange={e => setF('remarks', e.target.value)} placeholder="Ví dụ: Về đích sát sao, kỷ lục mới..." className={INPUT + " resize-none"} />
+                  <textarea disabled={!!isCompleted} rows={3} value={form.remarks} onChange={e => setF('remarks', e.target.value)} placeholder="Ví dụ: Về đích sát sao, kỷ lục mới..." className={INPUT + " resize-none"} />
                 </div>
 
                 {error && <div className="text-sm px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400">{error}</div>}
                 {success && <div className="text-sm px-4 py-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">{success}</div>}
 
                 <div className="pt-2">
-                  <button type="submit" disabled={loading} className="btn-red w-full py-3 rounded-lg font-bold disabled:opacity-60 disabled:cursor-not-allowed">
+                  <button type="submit" disabled={loading || !!isCompleted} className="btn-red w-full py-3 rounded-lg font-bold disabled:opacity-60 disabled:cursor-not-allowed">
                     {loading ? 'Đang gửi...' : 'Xác nhận kết quả'}
                   </button>
                 </div>
@@ -246,6 +267,7 @@ export function RefereeConfirmResultsPage() {
                             <td className="py-3 pr-3 text-muted">{entry.jockeyName || 'N/A'}</td>
                             <td className="py-3 pr-3">
                               <input 
+                                disabled={!!isCompleted}
                                 type="number" 
                                 min="1"
                                 max={raceEntries.length}
@@ -257,6 +279,7 @@ export function RefereeConfirmResultsPage() {
                             </td>
                             <td className="py-3 text-right">
                               <input 
+                                disabled={!!isCompleted}
                                 type="number" 
                                 step="0.01" 
                                 min="0"

@@ -241,7 +241,16 @@ public class TournamentService : ITournamentService
         int N = qualifiedRegistrations.Count;
         if (N < 12)
         {
-            throw new InvalidOperationException("Minimum 12 qualified horses are required.");
+            if (registrations.Count < 12)
+            {
+                throw new InvalidOperationException("Minimum 12 qualified horses are required.");
+            }
+            bool hasUnchecked = registrations.Any(r => !medicalChecks.Any(mc => mc.RegistrationId == r.RegistrationId));
+            if (hasUnchecked)
+            {
+                throw new InvalidOperationException("Minimum 12 qualified horses are required. Some registered horses have not been medically examined yet.");
+            }
+            throw new InvalidOperationException("Minimum 12 qualified horses are required. Some horses failed the medical or doping check.");
         }
         if (N > 48)
         {
@@ -449,7 +458,22 @@ public class TournamentService : ITournamentService
         else if (qualifiedHorsesCount < 12)
         {
             canAutoArrange = false;
-            validationMessage = "Minimum 12 qualified horses are required.";
+            if (approvedRegistration < 12)
+            {
+                validationMessage = "Minimum 12 qualified horses are required.";
+            }
+            else
+            {
+                bool hasUnchecked = approvedRegistrations.Any(r => !medicalChecks.Any(mc => mc.RegistrationId == r.RegistrationId));
+                if (hasUnchecked)
+                {
+                    validationMessage = "Minimum 12 qualified horses are required. Some registered horses have not been medically examined yet.";
+                }
+                else
+                {
+                    validationMessage = "Minimum 12 qualified horses are required. Some horses failed the medical or doping check.";
+                }
+            }
         }
         else if (qualifiedHorsesCount > 48)
         {

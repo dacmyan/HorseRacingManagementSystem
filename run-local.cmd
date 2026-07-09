@@ -1,5 +1,6 @@
 @echo off
 title Horse Racing Management System Runner
+set ASPNETCORE_ENVIRONMENT=Development
 cls
 echo =====================================================================
 echo                HORSE RACING MANAGEMENT SYSTEM
@@ -14,10 +15,10 @@ echo =====================================================================
 echo.
 
 echo [*] Dang giai phong cong 5005 va 5173 neu con bi chiem...
-for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":5005 " ^| findstr "LISTENING" 2^>nul') do (
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":5005" ^| findstr "LISTENING" 2^>nul') do (
     taskkill /PID %%a /F >nul 2>&1
 )
-for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":5173 " ^| findstr "LISTENING" 2^>nul') do (
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":5173" ^| findstr "LISTENING" 2^>nul') do (
     taskkill /PID %%a /F >nul 2>&1
 )
 timeout /t 1 /nobreak >nul

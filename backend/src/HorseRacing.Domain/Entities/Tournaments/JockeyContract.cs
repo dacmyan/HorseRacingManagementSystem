@@ -20,5 +20,7 @@ public class JockeyContract
     public DateTime EndDate { get; set; }
     public string Status { get; set; } = "Pending";
 
+    public DateTime InvitationExpiredAt { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

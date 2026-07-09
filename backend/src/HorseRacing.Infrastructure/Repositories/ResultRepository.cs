@@ -112,4 +112,11 @@ public class ResultRepository : IResultRepository
             horseObj.WinRate = Math.Round(winRate, 2);
         }
     }
+
+    public async Task<List<Race>> GetRacesByRoundIdAsync(long roundId)
+    {
+        return await _context.Races
+            .Where(r => r.RoundId == roundId)
+            .ToListAsync();
+    }
 }

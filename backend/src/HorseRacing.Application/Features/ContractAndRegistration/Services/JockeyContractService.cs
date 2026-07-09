@@ -51,6 +51,7 @@ public class JockeyContractService : IJockeyContractService
             StartDate = contract.StartDate,
             EndDate = contract.EndDate,
             Status = contract.Status,
+            InvitationExpiredAt = contract.InvitationExpiredAt,
             CreatedAt = contract.CreatedAt
         };
     }
@@ -84,6 +85,17 @@ public class JockeyContractService : IJockeyContractService
         if (hasActiveContract)
         {
             throw new InvalidOperationException("This jockey is already contracted to another horse in this tournament.");
+        }
+
+        if (request.InvitationExpiredAt <= DateTime.UtcNow)
+        {
+            throw new ArgumentException("Expiration date must be in the future.");
+        }
+
+        var hasPendingOrActiveForHorse = await _contractRepository.HasPendingOrActiveContractForHorseInTournamentAsync(request.HorseId, request.TournamentId);
+        if (hasPendingOrActiveForHorse)
+        {
+            throw new InvalidOperationException("This horse already has a pending or active contract in this tournament.");
         }
 
         // 3. Date validation
@@ -143,6 +155,7 @@ public class JockeyContractService : IJockeyContractService
 
             existingContract.StartDate = request.StartDate;
             existingContract.EndDate = request.EndDate;
+            existingContract.InvitationExpiredAt = request.InvitationExpiredAt;
             existingContract.Status = "Pending";
             existingContract.CreatedAt = DateTime.UtcNow;
             contract = existingContract;
@@ -156,6 +169,7 @@ public class JockeyContractService : IJockeyContractService
                 JockeyId = request.JockeyId,
                 StartDate = request.StartDate,
                 EndDate = request.EndDate,
+                InvitationExpiredAt = request.InvitationExpiredAt,
                 Status = "Pending",
                 CreatedAt = DateTime.UtcNow
             };
@@ -169,7 +183,7 @@ public class JockeyContractService : IJockeyContractService
         await _notificationService.SendNotificationToUserAsync(
             request.JockeyId,
             "Đề xuất hợp đồng mới",
-            $"Bạn đã nhận được đề xuất hợp đồng nài ngựa mới từ Owner '{horse.Owner?.FullName ?? "Owner"}' cho ngựa '{horse.Name}'.",
+            "You have received a riding invitation. Please respond before the expiration time.",
             "System",
             referenceId: (int)contract.ContractId,
             actionUrl: "/jockey/invitations"
@@ -183,6 +197,7 @@ public class JockeyContractService : IJockeyContractService
     public async Task<IEnumerable<JockeyContractResponse>> GetContractsForJockeyAsync(int jockeyUserId)
     {
         var contracts = await _contractRepository.GetByJockeyIdAsync(jockeyUserId);
+        await CheckAndUpdateExpiredContractsAsync(contracts);
         var now = VietnamNow;
         var filteredContracts = contracts.Where(c => c.Tournament == null || 
             (c.Tournament.RegistrationStartDate.HasValue && c.Tournament.RegistrationStartDate.Value <= now) || 
@@ -193,6 +208,7 @@ public class JockeyContractService : IJockeyContractService
     public async Task<IEnumerable<JockeyContractResponse>> GetContractsForOwnerAsync(int ownerUserId)
     {
         var contracts = await _contractRepository.GetByOwnerIdAsync(ownerUserId);
+        await CheckAndUpdateExpiredContractsAsync(contracts);
         var now = VietnamNow;
         var filteredContracts = contracts.Where(c => c.Tournament == null || 
             (c.Tournament.RegistrationStartDate.HasValue && c.Tournament.RegistrationStartDate.Value <= now) || 
@@ -207,6 +223,28 @@ public class JockeyContractService : IJockeyContractService
         {
             throw new ArgumentException($"Jockey contract with ID {contractId} not found.");
         }
+
+        if (contract.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase) && DateTime.UtcNow > contract.InvitationExpiredAt)
+        {
+            contract.Status = "Expired";
+            await _contractRepository.SaveChangesAsync();
+
+            // Notify Owner
+            await _notificationService.SendNotificationToUserAsync(
+                contract.Horse?.OwnerId ?? 0,
+                "Lời mời đã hết hạn",
+                "The invitation has expired. You can invite another jockey.",
+                "System",
+                referenceId: contract.ContractId,
+                actionUrl: "/owner/jockeys"
+            );
+        }
+
+        if (contract.Status.Equals("Expired", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("This invitation has expired.");
+        }
+
         if (contract.Tournament != null && 
             (!contract.Tournament.RegistrationStartDate.HasValue || contract.Tournament.RegistrationStartDate.Value > VietnamNow) && 
             (!contract.Tournament.StartDate.HasValue || contract.Tournament.StartDate.Value > VietnamNow))
@@ -222,7 +260,7 @@ public class JockeyContractService : IJockeyContractService
             throw new InvalidOperationException($"Contract is already '{contract.Status}' and cannot be responded to.");
         }
 
-        if (request.Status.Equals("Active", StringComparison.OrdinalIgnoreCase))
+        if (request.Status.Equals("Accepted", StringComparison.OrdinalIgnoreCase) || request.Status.Equals("Active", StringComparison.OrdinalIgnoreCase))
         {
             var hasActiveContract = await _contractRepository.HasActiveContractForJockeyInTournamentAsync(jockeyUserId, contract.TournamentId);
             if (hasActiveContract)
@@ -234,7 +272,7 @@ public class JockeyContractService : IJockeyContractService
         contract.Status = request.Status;
 
         // If accepting, cancel/expire other active contracts for the same horse
-        if (contract.Status.Equals("Active", StringComparison.OrdinalIgnoreCase))
+        if (contract.Status.Equals("Accepted", StringComparison.OrdinalIgnoreCase) || contract.Status.Equals("Active", StringComparison.OrdinalIgnoreCase))
         {
             var existingContract = await _contractRepository.GetActiveContractForHorseAsync((int)contract.HorseId);
             if (existingContract != null)
@@ -287,5 +325,31 @@ public class JockeyContractService : IJockeyContractService
         );
 
         return MapToResponse(contract);
+    }
+
+    private async Task CheckAndUpdateExpiredContractsAsync(IEnumerable<JockeyContract> contracts)
+    {
+        var pendingExpired = contracts
+            .Where(c => c.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase) 
+                && DateTime.UtcNow > c.InvitationExpiredAt)
+            .ToList();
+
+        if (pendingExpired.Any())
+        {
+            foreach (var contract in pendingExpired)
+            {
+                contract.Status = "Expired";
+                // Notify Owner
+                await _notificationService.SendNotificationToUserAsync(
+                    contract.Horse?.OwnerId ?? 0,
+                    "Lời mời đã hết hạn",
+                    "The invitation has expired. You can invite another jockey.",
+                    "System",
+                    referenceId: contract.ContractId,
+                    actionUrl: "/owner/jockeys"
+                );
+            }
+            await _contractRepository.SaveChangesAsync();
+        }
     }
 }

@@ -20,4 +20,7 @@ public class CreateJockeyContract
     [Required]
     public DateTime EndDate { get; set; }
 
+    [Required]
+    public DateTime InvitationExpiredAt { get; set; }
+
 }
