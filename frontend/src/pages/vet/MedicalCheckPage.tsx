@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, ShieldAlert, Heart, Activity, Check, Plus, Edit2, Trash2 } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2 } from 'lucide-react';
 import { Sidebar } from '../../components/layout/Sidebar';
 import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';
