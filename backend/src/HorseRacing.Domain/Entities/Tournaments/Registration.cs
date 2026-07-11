@@ -1,5 +1,6 @@
 namespace HorseRacing.Domain.Entities;
 
+using System.Collections.Generic;
 using HorseRacing.Domain.Entities.Tournaments;
 
 public class Registration
@@ -17,4 +18,7 @@ public class Registration
     public string Status { get; set; } = "Pending";
 
     public DateTime RegisteredAt { get; set; } = DateTime.UtcNow;
-}
+
+    // Navigation: all medical checks for this registration
+    public ICollection<MedicalCheckRecord>? MedicalCheckRecords { get; set; }
+}

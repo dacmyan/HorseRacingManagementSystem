@@ -13,4 +13,6 @@ public interface IMedicalCheckService
     Task<MedicalCheckResponse> UpdateAsync(long id, UpdateMedicalCheckRequest request);
     Task DeleteAsync(long id);
     Task<IEnumerable<PendingRegistrationResponse>> GetPendingRegistrationsAsync();
+    Task<RecheckResultResponse> PerformRecheckAsync(int vetUserId, RecheckMedicalRequest request);
+    Task<IEnumerable<AssignedRaceEntryResponse>> GetAssignedRaceEntriesAsync();
 }

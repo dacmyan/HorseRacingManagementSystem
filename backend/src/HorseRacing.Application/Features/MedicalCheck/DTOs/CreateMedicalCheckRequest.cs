@@ -3,6 +3,10 @@ namespace HorseRacing.Application.Features.MedicalCheck.DTOs;
 public class CreateMedicalCheckRequest
 {
     public long RegistrationId { get; set; }
+
+    /// <summary>"Initial" or "ReCheck"</summary>
+    public string CheckType { get; set; } = "Initial";
+
     public decimal Weight { get; set; }
     public decimal? Temperature { get; set; }
     public int? HeartRate { get; set; }
@@ -12,6 +16,9 @@ public class CreateMedicalCheckRequest
 
     /// <summary>"Pass" or "Fail"</summary>
     public string MedicalResult { get; set; } = "Pass";
+
+    /// <summary>Required when MedicalResult is "Fail"</summary>
+    public string? FailReason { get; set; }
 
     public string? Notes { get; set; }
 }

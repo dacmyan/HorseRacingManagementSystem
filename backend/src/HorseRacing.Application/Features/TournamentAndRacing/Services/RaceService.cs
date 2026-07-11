@@ -102,6 +102,9 @@ public class RaceService : IRaceService
     public async Task<List<RaceScheduleResponse>> GetPublicRaceScheduleAsync()
     {
         var races = await _raceRepository.GetPublicRaceScheduleAsync();
+        var raceIds = races.Select(r => r.RaceId).ToList();
+        var issueRaceIds = await _raceRepository.GetRaceIdsWithHealthIssuesAsync(raceIds);
+
         return races.Select(r => new RaceScheduleResponse
         {
             RaceId = r.RaceId,
@@ -114,7 +117,8 @@ public class RaceService : IRaceService
             RoundName = r.Round?.Name ?? string.Empty,
             RoundNumber = r.Round?.RoundNumber ?? 0,
             TournamentId = r.Round?.TournamentId ?? 0,
-            TournamentName = r.Round?.Tournament?.Name ?? string.Empty
+            TournamentName = r.Round?.Tournament?.Name ?? string.Empty,
+            HasHealthIssue = issueRaceIds.Contains(r.RaceId)
         }).ToList();
     }
 
@@ -125,6 +129,8 @@ public class RaceService : IRaceService
         {
             return null;
         }
+
+        var issueRaceIds = await _raceRepository.GetRaceIdsWithHealthIssuesAsync(new[] { race.RaceId });
 
         return new RaceScheduleResponse
         {
@@ -138,7 +144,8 @@ public class RaceService : IRaceService
             RoundName = race.Round?.Name ?? string.Empty,
             RoundNumber = race.Round?.RoundNumber ?? 0,
             TournamentId = race.Round?.TournamentId ?? 0,
-            TournamentName = race.Round?.Tournament?.Name ?? string.Empty
+            TournamentName = race.Round?.Tournament?.Name ?? string.Empty,
+            HasHealthIssue = issueRaceIds.Contains(race.RaceId)
         };
     }
 
@@ -254,6 +261,7 @@ public class RaceService : IRaceService
             JockeyName = jockeyName,
             LaneNo = raceEntry.LaneNo,
             Status = raceEntry.Status,
+            HealthStatus = registration.Horse?.HealthStatus ?? "Healthy",
             WinningProbability = raceEntry.WinningProbability,
             CurrentOdds = raceEntry.CurrentOdds
         };
@@ -302,6 +310,7 @@ public class RaceService : IRaceService
                 JockeyName = jockeyName,
                 LaneNo = entry.LaneNo,
                 Status = entry.Status,
+                HealthStatus = entry.Registration?.Horse?.HealthStatus ?? "Healthy",
                 WinningProbability = entry.WinningProbability,
                 CurrentOdds = entry.CurrentOdds,
                 FinishPosition = entry.FinishPosition,

@@ -202,4 +202,20 @@ public class RaceRepository : IRaceRepository
 
         await transaction.CommitAsync();
     }
+
+    public async Task<HashSet<long>> GetRaceIdsWithHealthIssuesAsync(IEnumerable<long> raceIds)
+    {
+        var list = raceIds.ToList();
+        var ids = await _context.RaceEntries
+            .AsNoTracking()
+            .Include(re => re.Registration)
+                .ThenInclude(reg => reg!.Horse)
+            .Where(re => list.Contains(re.RaceId))
+            .Where(re => re.Registration != null && re.Registration.Horse != null &&
+                        (re.Registration.Horse.HealthStatus == "Sick" || re.Registration.Horse.HealthStatus == "Injured"))
+            .Select(re => re.RaceId)
+            .Distinct()
+            .ToListAsync();
+        return new HashSet<long>(ids);
+    }
 }

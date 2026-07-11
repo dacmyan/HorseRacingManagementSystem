@@ -82,6 +82,19 @@ public class RaceResultService : IRaceResultService
             throw new ArgumentException($"Horse '{horse.Name}' is not entered in race with ID {request.RaceId}.");
         }
 
+        // 4a. Validate that the winner horse is eligible to race (not sick/injured) and not in a non-participating status
+        if (string.Equals(horse.HealthStatus, "Sick", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(horse.HealthStatus, "Injured", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException($"Horse '{horse.Name}' is sick or injured and cannot be the winner.");
+        }
+
+        var invalidWinnerStatuses = new[] { "Withdrawn", "Scratch", "DNF", "Disqualified" };
+        if (invalidWinnerStatuses.Any(s => string.Equals(entry.Status, s, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new ArgumentException($"Horse '{horse.Name}' has race entry status '{entry.Status}' and cannot be the winner.");
+        }
+
         // 5. Prevent duplicate result submission for the same race
         var existingResult = await _repository.GetResultByRaceIdAsync(request.RaceId);
         if (existingResult != null)
@@ -100,8 +113,27 @@ public class RaceResultService : IRaceResultService
                     var match = entries.FirstOrDefault(re => re.RaceEntryId == manualEntry.RaceEntryId);
                     if (match != null)
                     {
-                        match.FinishPosition = manualEntry.FinishPosition;
-                        match.FinishTime = manualEntry.FinishTime;
+                        var isSickOrInjured = match.Registration?.Horse != null &&
+                            (string.Equals(match.Registration.Horse.HealthStatus, "Sick", StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(match.Registration.Horse.HealthStatus, "Injured", StringComparison.OrdinalIgnoreCase));
+
+                        var hasNonParticipatingStatus = invalidWinnerStatuses.Any(s => string.Equals(match.Status, s, StringComparison.OrdinalIgnoreCase));
+
+                        if (isSickOrInjured || hasNonParticipatingStatus)
+                        {
+                            if ((manualEntry.FinishPosition > 0) || (manualEntry.FinishTime > 0))
+                            {
+                                throw new ArgumentException($"Horse '{match.Registration?.Horse?.Name}' is sick, injured, or withdrawn/disqualified/DNF ({match.Status}) and cannot have a finish position or time.");
+                            }
+                            match.FinishPosition = null;
+                            match.FinishTime = null;
+                        }
+                        else
+                        {
+                            match.FinishPosition = manualEntry.FinishPosition;
+                            match.FinishTime = manualEntry.FinishTime;
+                            match.Status = "Finished";
+                        }
                     }
                 }
                 await _repository.SaveChangesAsync();
@@ -119,12 +151,28 @@ public class RaceResultService : IRaceResultService
 
                 winnerEntry.FinishPosition = 1;
                 winnerEntry.FinishTime = winnerTime;
+                winnerEntry.Status = "Finished";
 
                 int position = 2;
                 foreach (var entryItem in entries.Where(re => re.RaceEntryId != winnerEntry.RaceEntryId))
                 {
-                    entryItem.FinishPosition = position++;
-                    entryItem.FinishTime = Math.Round(winnerTime + (decimal)(random.NextDouble() * 3.0 + 0.5), 2);
+                    var isSickOrInjured = entryItem.Registration?.Horse != null &&
+                        (string.Equals(entryItem.Registration.Horse.HealthStatus, "Sick", StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(entryItem.Registration.Horse.HealthStatus, "Injured", StringComparison.OrdinalIgnoreCase));
+
+                    var hasNonParticipatingStatus = invalidWinnerStatuses.Any(s => string.Equals(entryItem.Status, s, StringComparison.OrdinalIgnoreCase));
+
+                    if (isSickOrInjured || hasNonParticipatingStatus)
+                    {
+                        entryItem.FinishPosition = null;
+                        entryItem.FinishTime = null;
+                    }
+                    else
+                    {
+                        entryItem.FinishPosition = position++;
+                        entryItem.FinishTime = Math.Round(winnerTime + (decimal)(random.NextDouble() * 3.0 + 0.5), 2);
+                        entryItem.Status = "Finished";
+                    }
                 }
                 await _repository.SaveChangesAsync();
             }

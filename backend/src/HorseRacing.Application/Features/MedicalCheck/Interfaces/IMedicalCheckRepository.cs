@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using HorseRacing.Domain.Entities;
+using HorseRacing.Domain.Entities.Tournaments;
 
 namespace HorseRacing.Application.Features.MedicalCheck.Interfaces;
 
@@ -14,4 +15,17 @@ public interface IMedicalCheckRepository
     void Delete(MedicalCheckRecord record);
     Task SaveChangesAsync();
     Task<IEnumerable<Registration>> GetPendingRegistrationsForChecksAsync();
+
+    // Recheck support
+    Task<RaceEntry?> GetActiveRaceEntryByRegistrationIdAsync(long registrationId);
+    Task<Race?> GetRaceByRaceEntryIdAsync(long raceEntryId);
+    Task<Registration?> GetRegistrationWithDetailsAsync(long registrationId);
+    void UpdateRegistration(Registration registration);
+    void UpdateRaceEntry(RaceEntry raceEntry);
+    Task<int?> GetOwnerUserIdByRegistrationAsync(long registrationId);
+    Task<int?> GetJockeyUserIdByRaceEntryAsync(long raceEntryId);
+    Task<List<int>> GetRefereeUserIdsByRaceIdAsync(long raceId);
+    Task<List<int>> GetBettorUserIdsByRaceIdAsync(long raceId);
+    Task<List<RaceEntry>> GetAssignedRaceEntriesAsync();
+    Task<MedicalCheckRecord?> GetLatestByRegistrationIdAsync(long registrationId);
 }

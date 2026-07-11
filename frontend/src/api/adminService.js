@@ -17,6 +17,7 @@ export const createRace = (data) => api.post('/admin/races', data);
 export const deleteRace = (raceId) => api.delete(`/admin/races/${raceId}`);
 
 export const createRaceEntry = (raceId, data) => api.post(`/admin/races/${raceId}/entries`, data);
+export const withdrawRaceEntry = (raceEntryId, reason) => api.post(`/admin/races/entries/${raceEntryId}/withdraw`, { reason });
 
 export const assignReferee = (raceId, refereeId) => api.post(`/admin/races/${raceId}/referees`, { refereeId });
 

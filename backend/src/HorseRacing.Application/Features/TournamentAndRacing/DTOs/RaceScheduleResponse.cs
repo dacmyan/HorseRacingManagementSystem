@@ -15,4 +15,5 @@ public class RaceScheduleResponse
     public int RoundNumber { get; set; }
     public long TournamentId { get; set; }
     public string TournamentName { get; set; } = string.Empty;
+    public bool HasHealthIssue { get; set; }
 }

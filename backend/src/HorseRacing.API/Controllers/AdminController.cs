@@ -501,6 +501,7 @@ public class AdminController : ControllerBase
                     HorseName = r.Horse != null ? r.Horse.Name : "",
                     OwnerName = (r.Horse != null && r.Horse.Owner != null) ? r.Horse.Owner.FullName : "",
                     Status = r.Status,
+                    HealthStatus = r.Horse != null ? r.Horse.HealthStatus : "Healthy",
                     RegisteredAt = r.RegisteredAt
                 })
                 .ToListAsync();
@@ -939,9 +940,98 @@ public class AdminController : ControllerBase
             return StatusCode(500, new { message = "An error occurred retrieving races and referee assignments", detail = ex.Message });
         }
     }
+
+    [HttpPost("races/entries/{raceEntryId}/withdraw")]
+    public async Task<IActionResult> WithdrawRaceEntry([FromRoute] long raceEntryId, [FromBody] WithdrawEntryRequest request, [FromServices] AppDbContext context)
+    {
+        try
+        {
+            var entry = await context.RaceEntries
+                .Include(re => re.Registration)
+                    .ThenInclude(reg => reg.Horse)
+                .Include(re => re.Race)
+                .FirstOrDefaultAsync(re => re.RaceEntryId == raceEntryId);
+
+            if (entry == null)
+            {
+                return NotFound(new { message = $"RaceEntry with ID {raceEntryId} was not found." });
+            }
+
+            var race = entry.Race;
+            if (race == null)
+            {
+                return BadRequest(new { message = "Race entry is not associated with a valid race." });
+            }
+
+            var alreadyFinalStatuses = new[] { "Withdrawn", "Scratch", "DNF", "Disqualified", "Finished", "Completed" };
+            if (alreadyFinalStatuses.Any(s => string.Equals(entry.Status, s, StringComparison.OrdinalIgnoreCase)))
+            {
+                return BadRequest(new { message = $"Race entry is already in a final status '{entry.Status}'." });
+            }
+
+            if (string.Equals(race.Status, "Finished", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(race.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest(new { message = "Cannot withdraw an entry from a finished/completed race." });
+            }
+
+            var isSickOrInjured = entry.Registration?.Horse != null && 
+                (string.Equals(entry.Registration.Horse.HealthStatus, "Sick", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(entry.Registration.Horse.HealthStatus, "Injured", StringComparison.OrdinalIgnoreCase));
+
+            if (!isSickOrInjured)
+            {
+                return BadRequest(new { message = "Không thể loại bỏ ngựa này. Chỉ có thể loại bỏ những con ngựa đã được bác sĩ thú y kết luận là Bị bệnh (Sick) hoặc Chấn thương (Injured)." });
+            }
+
+            var reason = request?.Reason ?? "AdminDecision";
+
+            // Set status
+            if (string.Equals(race.Status, "InProgress", StringComparison.OrdinalIgnoreCase))
+            {
+                entry.Status = "DNF";
+            }
+            else
+            {
+                entry.Status = "Withdrawn";
+            }
+
+            entry.WithdrawReason = reason;
+            entry.WithdrawTime = DateTime.UtcNow;
+
+            if (entry.Registration != null)
+            {
+                entry.Registration.Status = "Disqualified";
+                if (entry.Registration.Horse != null)
+                {
+                    entry.Registration.Horse.HealthStatus = "Injured";
+                }
+            }
+
+            await context.SaveChangesAsync();
+
+            return Ok(new { 
+                message = "Race entry has been successfully withdrawn/disqualified", 
+                result = new { 
+                    raceEntryId = entry.RaceEntryId, 
+                    status = entry.Status, 
+                    healthStatus = entry.Registration?.Horse?.HealthStatus 
+                } 
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred during race entry withdrawal", detail = ex.Message });
+        }
+    }
 }
 
 public class UpdateViolationStatusRequest
 {
     public string Status { get; set; } = string.Empty;
+}
+
+public class WithdrawEntryRequest
+{
+    public string? Reason { get; set; }
 }

@@ -10,5 +10,6 @@ public interface IRegistrationRepository
     Task<Registration?> GetByHorseIdAndTournamentIdAsync(long horseId, long tournamentId);
     Task<IEnumerable<Registration>> GetByOwnerIdAsync(int ownerUserId);
     Task AddAsync(Registration registration);
+    void Update(Registration registration);
     Task SaveChangesAsync();
 }

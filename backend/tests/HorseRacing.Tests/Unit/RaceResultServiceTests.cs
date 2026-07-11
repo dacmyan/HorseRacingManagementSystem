@@ -12,8 +12,8 @@ using FluentAssertions;
 
 using HorseRacing.Application.Features.FinancialRewards.Interfaces;
 using HorseRacing.Application.Features.BettingEngine.Interfaces;
-
 using HorseRacing.Application.Features.Notifications.Interfaces;
+using HorseRacing.Application.Features.TournamentAndRacing.Services;
 
 namespace HorseRacing.Tests.Unit;
 
@@ -24,6 +24,7 @@ public class RaceResultServiceTests
     private readonly Mock<IPredictionService> _predictionMock;
     private readonly Mock<INotificationService> _notificationMock;
     private readonly Mock<IPrizePayoutService> _prizePayoutMock;
+    private readonly Mock<ITournamentService> _tournamentMock;
     private readonly RaceResultService _service;
 
     public RaceResultServiceTests()
@@ -33,7 +34,14 @@ public class RaceResultServiceTests
         _predictionMock = new Mock<IPredictionService>();
         _notificationMock = new Mock<INotificationService>();
         _prizePayoutMock = new Mock<IPrizePayoutService>();
-        _service = new RaceResultService(_repoMock.Object, _payoutMock.Object, _predictionMock.Object, _notificationMock.Object, _prizePayoutMock.Object);
+        _tournamentMock = new Mock<ITournamentService>();
+        _service = new RaceResultService(
+            _repoMock.Object, 
+            _payoutMock.Object, 
+            _predictionMock.Object, 
+            _notificationMock.Object, 
+            _prizePayoutMock.Object,
+            _tournamentMock.Object);
     }
 
     [Fact]
@@ -145,5 +153,47 @@ public class RaceResultServiceTests
         response.Should().NotBeNull();
         race.Status.Should().Be("Finished");
         _repoMock.Verify(r => r.SaveChangesAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task SubmitResultAsync_ShouldThrowArgumentException_WhenWinnerHorseIsSickOrInjured()
+    {
+        // Arrange
+        var request = new SubmitRaceResultRequest { RaceId = 1, Winner = "Horse A" };
+        var race = new Race { RaceId = 1, Name = "Race 1", Status = "Scheduled" };
+        var horse = new Horse { HorseId = 10, Name = "Horse A", HealthStatus = "Sick" };
+        var entry = new RaceEntry { RaceEntryId = 50, RaceId = 1, RegistrationId = 5 };
+
+        _repoMock.Setup(r => r.GetRaceByIdAsync(1)).ReturnsAsync(race);
+        _repoMock.Setup(r => r.GetHorseByIdOrNameAsync("Horse A")).ReturnsAsync(horse);
+        _repoMock.Setup(r => r.GetRaceEntryByHorseIdAsync(1, 10)).ReturnsAsync(entry);
+
+        // Act
+        Func<Task> act = async () => await _service.SubmitResultAsync(request);
+
+        // Assert
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithMessage("Horse 'Horse A' is sick or injured and cannot be the winner.");
+    }
+
+    [Fact]
+    public async Task SubmitResultAsync_ShouldThrowArgumentException_WhenWinnerHorseRaceEntryIsWithdrawn()
+    {
+        // Arrange
+        var request = new SubmitRaceResultRequest { RaceId = 1, Winner = "Horse A" };
+        var race = new Race { RaceId = 1, Name = "Race 1", Status = "Scheduled" };
+        var horse = new Horse { HorseId = 10, Name = "Horse A", HealthStatus = "Healthy" };
+        var entry = new RaceEntry { RaceEntryId = 50, RaceId = 1, RegistrationId = 5, Status = "Withdrawn" };
+
+        _repoMock.Setup(r => r.GetRaceByIdAsync(1)).ReturnsAsync(race);
+        _repoMock.Setup(r => r.GetHorseByIdOrNameAsync("Horse A")).ReturnsAsync(horse);
+        _repoMock.Setup(r => r.GetRaceEntryByHorseIdAsync(1, 10)).ReturnsAsync(entry);
+
+        // Act
+        Func<Task> act = async () => await _service.SubmitResultAsync(request);
+
+        // Assert
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithMessage("Horse 'Horse A' has race entry status 'Withdrawn' and cannot be the winner.");
     }
 }

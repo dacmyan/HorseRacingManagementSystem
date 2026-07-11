@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using HorseRacing.Application.Features.MedicalCheck.Interfaces;
 using HorseRacing.Domain.Entities;
+using HorseRacing.Domain.Entities.Tournaments;
 using HorseRacing.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -37,6 +38,12 @@ public class MedicalCheckRepository : IMedicalCheckRepository
             .OrderByDescending(m => m.CheckedAt)
             .ToListAsync();
 
+    public async Task<MedicalCheckRecord?> GetLatestByRegistrationIdAsync(long registrationId)
+        => await WithIncludes()
+            .Where(m => m.RegistrationId == registrationId)
+            .OrderByDescending(m => m.CheckedAt)
+            .FirstOrDefaultAsync();
+
     public async Task AddAsync(MedicalCheckRecord record)
         => await _context.MedicalCheckRecords.AddAsync(record);
 
@@ -51,7 +58,9 @@ public class MedicalCheckRepository : IMedicalCheckRepository
 
     public async Task<IEnumerable<Registration>> GetPendingRegistrationsForChecksAsync()
     {
-        var checkedRegIds = await _context.MedicalCheckRecords
+        // Get IDs of registrations that already have an Initial check
+        var initialCheckedRegIds = await _context.MedicalCheckRecords
+            .Where(m => m.CheckType == "Initial")
             .Select(m => m.RegistrationId)
             .ToListAsync();
 
@@ -59,8 +68,105 @@ public class MedicalCheckRepository : IMedicalCheckRepository
             .Include(r => r.Horse)
                 .ThenInclude(h => h!.Owner)
             .Include(r => r.Tournament)
-            .Where(r => r.Status == "Approved" && !checkedRegIds.Contains(r.RegistrationId))
+            .Where(r => r.Status == "Approved" && !initialCheckedRegIds.Contains(r.RegistrationId))
             .OrderByDescending(r => r.RegisteredAt)
+            .ToListAsync();
+    }
+
+    // ─── Recheck Support Methods ──────────────────────────────────────────────
+
+    public async Task<RaceEntry?> GetActiveRaceEntryByRegistrationIdAsync(long registrationId)
+    {
+        var excludedStatuses = new[] { "Withdrawn", "Scratch", "DNF", "Disqualified", "Finished" };
+        return await _context.RaceEntries
+            .Include(re => re.Race)
+            .FirstOrDefaultAsync(re => re.RegistrationId == registrationId
+                && !excludedStatuses.Contains(re.Status));
+    }
+
+    public async Task<Race?> GetRaceByRaceEntryIdAsync(long raceEntryId)
+    {
+        var entry = await _context.RaceEntries
+            .Include(re => re.Race)
+            .FirstOrDefaultAsync(re => re.RaceEntryId == raceEntryId);
+        return entry?.Race;
+    }
+
+    public async Task<Registration?> GetRegistrationWithDetailsAsync(long registrationId)
+    {
+        return await _context.Registrations
+            .Include(r => r.Horse)
+                .ThenInclude(h => h!.Owner)
+            .Include(r => r.Tournament)
+            .FirstOrDefaultAsync(r => r.RegistrationId == registrationId);
+    }
+
+    public void UpdateRegistration(Registration registration)
+        => _context.Registrations.Update(registration);
+
+    public void UpdateRaceEntry(RaceEntry raceEntry)
+        => _context.RaceEntries.Update(raceEntry);
+
+    public async Task<int?> GetOwnerUserIdByRegistrationAsync(long registrationId)
+    {
+        var reg = await _context.Registrations
+            .AsNoTracking()
+            .Include(r => r.Horse)
+            .FirstOrDefaultAsync(r => r.RegistrationId == registrationId);
+
+        return reg?.Horse?.OwnerId;
+    }
+
+    public async Task<int?> GetJockeyUserIdByRaceEntryAsync(long raceEntryId)
+    {
+        var entry = await _context.RaceEntries
+            .AsNoTracking()
+            .Include(re => re.JockeyProfile)
+            .FirstOrDefaultAsync(re => re.RaceEntryId == raceEntryId);
+
+        return entry?.JockeyProfile?.UserId;
+    }
+
+    public async Task<List<int>> GetRefereeUserIdsByRaceIdAsync(long raceId)
+    {
+        return await (
+            from assignment in _context.RaceRefereeAssignments.AsNoTracking()
+            join profile in _context.RefereeProfiles.AsNoTracking()
+                on assignment.RefereeId equals profile.RefereeId
+            where assignment.RaceId == raceId
+            select profile.UserId
+        ).ToListAsync();
+    }
+
+    public async Task<List<int>> GetBettorUserIdsByRaceIdAsync(long raceId)
+    {
+        return await _context.Bets
+            .AsNoTracking()
+            .Where(b => b.RaceId == raceId)
+            .Select(b => b.UserId)
+            .Distinct()
+            .ToListAsync();
+    }
+
+    public async Task<List<RaceEntry>> GetAssignedRaceEntriesAsync()
+    {
+        var excludedStatuses = new[] { "Withdrawn", "Scratch", "DNF", "Disqualified", "Finished" };
+        return await _context.RaceEntries
+            .AsNoTracking()
+            .Include(re => re.Race)
+                .ThenInclude(r => r!.Round)
+                    .ThenInclude(round => round!.Tournament)
+            .Include(re => re.Registration)
+                .ThenInclude(r => r!.Horse)
+                    .ThenInclude(h => h!.Owner)
+            .Include(re => re.Registration)
+                .ThenInclude(r => r!.Tournament)
+            .Include(re => re.Registration)
+                .ThenInclude(r => r!.MedicalCheckRecords)
+            .Include(re => re.JockeyProfile)
+                .ThenInclude(j => j!.User)
+            .Where(re => !excludedStatuses.Contains(re.Status))
+            .OrderBy(re => re.Race!.RaceDate)
             .ToListAsync();
     }
 }

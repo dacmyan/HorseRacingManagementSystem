@@ -10,7 +10,8 @@ namespace HorseRacing.API.Controllers;
 
 /// <summary>
 /// CRUD for horse medical check records.
-/// - Admin / Referee can create, update, delete, and list all records.
+/// - Admin / Veterinarian can create, update, and list all records.
+/// - Veterinarian can perform re-examinations which may trigger horse withdrawal.
 /// - HorseOwner can list records by their registration.
 /// </summary>
 [ApiController]
@@ -88,7 +89,7 @@ public class MedicalCheckController : ControllerBase
     }
 
     // ─── GET /api/MedicalCheck/pending-registrations ─────────────────────────
-    /// <summary>Get all approved registrations that need a medical check.</summary>
+    /// <summary>Get all approved registrations that need an initial medical check.</summary>
     [HttpGet("pending-registrations")]
     [Authorize(Roles = "Admin,Veterinarian")]
     public async Task<IActionResult> GetPendingRegistrations()
@@ -104,8 +105,28 @@ public class MedicalCheckController : ControllerBase
         }
     }
 
+    // ─── GET /api/MedicalCheck/assigned-entries ───────────────────────────────
+    /// <summary>
+    /// Get all horses currently assigned to a race that are eligible for re-examination.
+    /// Returns entries with their last medical check info for the vet to review.
+    /// </summary>
+    [HttpGet("assigned-entries")]
+    [Authorize(Roles = "Admin,Veterinarian")]
+    public async Task<IActionResult> GetAssignedEntries()
+    {
+        try
+        {
+            var result = await _service.GetAssignedRaceEntriesAsync();
+            return Ok(new { message = "Assigned race entries retrieved successfully", result });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving assigned entries", detail = ex.Message });
+        }
+    }
+
     // ─── POST /api/MedicalCheck ───────────────────────────────────────────────
-    /// <summary>Create a new medical check record (Veterinarian only).</summary>
+    /// <summary>Create a new initial medical check record (Veterinarian only).</summary>
     [HttpPost]
     [Authorize(Roles = "Veterinarian")]
     public async Task<IActionResult> Create([FromBody] CreateMedicalCheckRequest request)
@@ -124,6 +145,41 @@ public class MedicalCheckController : ControllerBase
         catch (Exception ex)
         {
             return StatusCode(500, new { message = "An error occurred creating the record", detail = ex.Message });
+        }
+    }
+
+    // ─── POST /api/MedicalCheck/recheck ──────────────────────────────────────
+    /// <summary>
+    /// Perform a re-examination on a horse already assigned to a race.
+    /// If the result is Fail:
+    ///   - Creates a new MedicalCheckRecord (CheckType = "ReCheck")
+    ///   - Sets Registration.Status to "Disqualified"
+    ///   - Sets RaceEntry.Status to "Withdrawn" (pre-race) or "DNF" (mid-race)
+    ///   - Sends notifications to owner, jockey, referees, and bettors
+    /// </summary>
+    [HttpPost("recheck")]
+    [Authorize(Roles = "Veterinarian")]
+    public async Task<IActionResult> PerformRecheck([FromBody] RecheckMedicalRequest request)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var result = await _service.PerformRecheckAsync(userId, request);
+
+            var statusCode = result.HorseWithdrawn ? 200 : 200;
+            return Ok(new { message = result.Message, result });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred performing the re-examination", detail = ex.Message });
         }
     }
 
@@ -149,27 +205,6 @@ public class MedicalCheckController : ControllerBase
         catch (Exception ex)
         {
             return StatusCode(500, new { message = "An error occurred updating the record", detail = ex.Message });
-        }
-    }
-
-    // ─── DELETE /api/MedicalCheck/{id} ───────────────────────────────────────
-    /// <summary>Delete a medical check record (Veterinarian only).</summary>
-    [HttpDelete("{id:long}")]
-    [Authorize(Roles = "Veterinarian")]
-    public async Task<IActionResult> Delete(long id)
-    {
-        try
-        {
-            await _service.DeleteAsync(id);
-            return Ok(new { message = $"Medical check record #{id} deleted successfully." });
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { message = "An error occurred deleting the record", detail = ex.Message });
         }
     }
 }

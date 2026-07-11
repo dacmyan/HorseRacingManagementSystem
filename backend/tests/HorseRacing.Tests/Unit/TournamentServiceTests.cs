@@ -28,8 +28,20 @@ public class TournamentServiceTests
         _tournamentRepoMock = new Mock<ITournamentRepository>();
         _notificationMock = new Mock<INotificationService>();
         _bettingServiceMock = new Mock<IBettingService>();
+        
+        _tournamentRepoMock.Setup(r => r.GetMedicalCheckRecordsForTournamentAsync(It.IsAny<long>()))
+            .ReturnsAsync((long tId) => 
+                Enumerable.Range(1, 48).Select(i => new MedicalCheckRecord 
+                {
+                    RegistrationId = i,
+                    MedicalResult = "Pass",
+                    DopingResult = "Negative"
+                }).ToList()
+            );
+
         _service = new TournamentService(_tournamentRepoMock.Object, _notificationMock.Object, _bettingServiceMock.Object);
     }
+
 
     [Fact]
     public async Task CreateTournamentAsync_ShouldCreateTournamentAndPrizeConfigs_WithUpcomingStatus()
@@ -72,7 +84,7 @@ public class TournamentServiceTests
     {
         // Arrange
         var tournament = BuildTournament();
-        var registrations = BuildRegistrations(50);
+        var registrations = BuildRegistrations(48);
         var createdRaces = new List<Race>();
         var createdEntries = new List<HorseRacing.Domain.Entities.RaceEntry>();
 
@@ -106,8 +118,8 @@ public class TournamentServiceTests
         var response = await _service.GenerateRacesForTournamentAsync(tournament.TournamentId);
 
         // Assert
-        response.Should().HaveCount(5);
-        createdRaces.Should().HaveCount(5);
+        response.Should().HaveCount(4);
+        createdRaces.Should().HaveCount(4);
         createdRaces.Should().OnlyContain(r =>
             r.Name!.Contains("Pre") &&
             r.DistanceMeter == 1200 &&
@@ -115,7 +127,7 @@ public class TournamentServiceTests
             r.Status == "Scheduled");
 
         createdEntries.GroupBy(e => e.RaceId).Select(g => g.Count())
-            .Should().Equal(12, 12, 12, 12, 2);
+            .Should().Equal(12, 12, 12, 12);
 
         createdEntries.GroupBy(e => e.RaceId).Should().OnlyContain(group =>
             group.Select(e => e.LaneNo).SequenceEqual(Enumerable.Range(1, group.Count())));

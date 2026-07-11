@@ -402,7 +402,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .HasConversion<int>();
 
             entity.HasOne(m => m.Registration)
-                .WithMany()
+                .WithMany(r => r.MedicalCheckRecords)
                 .HasForeignKey(m => m.RegistrationId)
                 .OnDelete(DeleteBehavior.Restrict);
 
@@ -411,6 +411,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .HasForeignKey(m => m.UserId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
+
 
         modelBuilder.SeedData();
 

@@ -45,6 +45,11 @@ public class RegistrationRepository : IRegistrationRepository
         await _context.Registrations.AddAsync(registration);
     }
 
+    public void Update(Registration registration)
+    {
+        _context.Registrations.Update(registration);
+    }
+
     public async Task SaveChangesAsync()
     {
         await _context.SaveChangesAsync();

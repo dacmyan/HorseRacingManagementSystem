@@ -265,6 +265,82 @@ public class DataSeeder
                 }
             }
 
+            // 6.2. Seed Tournament "Giải Test 1" and register Owner-3's 12 horses to it and invite the 12 Jockey-Test Jockeys
+            var t1Name = "Giải Test 1";
+            var t1 = await _context.Tournaments.FirstOrDefaultAsync(t => t.Name == t1Name);
+            if (t1 == null)
+            {
+                t1 = new Tournament
+                {
+                    Name = t1Name,
+                    Description = "Giải đua thử nghiệm số 1",
+                    RegistrationStartDate = DateTime.UtcNow.AddDays(-5),
+                    RegistrationEndDate = DateTime.UtcNow.AddDays(-1),
+                    StartDate = DateTime.UtcNow.AddDays(1),
+                    EndDate = DateTime.UtcNow.AddDays(10),
+                    Status = "Upcoming"
+                };
+                _context.Tournaments.Add(t1);
+                await _context.SaveChangesAsync();
+                _logger.LogInformation($"Tournament '{t1Name}' seeded successfully.");
+            }
+            else
+            {
+                t1.RegistrationEndDate = DateTime.UtcNow.AddDays(-1);
+                t1.StartDate = DateTime.UtcNow.AddDays(1);
+                t1.EndDate = DateTime.UtcNow.AddDays(10);
+                _context.Tournaments.Update(t1);
+                await _context.SaveChangesAsync();
+            }
+
+            for (int i = 1; i <= 12; i++)
+            {
+                var horseName = $"Owner3-Horse{i}";
+                var jockeyUsername = $"jockeytest{i}"; // Matching the seeded username jockeytest#
+
+                var horse = await _context.Horses.FirstOrDefaultAsync(h => h.Name == horseName);
+                var jockey = await _context.Users.FirstOrDefaultAsync(u => u.Username == jockeyUsername);
+
+                if (horse != null && jockey != null)
+                {
+                    // 6.2a. Seed JockeyContract invitation
+                    var hasContract = await _context.JockeyContracts.AnyAsync(jc => jc.TournamentId == t1.TournamentId && jc.HorseId == horse.HorseId && jc.JockeyId == jockey.UserId);
+                    if (!hasContract)
+                    {
+                        var contract = new JockeyContract
+                        {
+                            TournamentId = t1.TournamentId,
+                            HorseId = horse.HorseId,
+                            JockeyId = jockey.UserId,
+                            StartDate = t1.StartDate ?? DateTime.UtcNow.AddDays(6),
+                            EndDate = t1.EndDate ?? DateTime.UtcNow.AddDays(15),
+                            Status = "Pending",
+                            InvitationExpiredAt = DateTime.UtcNow.AddDays(2),
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        _context.JockeyContracts.Add(contract);
+                        await _context.SaveChangesAsync();
+                        _logger.LogInformation($"JockeyContract invitation from Owner-3 to '{jockeyUsername}' for horse '{horseName}' in '{t1Name}' seeded successfully.");
+                    }
+
+                    // 6.2b. Seed Tournament Registration
+                    var hasRegistration = await _context.Registrations.AnyAsync(r => r.TournamentId == t1.TournamentId && r.HorseId == horse.HorseId);
+                    if (!hasRegistration)
+                    {
+                        var registration = new Registration
+                        {
+                            TournamentId = t1.TournamentId,
+                            HorseId = horse.HorseId,
+                            Status = "Pending",
+                            RegisteredAt = DateTime.UtcNow
+                        };
+                        _context.Registrations.Add(registration);
+                        await _context.SaveChangesAsync();
+                        _logger.LogInformation($"Registration for horse '{horseName}' in '{t1Name}' seeded successfully.");
+                    }
+                }
+            }
+
             // 6.5. Seed Tournament "Giải Test 6" and register Owner-3's 12 horses to it and invite the 12 Jockey-Test Jockeys (Pending)
             var t6Name = "Giải Test 6";
             var t6 = await _context.Tournaments.FirstOrDefaultAsync(t => t.Name == t6Name);
@@ -333,6 +409,89 @@ public class DataSeeder
                 }
             }
 
+            // 6.6. Seed Tournament "Giải Test 7" and register Owner-3's 12 horses to it and invite the 12 Jockey-Test Jockeys (Pending)
+            var t7Name = "Giải Test 7";
+            var t7 = await _context.Tournaments.FirstOrDefaultAsync(t => t.Name == t7Name);
+            if (t7 == null)
+            {
+                t7 = new Tournament
+                {
+                    Name = t7Name,
+                    Description = "Giải đua thử nghiệm số 7",
+                    RegistrationStartDate = DateTime.UtcNow.AddDays(-5),
+                    RegistrationEndDate = DateTime.UtcNow.AddDays(5),
+                    StartDate = DateTime.UtcNow.AddDays(6),
+                    EndDate = DateTime.UtcNow.AddDays(15),
+                    Status = "Upcoming"
+                };
+                _context.Tournaments.Add(t7);
+                await _context.SaveChangesAsync();
+                _logger.LogInformation($"Tournament '{t7Name}' seeded successfully.");
+            }
+
+            for (int i = 1; i <= 12; i++)
+            {
+                var horseName = $"Owner3-Horse{i}";
+                var jockeyUsername = $"jockeytest{i}"; // Matching the seeded username jockeytest#
+
+                var horse = await _context.Horses.FirstOrDefaultAsync(h => h.Name == horseName);
+                var jockey = await _context.Users.FirstOrDefaultAsync(u => u.Username == jockeyUsername);
+
+                if (horse != null && jockey != null)
+                {
+                    // 6.6a. Seed JockeyContract invitation
+                    var hasContract = await _context.JockeyContracts.AnyAsync(jc => jc.TournamentId == t7.TournamentId && jc.HorseId == horse.HorseId && jc.JockeyId == jockey.UserId);
+                    if (!hasContract)
+                    {
+                        var contract = new JockeyContract
+                        {
+                            TournamentId = t7.TournamentId,
+                            HorseId = horse.HorseId,
+                            JockeyId = jockey.UserId,
+                            StartDate = t7.StartDate ?? DateTime.UtcNow.AddDays(6),
+                            EndDate = t7.EndDate ?? DateTime.UtcNow.AddDays(15),
+                            Status = "Pending",
+                            InvitationExpiredAt = DateTime.UtcNow.AddDays(2),
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        _context.JockeyContracts.Add(contract);
+                        await _context.SaveChangesAsync();
+                        _logger.LogInformation($"JockeyContract invitation from Owner-3 to '{jockeyUsername}' for horse '{horseName}' in '{t7Name}' seeded successfully.");
+                    }
+
+                    // 6.6b. Seed Tournament Registration
+                    var hasRegistration = await _context.Registrations.AnyAsync(r => r.TournamentId == t7.TournamentId && r.HorseId == horse.HorseId);
+                    if (!hasRegistration)
+                    {
+                        var registration = new Registration
+                        {
+                            TournamentId = t7.TournamentId,
+                            HorseId = horse.HorseId,
+                            Status = "Pending",
+                            RegisteredAt = DateTime.UtcNow
+                        };
+                        _context.Registrations.Add(registration);
+                        await _context.SaveChangesAsync();
+                        _logger.LogInformation($"Registration for horse '{horseName}' in '{t7Name}' seeded successfully.");
+                    }
+                }
+            }
+
+            // 6.8. Auto-accept pending jockey contracts for "Giải Test 1"
+            var pendingContracts1 = await _context.JockeyContracts
+                .Where(jc => jc.TournamentId == t1.TournamentId && jc.Status == "Pending")
+                .ToListAsync();
+
+            if (pendingContracts1.Any())
+            {
+                foreach (var contract in pendingContracts1)
+                {
+                    contract.Status = "Accepted";
+                    _logger.LogInformation($"Auto-accepting JockeyContract {contract.ContractId} for horse {contract.HorseId} and jockey {contract.JockeyId} in '{t1Name}'.");
+                }
+                await _context.SaveChangesAsync();
+            }
+
             // 7. Auto-accept pending jockey contracts for "Giải Test 5"
             var pendingContracts = await _context.JockeyContracts
                 .Where(jc => jc.TournamentId == t5.TournamentId && jc.Status == "Pending")
@@ -363,8 +522,23 @@ public class DataSeeder
                 await _context.SaveChangesAsync();
             }
 
-            // 8. Auto-approve all registrations and seed passing MedicalCheckRecords for "Giải Test 5" and "Giải Test 6"
-            var targetTournamentNames = new[] { "Giải Test 5", "Giải Test 6" };
+            // 7.6. Auto-accept pending jockey contracts for "Giải Test 7"
+            var pendingContracts7 = await _context.JockeyContracts
+                .Where(jc => jc.TournamentId == t7.TournamentId && jc.Status == "Pending")
+                .ToListAsync();
+
+            if (pendingContracts7.Any())
+            {
+                foreach (var contract in pendingContracts7)
+                {
+                    contract.Status = "Accepted";
+                    _logger.LogInformation($"Auto-accepting JockeyContract {contract.ContractId} for horse {contract.HorseId} and jockey {contract.JockeyId} in '{t7Name}'.");
+                }
+                await _context.SaveChangesAsync();
+            }
+
+            // 8. Auto-approve all registrations and seed passing MedicalCheckRecords for "Giải Test 1", "Giải Test 5", "Giải Test 6" and "Giải Test 7"
+            var targetTournamentNames = new[] { "Giải Test 1", "Giải Test 5", "Giải Test 6", "Giải Test 7" };
             var targetTournaments = await _context.Tournaments
                 .Where(t => targetTournamentNames.Contains(t.Name))
                 .ToListAsync();
@@ -415,6 +589,73 @@ public class DataSeeder
                     }
                 }
                 await _context.SaveChangesAsync();
+
+                // 9. Auto-generate rounds, races, and entries for "Giải Test 1" if not exists
+                if (t.Name == "Giải Test 1")
+                {
+                    var hasRounds = await _context.Rounds.AnyAsync(r => r.TournamentId == t.TournamentId);
+                    if (!hasRounds)
+                    {
+                        _logger.LogInformation($"Auto-generating rounds and races for '{t.Name}'...");
+                        
+                        var finalRound = new Round
+                        {
+                            TournamentId = t.TournamentId,
+                            Name = "Final",
+                            RoundNumber = 2,
+                            StartDate = t.StartDate,
+                            EndDate = t.EndDate,
+                            Status = "Scheduled"
+                        };
+                        _context.Rounds.Add(finalRound);
+                        await _context.SaveChangesAsync();
+
+                        var finalRace = new Race
+                        {
+                            RoundId = finalRound.RoundId,
+                            Name = "Final Race",
+                            RaceDate = t.EndDate ?? DateTime.UtcNow.AddDays(1),
+                            DistanceMeter = 1600,
+                            MaxLanes = 12,
+                            Status = "Scheduled"
+                        };
+                        _context.Races.Add(finalRace);
+                        await _context.SaveChangesAsync();
+
+                        var activeJockeys = await _context.JockeyContracts
+                            .Where(jc => jc.TournamentId == t.TournamentId && jc.Status == "Accepted")
+                            .Join(_context.JockeyProfiles,
+                                jc => jc.JockeyId,
+                                jp => jp.UserId,
+                                (jc, jp) => new { jc.HorseId, jp.JockeyId })
+                            .ToDictionaryAsync(x => x.HorseId, x => x.JockeyId);
+
+                        var entries = new List<RaceEntry>();
+                        int lane = 1;
+                        foreach (var reg in approvedRegistrations)
+                        {
+                            int? jockeyId = activeJockeys.TryGetValue(reg.HorseId, out var jId) ? jId : (int?)null;
+                            
+                            entries.Add(new RaceEntry
+                            {
+                                RaceId = finalRace.RaceId,
+                                RegistrationId = reg.RegistrationId,
+                                JockeyId = jockeyId,
+                                LaneNo = lane++,
+                                Status = "Confirmed",
+                                WinningProbability = 0.5m,
+                                CurrentOdds = 2.0m
+                            });
+                        }
+                        _context.RaceEntries.AddRange(entries);
+                        
+                        t.Status = "Active";
+                        _context.Tournaments.Update(t);
+                        
+                        await _context.SaveChangesAsync();
+                        _logger.LogInformation($"Auto-generated rounds, races, and entries for '{t.Name}' successfully.");
+                    }
+                }
             }
 
             _logger.LogInformation("Mandatory data seeding completed successfully.");

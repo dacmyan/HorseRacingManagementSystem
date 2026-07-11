@@ -11,6 +11,7 @@ public class RaceEntryResponse
     public string? JockeyName { get; set; }
     public int LaneNo { get; set; }
     public string Status { get; set; } = string.Empty;
+    public string HealthStatus { get; set; } = string.Empty;
     public decimal? WinningProbability { get; set; }
     public decimal? CurrentOdds { get; set; }
     public int? FinishPosition { get; set; }

@@ -65,11 +65,24 @@ export function RefereeConfirmResultsPage() {
       const hasResults = sorted.some((e: any) => e.finishPosition != null);
       if (!hasResults) {
         const baseWinnerTime = Math.round(55 + Math.random() * 10);
-        sorted.forEach((e: any, index: number) => {
-          e.finishPosition = index + 1;
-          e.finishTime = index === 0 
-            ? baseWinnerTime 
-            : Number((baseWinnerTime + (index * 1.5) + Math.random() * 2).toFixed(2));
+        const participatingEntries = sorted.filter((e: any) =>
+          !['Withdrawn', 'Scratch', 'DNF', 'Disqualified'].includes(e.status) &&
+          e.healthStatus !== 'Sick' && e.healthStatus !== 'Injured'
+        );
+
+        let position = 1;
+        sorted.forEach((e: any) => {
+          const isParticipating = participatingEntries.includes(e);
+          if (isParticipating) {
+            const index = participatingEntries.indexOf(e);
+            e.finishPosition = position++;
+            e.finishTime = index === 0
+              ? baseWinnerTime
+              : Number((baseWinnerTime + (index * 1.5) + Math.random() * 2).toFixed(2));
+          } else {
+            e.finishPosition = null;
+            e.finishTime = null;
+          }
         });
       }
 
@@ -138,15 +151,28 @@ export function RefereeConfirmResultsPage() {
       return;
     }
     
-    const invalidEntry = raceEntries.find(e => e.finishPosition == null || e.finishTime == null);
+    const invalidEntry = raceEntries.find(e =>
+      !['Withdrawn', 'Scratch', 'DNF', 'Disqualified'].includes(e.status) &&
+      e.healthStatus !== 'Sick' &&
+      e.healthStatus !== 'Injured' &&
+      (e.finishPosition == null || e.finishTime == null)
+    );
     if (invalidEntry) {
-      setError('Vui lòng nhập đầy đủ hạng và thời gian cho tất cả ngựa.');
+      setError('Vui lòng nhập đầy đủ hạng và thời gian cho tất cả ngựa thi đấu.');
       return;
     }
 
     const winners = raceEntries.filter(e => Number(e.finishPosition) === 1);
     if (winners.length !== 1) {
       setError('Vui lòng chọn duy nhất một ngựa đạt Hạng 1.');
+      return;
+    }
+
+    const winnerEntry = winners[0];
+    if (winnerEntry && (['Withdrawn', 'Scratch', 'DNF', 'Disqualified'].includes(winnerEntry.status) ||
+                       winnerEntry.healthStatus === 'Sick' ||
+                       winnerEntry.healthStatus === 'Injured')) {
+      setError('Ngựa chiến thắng không thể là ngựa bị bệnh hoặc đã rút lui.');
       return;
     }
 
@@ -162,11 +188,15 @@ export function RefereeConfirmResultsPage() {
         winner: form.winner,
         winningTime: form.winningTime,
         remarks: form.remarks,
-        entries: raceEntries.map(e => ({
-          raceEntryId: e.raceEntryId,
-          finishPosition: Number(e.finishPosition),
-          finishTime: Number(e.finishTime)
-        }))
+        entries: raceEntries.map(e => {
+          const isSickOrWithdrawn = ['Withdrawn', 'Scratch', 'DNF', 'Disqualified'].includes(e.status) ||
+            e.healthStatus === 'Sick' || e.healthStatus === 'Injured';
+          return {
+            raceEntryId: e.raceEntryId,
+            finishPosition: isSickOrWithdrawn ? 0 : Number(e.finishPosition),
+            finishTime: isSickOrWithdrawn ? 0 : Number(e.finishTime)
+          };
+        })
       });
       setSuccess('Ghi nhận kết quả thành công!');
       setForm({ raceId: '', winner: '', winningTime: '', remarks: '' });
@@ -260,37 +290,54 @@ export function RefereeConfirmResultsPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-glass-border/20 text-white/90">
-                        {raceEntries.map((entry: any) => (
-                          <tr key={entry.raceEntryId}>
-                            <td className="py-3 pr-3 text-muted">L{entry.laneNo}</td>
-                            <td className="py-3 pr-3 font-medium">🐎 {entry.horseName}</td>
-                            <td className="py-3 pr-3 text-muted">{entry.jockeyName || 'N/A'}</td>
-                            <td className="py-3 pr-3">
-                              <input 
-                                disabled={!!isCompleted}
-                                type="number" 
-                                min="1"
-                                max={raceEntries.length}
-                                value={entry.finishPosition ?? ''} 
-                                onChange={e => handleEntryChange(entry.raceEntryId, 'finishPosition', e.target.value)}
-                                placeholder="VD: 1" 
-                                className="w-16 bg-navy/40 border border-glass-border/60 rounded px-2 py-1 text-sm text-white text-center focus:border-red-400/40 outline-none"
-                              />
-                            </td>
-                            <td className="py-3 text-right">
-                              <input 
-                                disabled={!!isCompleted}
-                                type="number" 
-                                step="0.01" 
-                                min="0"
-                                value={entry.finishTime ?? ''} 
-                                onChange={e => handleEntryChange(entry.raceEntryId, 'finishTime', e.target.value)}
-                                placeholder="VD: 60.55" 
-                                className="w-28 bg-navy/40 border border-glass-border/60 rounded px-2 py-1 text-sm text-white text-right focus:border-red-400/40 outline-none"
-                              />
-                            </td>
-                          </tr>
-                        ))}
+                        {raceEntries.map((entry: any) => {
+                          const isSick = entry.healthStatus === 'Sick' || entry.healthStatus === 'Injured';
+                          const isWithdrawn = ['Withdrawn', 'Scratch', 'DNF', 'Disqualified'].includes(entry.status);
+                          const isDisabled = isSick || isWithdrawn;
+                          return (
+                            <tr key={entry.raceEntryId} className={isDisabled ? 'opacity-60 bg-white/[0.02]' : ''}>
+                              <td className="py-3 pr-3 text-muted">L{entry.laneNo}</td>
+                              <td className="py-3 pr-3 font-medium">
+                                <div>🐎 {entry.horseName}</div>
+                                {isSick && (
+                                  <span className="inline-block text-[10px] bg-red-500/20 text-red-400 border border-red-500/30 rounded-full px-2 py-0.5 mt-1 font-sans">
+                                    {entry.healthStatus === 'Sick' ? 'Bị bệnh' : 'Chấn thương'}
+                                  </span>
+                                )}
+                                {isWithdrawn && (
+                                  <span className="inline-block text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full px-2 py-0.5 mt-1 ml-1 font-sans">
+                                    {entry.status === 'Withdrawn' ? 'Đã rút' : entry.status === 'DNF' ? 'Không hoàn thành' : entry.status}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-3 pr-3 text-muted">{entry.jockeyName || 'N/A'}</td>
+                              <td className="py-3 pr-3">
+                                <input 
+                                  disabled={!!isCompleted || isDisabled}
+                                  type="number" 
+                                  min="1"
+                                  max={raceEntries.length}
+                                  value={entry.finishPosition ?? ''} 
+                                  onChange={e => handleEntryChange(entry.raceEntryId, 'finishPosition', e.target.value)}
+                                  placeholder={isDisabled ? 'N/A' : 'VD: 1'} 
+                                  className="w-16 bg-navy/40 border border-glass-border/60 rounded px-2 py-1 text-sm text-white text-center focus:border-red-400/40 outline-none disabled:opacity-40 disabled:border-glass-border/20"
+                                />
+                              </td>
+                              <td className="py-3 text-right">
+                                <input 
+                                  disabled={!!isCompleted || isDisabled}
+                                  type="number" 
+                                  step="0.01" 
+                                  min="0"
+                                  value={entry.finishTime ?? ''} 
+                                  onChange={e => handleEntryChange(entry.raceEntryId, 'finishTime', e.target.value)}
+                                  placeholder={isDisabled ? 'N/A' : 'VD: 60.55'} 
+                                  className="w-28 bg-navy/40 border border-glass-border/60 rounded px-2 py-1 text-sm text-white text-right focus:border-red-400/40 outline-none disabled:opacity-40 disabled:border-glass-border/20"
+                                />
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
