@@ -194,7 +194,7 @@ public class PrizePayoutService : IPrizePayoutService
                 $"Chúc mừng! Ngựa '{horse.Name}' của bạn đạt Hạng {rank} trong giải đấu '{tournament.Name}'. Bạn nhận được giải thưởng của Chủ Ngựa là {ownerAmount:N2}$ (bao gồm thưởng thêm {bonusAmount * (prize.OwnerPercentage / 100m):N2}$). Số dư mới: {ownerWallet.Balance:N2}$.",
                 "Wallet",
                 referenceId: (int)tournament.TournamentId,
-                actionUrl: "/spectator/wallet"
+                actionUrl: "/owner/wallet"
             );
 
             // Pay Jockey

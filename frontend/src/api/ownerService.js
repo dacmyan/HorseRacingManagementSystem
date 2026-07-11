@@ -16,3 +16,9 @@ export const cancelJockeyContract = (id) => api.delete(`/jockey-contracts/${id}`
 export const getOwnerResults = () => api.get('/owner/results');
 export const checkHorseBusy = (horseId, tournamentId) => api.get(`/horses/${horseId}/check-busy/${tournamentId}`);
 export const checkJockeyBusy = (jockeyId, tournamentId) => api.get(`/jockeys/${jockeyId}/check-busy/${tournamentId}`);
+
+export const getOwnerDashboard = () => api.get('/owner/dashboard');
+export const getOwnerBalance = () => api.get('/owner/wallet/balance');
+export const getOwnerWalletHistory = () => api.get('/owner/wallet/history');
+export const ownerDeposit = (amount) => api.post('/owner/wallet/deposit', { amount });
+export const ownerWithdraw = (amount) => api.post('/owner/wallet/withdraw', { amount });
