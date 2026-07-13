@@ -2,15 +2,15 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  Trophy, Activity, Calendar, ChevronRight, TrendingUp,
-  Star, Clock, ShieldCheck, Flag,
+  Activity, Calendar, ChevronRight, TrendingUp,
+  Star, Clock, ShieldCheck, Flag, Wallet,
 } from 'lucide-react';
 import { Sidebar } from '../../components/layout/Sidebar';
 import { Topbar } from '../../components/layout/Topbar';
 import { PageAmbience } from '../../components/layout/PageAmbience';
 import { PageHero } from '../../components/layout/PageHero';
 import { getCurrentUser, parseApiError } from '../../api/authService';
-import { getMyHorses } from '../../api/ownerService';
+import { getMyHorses, getOwnerDashboard, getOwnerBalance } from '../../api/ownerService';
 import { getRaceSchedule } from '../../api/publicService';
 import { calculateAge } from '../../utils/format';
 
@@ -32,6 +32,11 @@ export function OwnerDashboardPage() {
   const [schedule, setSchedule] = useState<any[]>([]);
   const [scheduleLoading, setScheduleLoading] = useState(true);
 
+  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [balance, setBalance] = useState<number>(0);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [balanceLoading, setBalanceLoading] = useState(true);
+
   useEffect(() => {
     getMyHorses()
       .then((d: any) => setHorses(d?.result ?? (Array.isArray(d) ? d : [])))
@@ -44,6 +49,23 @@ export function OwnerDashboardPage() {
       .then((d: any) => setSchedule(d?.result ?? (Array.isArray(d) ? d : [])))
       .catch((err: Error) => { console.error(parseApiError(err)); setSchedule([]); })
       .finally(() => setScheduleLoading(false));
+  }, []);
+
+  useEffect(() => {
+    getOwnerDashboard()
+      .then((d: any) => setDashboardData(d?.result ?? null))
+      .catch((err: Error) => console.error(parseApiError(err)))
+      .finally(() => setDashboardLoading(false));
+  }, []);
+
+  useEffect(() => {
+    getOwnerBalance()
+      .then((d: any) => {
+        const bal = d?.result?.balance ?? d?.result ?? (typeof d === 'number' ? d : 0);
+        setBalance(Number(bal) || 0);
+      })
+      .catch((err: Error) => console.error(parseApiError(err)))
+      .finally(() => setBalanceLoading(false));
   }, []);
 
   return (
@@ -82,12 +104,12 @@ export function OwnerDashboardPage() {
           {/* ROW 2: STATS */}
           <motion.div variants={stagger} initial="hidden" animate="show" className="grid grid-cols-4 gap-4">
             {[
-              { title: 'Ngựa của tôi', value: String(horses.length), trend: '+12%', icon: Star, color: 'text-blue-400', bg: 'from-blue-500/15 to-blue-900/20', spark: SPARKS[0] },
-              { title: 'Đang thi đấu', value: '—', trend: '+1', icon: Activity, color: 'text-emerald-400', bg: 'from-emerald-500/15 to-emerald-900/20', spark: SPARKS[1] },
-              { title: 'Sắp thi đấu', value: scheduleLoading ? '…' : String(schedule.length), trend: '3 ngày nữa', icon: Calendar, color: 'text-purple-400', bg: 'from-purple-500/15 to-purple-900/20', spark: SPARKS[2] },
-              { title: 'Tiền thưởng', value: '—', trend: '+18%', icon: Trophy, color: 'text-gold', bg: 'from-gold/15 to-amber-900/20', spark: SPARKS[3] },
+              { title: 'Ngựa của tôi', value: dashboardLoading ? '…' : String(dashboardData?.horseCount ?? horses.length), trend: 'Chuồng ngựa', icon: Star, color: 'text-blue-400', bg: 'from-blue-500/15 to-blue-900/20', spark: SPARKS[0], path: '/owner/horses' },
+              { title: 'Đang thi đấu', value: dashboardLoading ? '…' : String(dashboardData?.activeRaceCount ?? 0), trend: 'Đang chạy', icon: Activity, color: 'text-emerald-400', bg: 'from-emerald-500/15 to-emerald-900/20', spark: SPARKS[1], path: '/owner/tournaments' },
+              { title: 'Sắp thi đấu', value: dashboardLoading ? '…' : String(dashboardData?.upcomingRaceCount ?? 0), trend: 'Lịch trình', icon: Calendar, color: 'text-purple-400', bg: 'from-purple-500/15 to-purple-900/20', spark: SPARKS[2], path: '/owner/registrations' },
+              { title: 'Số dư ví', value: balanceLoading ? '…' : `${balance.toLocaleString()} coins`, trend: `≈ $${(balance / 100).toFixed(2)}`, icon: Wallet, color: 'text-gold', bg: 'from-gold/15 to-amber-900/20', spark: SPARKS[3], path: '/owner/wallet' },
             ].map((m, i) => (
-              <motion.div key={i} variants={child} className="glass-panel rounded-xl p-5 relative overflow-hidden group cursor-default" style={{ height: '140px' }}>
+              <motion.div key={i} variants={child} onClick={() => m.path && navigate(m.path)} className="glass-panel rounded-xl p-5 relative overflow-hidden group cursor-pointer hover:border-gold/30 transition-all duration-200" style={{ height: '140px' }}>
                 <div className={`absolute -top-4 -right-4 w-24 h-24 rounded-full bg-gradient-to-br ${m.bg} blur-[30px] opacity-60 group-hover:opacity-100 transition-opacity`} />
                 <div className="relative z-10 flex items-start justify-between mb-3">
                   <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${m.bg} border border-white/[0.08] flex items-center justify-center ${m.color}`}>

@@ -35,6 +35,7 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
     { icon: ClipboardList, label: 'Race Entry', path: '/owner/registrations' },
     { icon: Users, label: 'Jockey', path: '/owner/jockeys' },
     { icon: BarChart3, label: 'Results & Prizes', path: '/owner/results' },
+    { icon: Wallet, label: 'My Wallet', path: '/owner/wallet' },
   ],
   jockey: [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/jockey/dashboard' },
