@@ -208,7 +208,7 @@ export function AdminRacesPage() {
       // Reload details if modal is active
       if (modal === 'detail' && detailRace) {
         const rid = Number(detailRace.raceId ?? detailRace.id);
-        const [entries, refs] = await Promise.allSettled([getRaceEntries(rid), getRaceReferees(rid)]);
+        const [entries] = await Promise.allSettled([getRaceEntries(rid), getRaceReferees(rid)]);
         if (entries.status === 'fulfilled') {
           const v: any = entries.value;
           const raw = v?.result ?? (Array.isArray(v) ? v : []);

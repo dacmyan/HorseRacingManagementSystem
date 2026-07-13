@@ -1,41 +1,40 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Wallet, ArrowDownLeft, ArrowUpRight, TrendingUp, TrendingDown,
-  Clock, CheckCircle, Plus, Minus, DollarSign, Coins, History,
+  Wallet, ArrowDownLeft, ArrowUpRight, TrendingUp,
+  CheckCircle, Plus, Minus, DollarSign, Coins, History,
 } from 'lucide-react';
 import { Sidebar } from '../../components/layout/Sidebar';
 import { Topbar } from '../../components/layout/Topbar';
 import { PageHero } from '../../components/layout/PageHero';
 import { PageAmbience } from '../../components/layout/PageAmbience';
-import { deposit, withdraw, getBalance, getWalletHistory } from '../../api/spectatorService';
+import { ownerDeposit, ownerWithdraw, getOwnerBalance, getOwnerWalletHistory } from '../../api/ownerService';
 import { parseApiError, getCurrentUser } from '../../api/authService';
 
 const COINS_PER_USD = 100;
-const QUICK_AMTS = [5, 10, 20, 50];
+const QUICK_AMTS = [50, 100, 200, 500];
 
-type TxType = 'deposit' | 'withdraw' | 'win' | 'loss' | 'bet';
+type TxType = 'deposit' | 'withdraw' | 'win' | 'loss' | 'payout';
 const TX_CONFIG: Record<TxType, { color: string; bg: string; label: string }> = {
   deposit:  { color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20', label: 'Nạp tiền' },
   withdraw: { color: 'text-blue-400',    bg: 'bg-blue-500/10 border-blue-500/20',       label: 'Rút tiền' },
-  win:      { color: 'text-gold',        bg: 'bg-gold/10 border-gold/20',               label: 'Thắng cược' },
-  loss:     { color: 'text-red-400',     bg: 'bg-red-500/10 border-red-500/20',         label: 'Thua cược' },
-  bet:      { color: 'text-yellow-400',  bg: 'bg-yellow-500/10 border-yellow-500/20',   label: 'Đặt cược' },
+  win:      { color: 'text-gold',        bg: 'bg-gold/10 border-gold/20',               label: 'Nhận giải thưởng' },
+  loss:     { color: 'text-red-400',     bg: 'bg-red-500/10 border-red-500/20',         label: 'Khấu trừ' },
+  payout:   { color: 'text-gold',        bg: 'bg-gold/10 border-gold/20',               label: 'Thưởng giải đấu' },
 };
 
 function normalizeType(t: string): TxType {
   const key = (t ?? '').toLowerCase();
   if (key.includes('withdraw')) return 'withdraw';
   if (key.includes('deposit')) return 'deposit';
-  if (key.includes('win') || key.includes('won')) return 'win';
-  if (key.includes('loss') || key.includes('lost')) return 'loss';
-  return 'bet';
+  if (key.includes('prizepayout') || key.includes('prize') || key.includes('win')) return 'payout';
+  return 'deposit';
 }
 
 const child = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { duration: 0.3 } } };
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.07 } } };
 
-export function SpectatorWalletPage() {
+export function OwnerWalletPage() {
   const [balance, setBalance] = useState(0);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [pageLoading, setPageLoading] = useState(true);
@@ -57,7 +56,7 @@ export function SpectatorWalletPage() {
   async function loadAll() {
     setPageLoading(true); setPageError('');
     try {
-      const [balData, histData] = await Promise.all([getBalance(), getWalletHistory()]);
+      const [balData, histData] = await Promise.all([getOwnerBalance(), getOwnerWalletHistory()]);
       const bal = balData?.result?.balance ?? balData?.result ?? (typeof balData === 'number' ? balData : 0);
       setBalance(Number(bal) || 0);
       setTransactions(histData?.result ?? (Array.isArray(histData) ? histData : []));
@@ -88,7 +87,7 @@ export function SpectatorWalletPage() {
     setShowVNPayModal(false);
     setDepositLoading(true); setDepositErr(''); setDepositMsg('');
     try {
-      await deposit(coinsPreview);
+      await ownerDeposit(coinsPreview);
       setDepositMsg(`Nạp $${effectiveUsd} USD (${coinsPreview.toLocaleString()} coins) thành công!`);
       setUsdInput(''); setQuickAmt(null);
       loadAll();
@@ -106,7 +105,7 @@ export function SpectatorWalletPage() {
     const coinsToWithdraw = amt * COINS_PER_USD;
     setWithdrawLoading(true); setWithdrawErr(''); setWithdrawMsg('');
     try {
-      await withdraw(coinsToWithdraw);
+      await ownerWithdraw(coinsToWithdraw);
       setWithdrawMsg(`Rút $${amt} USD (${coinsToWithdraw.toLocaleString()} coins) thành công!`);
       setWithdrawInput('');
       loadAll();
@@ -124,14 +123,14 @@ export function SpectatorWalletPage() {
     <div className="min-h-screen text-body font-sans flex" style={{backgroundColor: '#0b101e'}}>
       <Sidebar />
       <div className="relative flex-1 min-w-0 overflow-y-auto">
-        <PageAmbience accent="purple" />
+        <PageAmbience accent="emerald" />
         <Topbar />
         <main className="relative z-10 max-w-[1600px] mx-auto px-8 py-6 space-y-6">
 
           <PageHero
             title="Ví của tôi"
-            subtitle="Nạp tiền, rút tiền và theo dõi giao dịch"
-            imageUrl="/images/hero-spectator.jpg"
+            subtitle="Theo dõi tiền thưởng, quản lý tài chính chuồng ngựa"
+            imageUrl="/images/hero-owner.jpg"
             imagePosition="center 50%"
             badge={
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gold/10 border border-gold/25 text-gold text-[10px] font-bold uppercase tracking-widest">
@@ -147,7 +146,7 @@ export function SpectatorWalletPage() {
             <motion.div variants={child} className="col-span-1 glass-panel rounded-2xl p-6 relative overflow-hidden border border-gold/15">
               <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
               <div className="absolute -top-6 -right-6 w-36 h-36 rounded-full bg-gradient-to-br from-gold/20 to-amber-900/10 blur-[40px] pointer-events-none" />
-              <div className="absolute -bottom-10 -left-10 w-40 h-40 rounded-full bg-gradient-to-br from-purple-500/10 to-transparent blur-[40px] pointer-events-none" />
+              <div className="absolute -bottom-10 -left-10 w-40 h-40 rounded-full bg-gradient-to-br from-emerald-500/10 to-transparent blur-[40px] pointer-events-none" />
               <div className="relative z-10">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="w-10 h-10 rounded-xl bg-gold/10 border border-gold/20 flex items-center justify-center">
@@ -170,8 +169,8 @@ export function SpectatorWalletPage() {
             </motion.div>
 
             {[
-              { label: 'Tổng giao dịch', value: transactions.length, icon: CheckCircle, color: 'text-emerald-400', bg: 'from-emerald-500/15 to-emerald-900/20' },
-              { label: 'Cược đang chờ', value: transactions.filter(t => (t.status ?? '').toLowerCase() === 'pending').length, icon: Clock, color: 'text-yellow-400', bg: 'from-yellow-500/15 to-yellow-900/20' },
+              { label: 'Tổng số giao dịch', value: transactions.length, icon: CheckCircle, color: 'text-emerald-400', bg: 'from-emerald-500/15 to-emerald-900/20' },
+              { label: 'Tiền giải thưởng nhận được', value: transactions.filter(t => normalizeType(t.type ?? t.transactionType) === 'payout').length, icon: Coins, color: 'text-gold', bg: 'from-gold/15 to-amber-900/20' },
             ].map((s, i) => (
               <motion.div key={i} variants={child} className="glass-panel rounded-xl p-5 relative overflow-hidden">
                 <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
@@ -193,7 +192,7 @@ export function SpectatorWalletPage() {
               {/* Deposit */}
               <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-panel rounded-xl p-6 relative overflow-hidden">
                 <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
-                <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-gradient-to-br from-purple-500/10 to-transparent blur-[40px] pointer-events-none" />
+                <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-gradient-to-br from-emerald-500/10 to-transparent blur-[40px] pointer-events-none" />
                 <div className="relative z-10 flex items-center gap-3 mb-5">
                   <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
                     <Plus size={15} className="text-emerald-400" />
@@ -246,7 +245,7 @@ export function SpectatorWalletPage() {
               {/* Withdraw */}
               <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="glass-panel rounded-xl p-6 relative overflow-hidden">
                 <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
-                <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-gradient-to-br from-purple-500/10 to-transparent blur-[40px] pointer-events-none" />
+                <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-gradient-to-br from-emerald-500/10 to-transparent blur-[40px] pointer-events-none" />
                 <div className="relative z-10 flex items-center gap-3 mb-5">
                   <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
                     <Minus size={15} className="text-blue-400" />
@@ -284,13 +283,13 @@ export function SpectatorWalletPage() {
             {/* Transaction history */}
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-panel rounded-xl p-6 relative overflow-hidden">
               <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent pointer-events-none" />
-              <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-gradient-to-br from-purple-500/10 to-transparent blur-[40px] pointer-events-none" />
+              <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-gradient-to-br from-emerald-500/10 to-transparent blur-[40px] pointer-events-none" />
               <div className="relative z-10 flex items-center gap-3 mb-5">
                 <div className="w-8 h-8 rounded-lg bg-gold/10 border border-gold/20 flex items-center justify-center shrink-0"><History size={15} className="text-gold" /></div>
                 <h2 className="text-base font-serif text-white">Lịch sử giao dịch</h2>
                 <div className="flex-1 h-px bg-gradient-to-r from-gold/30 via-glass-border to-transparent" />
                 <div className="flex items-center gap-1 shrink-0">
-                  {([['all', 'Tất cả'], ['deposit', 'Nạp'], ['withdraw', 'Rút'], ['win', 'Thắng'], ['loss', 'Thua'], ['bet', 'Cược']] as [TxType | 'all', string][]).map(([f, label]) => (
+                  {([['all', 'Tất cả'], ['deposit', 'Nạp'], ['withdraw', 'Rút'], ['payout', 'Tiền thưởng']] as [TxType | 'all', string][]).map(([f, label]) => (
                     <button key={f} onClick={() => setTxFilter(f)}
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${txFilter === f ? 'bg-gold/15 text-gold border border-gold/30' : 'text-muted hover:text-white'}`}>
                       {label}
@@ -308,9 +307,8 @@ export function SpectatorWalletPage() {
                     const cfg = TX_CONFIG[txType];
                     const TxIcon = txType === 'deposit' ? ArrowDownLeft
                       : txType === 'withdraw' ? ArrowUpRight
-                      : txType === 'win' ? TrendingUp
-                      : txType === 'loss' ? TrendingDown
-                      : (tx.status ?? '').toLowerCase() === 'pending' ? Clock : CheckCircle;
+                      : txType === 'payout' ? TrendingUp
+                      : CheckCircle;
                     const amt = tx.amount ?? tx.coins ?? 0;
                     const isPos = amt > 0;
                     return (
@@ -324,11 +322,11 @@ export function SpectatorWalletPage() {
                           <div className="flex items-center gap-2 mt-0.5">
                             <span className="text-[11px] text-muted">{tx.createdAt ?? tx.date ?? ''}</span>
                             {(tx.status ?? '').toLowerCase() === 'pending' && (
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">Chờ KQ</span>
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">Chờ duyệt</span>
                             )}
                           </div>
                         </div>
-                        <div className={`text-sm font-bold shrink-0 tabular-nums ${isPos ? 'text-emerald-400' : (tx.status ?? '').toLowerCase() === 'pending' ? 'text-yellow-400' : 'text-red-400'}`}>
+                        <div className={`text-sm font-bold shrink-0 tabular-nums ${isPos ? 'text-emerald-400' : 'text-red-400'}`}>
                           {isPos ? '+' : ''}{Number(amt).toLocaleString()} <span className="text-[10px] font-normal text-muted">coins</span>
                         </div>
                       </motion.div>

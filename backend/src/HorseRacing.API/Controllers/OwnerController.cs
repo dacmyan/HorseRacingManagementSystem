@@ -5,6 +5,8 @@ using HorseRacing.Application.Features.HorseManagement.DTOs;
 using HorseRacing.Application.Features.HorseManagement.Interfaces;
 using HorseRacing.Application.Features.ContractAndRegistration.DTOs;
 using HorseRacing.Application.Features.ContractAndRegistration.Interfaces;
+using HorseRacing.Application.Features.FinancialRewards.Interfaces;
+using HorseRacing.Application.Features.FinancialRewards.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using HorseRacing.Infrastructure.Persistence;
@@ -22,17 +24,20 @@ public class OwnerController : ControllerBase
     private readonly IHorseDocumentService _horseDocumentService;
     private readonly IJockeyContractService _jockeyContractService;
     private readonly IRegistrationService _registrationService;
+    private readonly IWalletService _walletService;
 
     public OwnerController(
         IHorseService horseService,
         IHorseDocumentService horseDocumentService,
         IJockeyContractService jockeyContractService,
-        IRegistrationService registrationService)
+        IRegistrationService registrationService,
+        IWalletService walletService)
     {
         _horseService = horseService;
         _horseDocumentService = horseDocumentService;
         _jockeyContractService = jockeyContractService;
         _registrationService = registrationService;
+        _walletService = walletService;
     }
 
     private int GetCurrentUserId()
@@ -468,6 +473,78 @@ public class OwnerController : ControllerBase
         catch (Exception ex)
         {
             return StatusCode(500, new { message = "An error occurred retrieving owner dashboard", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("owner/wallet/balance")]
+    public async Task<IActionResult> GetWalletBalance()
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var response = await _walletService.GetBalanceAsync(userId);
+            return Ok(new { message = "Wallet balance retrieved successfully", result = response });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving balance", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("owner/wallet/history")]
+    public async Task<IActionResult> GetWalletHistory()
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var response = await _walletService.GetTransactionHistoryAsync(userId);
+            return Ok(new { message = "Transaction history retrieved successfully", result = response });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving history", detail = ex.Message });
+        }
+    }
+
+    [HttpPost("owner/wallet/deposit")]
+    public async Task<IActionResult> Deposit([FromBody] DepositRequest request)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var response = await _walletService.DepositAsync(userId, request);
+            return Ok(new { message = "Deposit successful", result = response });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred during deposit", detail = ex.Message });
+        }
+    }
+
+    [HttpPost("owner/wallet/withdraw")]
+    public async Task<IActionResult> Withdraw([FromBody] WithdrawRequest request)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var response = await _walletService.WithdrawAsync(userId, request);
+            return Ok(new { message = "Withdrawal successful", result = response });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred during withdrawal", detail = ex.Message });
         }
     }
 }

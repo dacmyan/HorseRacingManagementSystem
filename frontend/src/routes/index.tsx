@@ -22,6 +22,7 @@ import { OwnerJockeysPage } from '../pages/owner/OwnerJockeysPage';
 import { OwnerRegistrationsPage } from '../pages/owner/OwnerRegistrationsPage';
 import { OwnerResultsPage } from '../pages/owner/OwnerResultsPage';
 import { OwnerTournamentsPage } from '../pages/owner/OwnerTournamentsPage';
+import { OwnerWalletPage } from '../pages/owner/OwnerWalletPage';
 
 // Jockey
 import { JockeyDashboardPage } from '../pages/jockey/JockeyDashboardPage';
@@ -84,6 +85,7 @@ export function AppRoutes() {
         <Route path="/owner/registrations" element={<PrivateRoute><OwnerRegistrationsPage /></PrivateRoute>} />
         <Route path="/owner/results" element={<PrivateRoute><OwnerResultsPage /></PrivateRoute>} />
         <Route path="/owner/tournaments" element={<PrivateRoute><OwnerTournamentsPage /></PrivateRoute>} />
+        <Route path="/owner/wallet" element={<PrivateRoute><OwnerWalletPage /></PrivateRoute>} />
 
         {/* Jockey */}
         <Route path="/jockey/dashboard" element={<PrivateRoute><JockeyDashboardPage /></PrivateRoute>} />
