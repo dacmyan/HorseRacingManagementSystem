@@ -200,15 +200,15 @@ export function AdminRacesPage() {
       "Chấn thương (Tái khám không đạt)"
     );
     if (reason === null) return; // cancel
-    
+
     try {
       await withdrawRaceEntry(raceEntryId, reason || 'Loại bỏ bởi Admin');
       showToast('Thành công', `Đã loại ngựa "${horseName}" khỏi cuộc đua.`);
-      
+
       // Reload details if modal is active
       if (modal === 'detail' && detailRace) {
         const rid = Number(detailRace.raceId ?? detailRace.id);
-        const [entries, refs] = await Promise.allSettled([getRaceEntries(rid), getRaceReferees(rid)]);
+        const [entries] = await Promise.allSettled([getRaceEntries(rid), getRaceReferees(rid)]);
         if (entries.status === 'fulfilled') {
           const v: any = entries.value;
           const raw = v?.result ?? (Array.isArray(v) ? v : []);
@@ -529,202 +529,200 @@ export function AdminRacesPage() {
           {!loadingData && !fetchError && groupedTournaments.length > 0 && (() => {
             const { paged: pagedTournaments, totalPages: tourTotalPages, total: tourTotal, page: tourSafePage } = paginate(groupedTournaments, tourPage, 5);
             return (
-            <div className="space-y-6">
-              {pagedTournaments.map(t => {
-                const isOpen = openTournaments.has(t.tournamentId);
-                return (
-                <div key={t.tournamentId} className={`glass-panel rounded-xl p-6 relative overflow-hidden animate-fade-in ${isOpen ? 'space-y-6' : ''}`}>
-                  <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent pointer-events-none" />
+              <div className="space-y-6">
+                {pagedTournaments.map(t => {
+                  const isOpen = openTournaments.has(t.tournamentId);
+                  return (
+                    <div key={t.tournamentId} className={`glass-panel rounded-xl p-6 relative overflow-hidden animate-fade-in ${isOpen ? 'space-y-6' : ''}`}>
+                      <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent pointer-events-none" />
 
-                  {/* Tournament Header — bấm để đổ detail vòng & cuộc đua */}
-                  <div className={`flex flex-wrap items-center justify-between gap-4 ${isOpen ? 'border-b border-glass-border pb-4' : ''}`}>
-                    <button onClick={() => toggleTournament(t.tournamentId)} className="text-left group flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        {isOpen ? <ChevronUp size={16} className="text-gold shrink-0" /> : <ChevronDown size={16} className="text-muted group-hover:text-gold shrink-0 transition-colors" />}
-                        <Trophy size={18} className="text-gold" />
-                        <h2 className="text-lg font-serif text-white font-bold truncate group-hover:text-champagne transition-colors">{t.name}</h2>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full border shrink-0 ${
-                          t.status === 'Active' ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' :
-                          t.status === 'Upcoming' ? 'text-blue-400 bg-blue-500/10 border-blue-500/20' :
-                          'text-muted bg-white/5 border-glass-border'
-                        }`}>
-                          {t.status === 'Active' ? 'Đang diễn ra' : t.status === 'Upcoming' ? 'Sắp diễn ra' : 'Đã kết thúc'}
-                        </span>
-                        {!isOpen && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/4 border border-glass-border text-champagne shrink-0">
-                            {t.rounds.reduce((s: number, r: any) => s + r.races.length, 0)} cuộc đua
-                          </span>
-                        )}
+                      {/* Tournament Header — bấm để đổ detail vòng & cuộc đua */}
+                      <div className={`flex flex-wrap items-center justify-between gap-4 ${isOpen ? 'border-b border-glass-border pb-4' : ''}`}>
+                        <button onClick={() => toggleTournament(t.tournamentId)} className="text-left group flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            {isOpen ? <ChevronUp size={16} className="text-gold shrink-0" /> : <ChevronDown size={16} className="text-muted group-hover:text-gold shrink-0 transition-colors" />}
+                            <Trophy size={18} className="text-gold" />
+                            <h2 className="text-lg font-serif text-white font-bold truncate group-hover:text-champagne transition-colors">{t.name}</h2>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full border shrink-0 ${t.status === 'Active' ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' :
+                                t.status === 'Upcoming' ? 'text-blue-400 bg-blue-500/10 border-blue-500/20' :
+                                  'text-muted bg-white/5 border-glass-border'
+                              }`}>
+                              {t.status === 'Active' ? 'Đang diễn ra' : t.status === 'Upcoming' ? 'Sắp diễn ra' : 'Đã kết thúc'}
+                            </span>
+                            {!isOpen && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/4 border border-glass-border text-champagne shrink-0">
+                                {t.rounds.reduce((s: number, r: any) => s + r.races.length, 0)} cuộc đua
+                              </span>
+                            )}
+                          </div>
+                          {t.startDate && t.endDate && (
+                            <p className="text-xs text-muted/80 mt-1 pl-6">
+                              Thời gian: {new Date(t.startDate).toLocaleDateString()} - {new Date(t.endDate).toLocaleDateString()}
+                            </p>
+                          )}
+                        </button>
+
+                        <div className="flex items-center gap-3">
+                          {/* Prefinal generation */}
+                          {t.canGeneratePre && (
+                            <button
+                              onClick={() => handleGenerateRaces(t.tournamentId)}
+                              disabled={generatingForTournament === t.tournamentId}
+                              className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/30 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5"
+                            >
+                              {generatingForTournament === t.tournamentId ? (
+                                <>
+                                  <Loader size={12} className="animate-spin" />
+                                  Đang tạo...
+                                </>
+                              ) : (
+                                'Auto xếp làn đua'
+                              )}
+                            </button>
+                          )}
+
+                          {/* Final generation */}
+                          {t.canGenerateFinal && (
+                            <button
+                              onClick={() => handleGenerateFinal(t.tournamentId)}
+                              disabled={generatingForTournament === t.tournamentId}
+                              className="px-4 py-2 bg-gold/20 hover:bg-gold/30 text-gold border border-gold/30 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 animate-pulse"
+                            >
+                              {generatingForTournament === t.tournamentId ? (
+                                <>
+                                  <Loader size={12} className="animate-spin" />
+                                  Đang tạo...
+                                </>
+                              ) : (
+                                'Auto xếp Final (Top 12)'
+                              )}
+                            </button>
+                          )}
+                          {t.rounds?.[0]?.races?.length > 0 && !t.canGenerateFinal && t.waitingLabel && (
+                            <button
+                              disabled
+                              className="px-4 py-2 bg-white/[0.04] text-muted border border-glass-border text-xs font-bold rounded-lg cursor-not-allowed"
+                            >
+                              {t.waitingLabel}
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      {t.startDate && t.endDate && (
-                        <p className="text-xs text-muted/80 mt-1 pl-6">
-                          Thời gian: {new Date(t.startDate).toLocaleDateString()} - {new Date(t.endDate).toLocaleDateString()}
-                        </p>
-                      )}
-                    </button>
 
-                    <div className="flex items-center gap-3">
-                      {/* Prefinal generation */}
-                      {t.canGeneratePre && (
-                        <button
-                          onClick={() => handleGenerateRaces(t.tournamentId)}
-                          disabled={generatingForTournament === t.tournamentId}
-                          className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/30 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5"
-                        >
-                          {generatingForTournament === t.tournamentId ? (
-                            <>
-                              <Loader size={12} className="animate-spin" />
-                              Đang tạo...
-                            </>
-                          ) : (
-                            'Auto xếp làn đua'
-                          )}
-                        </button>
-                      )}
+                      {/* Rounds — chỉ hiển thị khi giải đấu được mở rộng */}
+                      {isOpen && (
+                        <div className="grid grid-cols-1 gap-6">
+                          {t.rounds.map((r: any) => (
+                            <div key={r.roundId} className="space-y-3 bg-navy/20 p-4 rounded-xl border border-glass-border/40">
+                              <div className="flex items-center justify-between border-b border-glass-border/30 pb-2">
+                                <h3 className="text-sm font-bold text-champagne uppercase tracking-wider flex items-center gap-2">
+                                  <span>{r.name}</span>
+                                  <span className="text-[10px] text-muted normal-case font-normal">
+                                    ({r.roundNumber === 1 ? 'Prefinal Round - Vòng loại' : 'Final Round - Chung kết'})
+                                  </span>
+                                </h3>
+                                <button
+                                  onClick={() => openRaceModal(r.roundId)}
+                                  className="text-[11px] text-gold hover:underline flex items-center gap-1 font-semibold"
+                                >
+                                  <Plus size={12} /> Thêm cuộc đua thủ công
+                                </button>
+                              </div>
 
-                      {/* Final generation */}
-                      {t.canGenerateFinal && (
-                        <button
-                          onClick={() => handleGenerateFinal(t.tournamentId)}
-                          disabled={generatingForTournament === t.tournamentId}
-                          className="px-4 py-2 bg-gold/20 hover:bg-gold/30 text-gold border border-gold/30 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 animate-pulse"
-                        >
-                          {generatingForTournament === t.tournamentId ? (
-                            <>
-                              <Loader size={12} className="animate-spin" />
-                              Đang tạo...
-                            </>
-                          ) : (
-                            'Auto xếp Final (Top 12)'
-                          )}
-                        </button>
-                      )}
-                      {t.rounds?.[0]?.races?.length > 0 && !t.canGenerateFinal && t.waitingLabel && (
-                        <button
-                          disabled
-                          className="px-4 py-2 bg-white/[0.04] text-muted border border-glass-border text-xs font-bold rounded-lg cursor-not-allowed"
-                        >
-                          {t.waitingLabel}
-                        </button>
+                              {r.races.length === 0 ? (
+                                <div className="text-xs text-muted/50 italic py-4">
+                                  Chưa có cuộc đua nào được lập lịch. Dùng nút chia bảng tự động hoặc thêm thủ công.
+                                </div>
+                              ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                  {r.races.map((race: any) => {
+                                    return (
+                                      <div
+                                        key={race.raceId}
+                                        className="bg-navy/40 border rounded-xl overflow-hidden transition-all duration-300 border-glass-border hover:border-white/10"
+                                      >
+                                        <div className="p-4 space-y-3">
+                                          <div className="flex items-start justify-between gap-2">
+                                            <div>
+                                              <h4 className="text-sm font-bold text-white flex items-center gap-1.5">
+                                                🏁 {race.name}
+                                              </h4>
+                                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${(race.status === 'Finished' || race.status === 'Completed') ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                                                  race.status === 'Live' ? 'bg-red-500/10 text-red-400 border border-red-500/20 animate-pulse' :
+                                                    'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                                                }`}>
+                                                {(race.status === 'Finished' || race.status === 'Completed') ? 'Đã hoàn thành' : race.status === 'Live' ? 'Đang diễn ra' : 'Đã lên lịch'}
+                                              </span>
+                                              {race.hasHealthIssue && (
+                                                <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse inline-flex items-center gap-0.5">
+                                                  ⚠️ Có sự cố sức khỏe
+                                                </span>
+                                              )}
+                                            </div>
+                                            <div className="text-right">
+                                              <div className="text-[11px] text-muted flex items-center gap-1 justify-end">
+                                                <Calendar size={11} />
+                                                {new Date(race.raceDate).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
+                                              </div>
+                                              <div className="text-[10px] text-muted/80 mt-0.5">
+                                                Cự ly: {race.distanceMeter}m | Làn tối đa: {race.maxLanes}
+                                              </div>
+                                            </div>
+                                          </div>
+
+                                          <div className="flex items-center justify-end gap-2 pt-2 border-t border-glass-border/30">
+                                            <div className="flex items-center gap-2">
+                                              <button
+                                                onClick={() => openDetail(race)}
+                                                title="Chi tiết & sơ đồ làn 3D"
+                                                className="p-1.5 rounded-lg text-champagne hover:bg-gold/15 border border-transparent hover:border-gold/20 transition-colors"
+                                              >
+                                                <Eye size={13} />
+                                              </button>
+                                              <button
+                                                onClick={() => openLanes(race.raceId)}
+                                                title="Ghép ngựa vào làn"
+                                                className="p-1.5 rounded-lg text-blue-400 hover:bg-blue-500/10 border border-transparent hover:border-blue-500/20 transition-colors"
+                                              >
+                                                <ListOrdered size={13} />
+                                              </button>
+                                              <button
+                                                onClick={() => openRefereeModal(race.raceId)}
+                                                title="Phân công trọng tài"
+                                                className="p-1.5 rounded-lg text-cyan-400 hover:bg-cyan-500/10 border border-transparent hover:border-cyan-500/20 transition-colors"
+                                              >
+                                                <UserCheck size={13} />
+                                              </button>
+                                              <button
+                                                onClick={() => handleDeleteRace(race.raceId, race.name)}
+                                                title="Xóa cuộc đua"
+                                                className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-colors"
+                                              >
+                                                <Trash2 size={13} />
+                                              </button>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </div>
+                  );
+                })}
+
+                {/* Phân trang danh sách giải đấu */}
+                {tourTotalPages > 1 && (
+                  <div className="glass-panel rounded-xl overflow-hidden">
+                    <Pager page={tourSafePage} totalPages={tourTotalPages} total={tourTotal} onChange={setTourPage} />
                   </div>
-
-                  {/* Rounds — chỉ hiển thị khi giải đấu được mở rộng */}
-                  {isOpen && (
-                  <div className="grid grid-cols-1 gap-6">
-                    {t.rounds.map((r: any) => (
-                      <div key={r.roundId} className="space-y-3 bg-navy/20 p-4 rounded-xl border border-glass-border/40">
-                        <div className="flex items-center justify-between border-b border-glass-border/30 pb-2">
-                          <h3 className="text-sm font-bold text-champagne uppercase tracking-wider flex items-center gap-2">
-                            <span>{r.name}</span>
-                            <span className="text-[10px] text-muted normal-case font-normal">
-                              ({r.roundNumber === 1 ? 'Prefinal Round - Vòng loại' : 'Final Round - Chung kết'})
-                            </span>
-                          </h3>
-                          <button
-                            onClick={() => openRaceModal(r.roundId)}
-                            className="text-[11px] text-gold hover:underline flex items-center gap-1 font-semibold"
-                          >
-                            <Plus size={12} /> Thêm cuộc đua thủ công
-                          </button>
-                        </div>
-
-                        {r.races.length === 0 ? (
-                          <div className="text-xs text-muted/50 italic py-4">
-                            Chưa có cuộc đua nào được lập lịch. Dùng nút chia bảng tự động hoặc thêm thủ công.
-                          </div>
-                        ) : (
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {r.races.map((race: any) => {
-                              return (
-                                <div
-                                  key={race.raceId}
-                                  className="bg-navy/40 border rounded-xl overflow-hidden transition-all duration-300 border-glass-border hover:border-white/10"
-                                >
-                                  <div className="p-4 space-y-3">
-                                    <div className="flex items-start justify-between gap-2">
-                                      <div>
-                                        <h4 className="text-sm font-bold text-white flex items-center gap-1.5">
-                                          🏁 {race.name}
-                                        </h4>
-                                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${
-                                          (race.status === 'Finished' || race.status === 'Completed') ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                                          race.status === 'Live' ? 'bg-red-500/10 text-red-400 border border-red-500/20 animate-pulse' :
-                                          'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                                        }`}>
-                                          {(race.status === 'Finished' || race.status === 'Completed') ? 'Đã hoàn thành' : race.status === 'Live' ? 'Đang diễn ra' : 'Đã lên lịch'}
-                                        </span>
-                                        {race.hasHealthIssue && (
-                                          <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse inline-flex items-center gap-0.5">
-                                            ⚠️ Có sự cố sức khỏe
-                                          </span>
-                                        )}
-                                      </div>
-                                      <div className="text-right">
-                                        <div className="text-[11px] text-muted flex items-center gap-1 justify-end">
-                                          <Calendar size={11} />
-                                          {new Date(race.raceDate).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
-                                        </div>
-                                        <div className="text-[10px] text-muted/80 mt-0.5">
-                                          Cự ly: {race.distanceMeter}m | Làn tối đa: {race.maxLanes}
-                                        </div>
-                                      </div>
-                                    </div>
-
-                                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-glass-border/30">
-                                      <div className="flex items-center gap-2">
-                                        <button
-                                          onClick={() => openDetail(race)}
-                                          title="Chi tiết & sơ đồ làn 3D"
-                                          className="p-1.5 rounded-lg text-champagne hover:bg-gold/15 border border-transparent hover:border-gold/20 transition-colors"
-                                        >
-                                          <Eye size={13} />
-                                        </button>
-                                        <button
-                                          onClick={() => openLanes(race.raceId)}
-                                          title="Ghép ngựa vào làn"
-                                          className="p-1.5 rounded-lg text-blue-400 hover:bg-blue-500/10 border border-transparent hover:border-blue-500/20 transition-colors"
-                                        >
-                                          <ListOrdered size={13} />
-                                        </button>
-                                        <button
-                                          onClick={() => openRefereeModal(race.raceId)}
-                                          title="Phân công trọng tài"
-                                          className="p-1.5 rounded-lg text-cyan-400 hover:bg-cyan-500/10 border border-transparent hover:border-cyan-500/20 transition-colors"
-                                        >
-                                          <UserCheck size={13} />
-                                        </button>
-                                        <button
-                                          onClick={() => handleDeleteRace(race.raceId, race.name)}
-                                          title="Xóa cuộc đua"
-                                          className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-colors"
-                                        >
-                                          <Trash2 size={13} />
-                                        </button>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  )}
-                </div>
-                );
-              })}
-
-              {/* Phân trang danh sách giải đấu */}
-              {tourTotalPages > 1 && (
-                <div className="glass-panel rounded-xl overflow-hidden">
-                  <Pager page={tourSafePage} totalPages={tourTotalPages} total={tourTotal} onChange={setTourPage} />
-                </div>
-              )}
-            </div>
+                )}
+              </div>
             );
           })()}
 
@@ -840,7 +838,7 @@ export function AdminRacesPage() {
                     if (existing) {
                       const isSickOrInjured = existing.healthStatus === 'Sick' || existing.healthStatus === 'Injured';
                       const isWithdrawn = existing.status === 'Withdrawn' || existing.status === 'DNF' || existing.status === 'Disqualified';
-                      
+
                       let cardStyle = 'bg-emerald-500/5 border border-emerald-500/20';
                       if (isSickOrInjured) {
                         cardStyle = 'bg-red-500/10 border border-red-500/30';
@@ -872,12 +870,12 @@ export function AdminRacesPage() {
                             )}
                           </div>
                           {existing.jockeyName && <span className="text-xs text-muted truncate mr-2">• {existing.jockeyName}</span>}
-                          
+
                           <div className="flex items-center gap-2 ml-auto shrink-0">
                             <span className={`text-[10px] uppercase font-bold ${isSickOrInjured ? 'text-red-400' : isWithdrawn ? 'text-muted' : 'text-emerald-400/70'}`}>
                               {isSickOrInjured ? 'Sự cố' : isWithdrawn ? 'Đã rút' : 'Đã ghép'}
                             </span>
-                            
+
                             {!isWithdrawn && isSickOrInjured && (
                               <button
                                 onClick={() => handleWithdrawEntry(existing.raceEntryId, existing.horseName)}
@@ -1023,7 +1021,7 @@ export function AdminRacesPage() {
                         const isOver = (e.laneNo ?? 0) > Number(detailRace.maxLanes ?? 0);
                         const isSickOrInjured = e.healthStatus === 'Sick' || e.healthStatus === 'Injured';
                         const isWithdrawn = e.status === 'Withdrawn' || e.status === 'DNF' || e.status === 'Disqualified';
-                        
+
                         let cardBg = 'bg-white/2 border border-glass-border';
                         if (isOver) {
                           cardBg = 'bg-red-500/10 border border-red-500/30';
@@ -1052,11 +1050,11 @@ export function AdminRacesPage() {
                                 )}
                               </div>
                             </div>
-                            
+
                             <div className="flex items-center gap-2 shrink-0">
                               {isOver && <span className="font-bold text-red-400 text-[10px]">VƯỢT LÀN</span>}
                               {!isOver && e.finishPosition != null && <span className="font-bold text-gold">#{e.finishPosition}</span>}
-                              
+
                               {/* Nút loại khỏi cuộc đua cho Admin */}
                               {!isWithdrawn && isSickOrInjured && detailRace.status !== 'Finished' && detailRace.status !== 'Completed' && (
                                 <button
