@@ -14,7 +14,7 @@ public class Race
     public string? Name { get; set; }
     public DateTime RaceDate { get; set; }
     public int DistanceMeter { get; set; }
-    public int MaxLanes { get; set; } = 10;
+    public int MaxLanes { get; set; } = 12;
     public string Status { get; set; } = "Scheduled";
 
     // Navigation Properties
