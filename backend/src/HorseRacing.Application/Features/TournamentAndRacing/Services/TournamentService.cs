@@ -40,6 +40,14 @@ public class TournamentService : ITournamentService
             throw new ArgumentException("Tournament name cannot be empty.", nameof(request.Name));
         }
 
+        var comparisonTime = request.RegistrationStartDate.Kind == DateTimeKind.Utc
+            ? DateTime.UtcNow
+            : TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
+        if (request.RegistrationStartDate < comparisonTime.AddMinutes(-5))
+        {
+            throw new ArgumentException("Thời gian bắt đầu đăng ký không thể ở quá khứ.");
+        }
+
         if (request.RegistrationEndDate <= request.RegistrationStartDate)
         {
             throw new ArgumentException("Registration end date must be after registration start date.");
@@ -135,6 +143,14 @@ public class TournamentService : ITournamentService
         if (string.IsNullOrWhiteSpace(request.Name))
         {
             throw new ArgumentException("Tournament name cannot be empty.", nameof(request.Name));
+        }
+
+        var comparisonTime = request.RegistrationStartDate.Kind == DateTimeKind.Utc
+            ? DateTime.UtcNow
+            : TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
+        if (request.RegistrationStartDate != tournament.RegistrationStartDate && request.RegistrationStartDate < comparisonTime.AddMinutes(-5))
+        {
+            throw new ArgumentException("Thời gian bắt đầu đăng ký không thể ở quá khứ.");
         }
 
         if (request.RegistrationEndDate <= request.RegistrationStartDate)

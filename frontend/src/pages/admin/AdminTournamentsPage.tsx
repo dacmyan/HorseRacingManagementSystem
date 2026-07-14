@@ -134,11 +134,21 @@ export function AdminTournamentsPage() {
     const endVal = new Date(form.endDate);
     const now = new Date();
 
-    if (regStartVal.getTime() < now.getTime() - 5 * 60 * 1000 ||
-        regEndVal <= regStartVal ||
-        startVal < regEndVal ||
-        endVal <= startVal) {
-      return; // prevent submit if invalid dates
+    if (regStartVal.getTime() < now.getTime() - 5 * 60 * 1000) {
+      setError(t('Thời gian bắt đầu đăng ký không thể ở quá khứ.'));
+      return;
+    }
+    if (regEndVal <= regStartVal) {
+      setError(t('Thời gian kết thúc đăng ký phải sau thời gian bắt đầu đăng ký.'));
+      return;
+    }
+    if (startVal < regEndVal) {
+      setError(t('Thời gian bắt đầu giải đấu phải sau hoặc bằng thời hạn kết thúc đăng ký.'));
+      return;
+    }
+    if (endVal <= startVal) {
+      setError(t('Thời gian kết thúc giải đấu phải sau thời gian bắt đầu giải đấu.'));
+      return;
     }
 
     const prizes = [
