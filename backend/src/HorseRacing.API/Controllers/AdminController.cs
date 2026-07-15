@@ -503,7 +503,12 @@ public class AdminController : ControllerBase
                     OwnerName = (r.Horse != null && r.Horse.Owner != null) ? r.Horse.Owner.FullName : "",
                     Status = r.Status,
                     HealthStatus = r.Horse != null ? r.Horse.HealthStatus : "Healthy",
-                    RegisteredAt = r.RegisteredAt
+                    RegisteredAt = r.RegisteredAt,
+                    JockeyContractStatus = context.JockeyContracts
+                        .Where(jc => jc.TournamentId == r.TournamentId && jc.HorseId == r.HorseId)
+                        .OrderByDescending(jc => jc.CreatedAt)
+                        .Select(jc => jc.Status)
+                        .FirstOrDefault() ?? "NoContract"
                 })
                 .ToListAsync();
             return Ok(new { message = "Registrations retrieved successfully", result = registrations });
