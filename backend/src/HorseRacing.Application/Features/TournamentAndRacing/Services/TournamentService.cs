@@ -63,6 +63,11 @@ public class TournamentService : ITournamentService
             throw new ArgumentException("End date must be after start date.", nameof(request.EndDate));
         }
 
+        if (await _tournamentRepository.HasOverlappingTournamentAsync(request.StartDate, request.EndDate))
+        {
+            throw new ArgumentException("Thời gian diễn ra giải đấu bị lồng trùng với một giải đấu khác đang tồn tại.");
+        }
+
         var tournament = new Tournament
         {
             Name = request.Name,
@@ -166,6 +171,11 @@ public class TournamentService : ITournamentService
         if (request.EndDate <= request.StartDate)
         {
             throw new ArgumentException("End date must be after start date.", nameof(request.EndDate));
+        }
+
+        if (await _tournamentRepository.HasOverlappingTournamentAsync(request.StartDate, request.EndDate, id))
+        {
+            throw new ArgumentException("Thời gian của giải đấu bị trùng lặp với một giải đấu khác đang diễn ra.");
         }
 
         tournament.Name = request.Name;
