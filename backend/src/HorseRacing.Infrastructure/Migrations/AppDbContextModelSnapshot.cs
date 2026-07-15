@@ -285,6 +285,10 @@ namespace HorseRacing.Infrastructure.Migrations
                     b.Property<int>("JockeyId")
                         .HasColumnType("int");
 
+                    b.Property<decimal>("RentalFee")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("datetime2");
 
@@ -294,6 +298,10 @@ namespace HorseRacing.Infrastructure.Migrations
 
                     b.Property<long>("TournamentId")
                         .HasColumnType("bigint");
+
+                    b.Property<decimal>("WinningBonusPercentage")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.HasKey("ContractId");
 

@@ -128,6 +128,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.ToTable("JockeyContract");
             entity.HasKey(c => c.ContractId);
 
+            entity.Property(c => c.RentalFee).HasPrecision(18, 2);
+            entity.Property(c => c.WinningBonusPercentage).HasPrecision(18, 2);
+
             entity.HasIndex(x => new { x.TournamentId, x.HorseId, x.JockeyId })
                 .IsUnique();
 

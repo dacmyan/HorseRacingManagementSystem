@@ -126,6 +126,8 @@ export function JockeyInvitationsPage() {
                               <span className="font-semibold">Hạn phản hồi: {new Date(inv.invitationExpiredAt).toLocaleString('vi-VN')}</span>
                             </span>
                           )}
+                          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.04] border border-glass-border text-gold font-semibold">💰 Tiền thuê: ${inv.rentalFee ?? 0}</span>
+                          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.04] border border-glass-border text-emerald-400 font-semibold">🏆 Thưởng thắng: {inv.winningBonusPercentage ?? 0}%</span>
                         </div>
                         {bucket === 'pending' && (
                           <div className="flex flex-col gap-2">

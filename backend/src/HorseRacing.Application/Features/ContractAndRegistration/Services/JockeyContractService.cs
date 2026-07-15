@@ -50,6 +50,8 @@ public class JockeyContractService : IJockeyContractService
             JockeyName = contract.Jockey?.FullName ?? "Unknown Jockey",
             StartDate = contract.StartDate,
             EndDate = contract.EndDate,
+            RentalFee = contract.RentalFee,
+            WinningBonusPercentage = contract.WinningBonusPercentage,
             Status = contract.Status,
             InvitationExpiredAt = contract.InvitationExpiredAt,
             CreatedAt = contract.CreatedAt
@@ -156,6 +158,8 @@ public class JockeyContractService : IJockeyContractService
             existingContract.StartDate = request.StartDate;
             existingContract.EndDate = request.EndDate;
             existingContract.InvitationExpiredAt = request.InvitationExpiredAt;
+            existingContract.RentalFee = request.RentalFee;
+            existingContract.WinningBonusPercentage = request.WinningBonusPercentage;
             existingContract.Status = "Pending";
             existingContract.CreatedAt = DateTime.UtcNow;
             contract = existingContract;
@@ -170,6 +174,8 @@ public class JockeyContractService : IJockeyContractService
                 StartDate = request.StartDate,
                 EndDate = request.EndDate,
                 InvitationExpiredAt = request.InvitationExpiredAt,
+                RentalFee = request.RentalFee,
+                WinningBonusPercentage = request.WinningBonusPercentage,
                 Status = "Pending",
                 CreatedAt = DateTime.UtcNow
             };

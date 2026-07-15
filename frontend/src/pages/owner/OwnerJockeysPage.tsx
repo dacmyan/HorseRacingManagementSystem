@@ -26,7 +26,7 @@ const STATUS_CFG: Record<string, { label: string; color: string; Icon: typeof Cl
 };
 const DEFAULT_CFG = { label: 'Không rõ', color: 'text-muted bg-white/5 border-glass-border', Icon: Clock };
 
-const INIT_FORM = { horseId: '', tournamentId: '', jockeyId: '', startDate: '', endDate: '', expirationHours: '24' };
+const INIT_FORM = { horseId: '', tournamentId: '', jockeyId: '', startDate: '', endDate: '', rentalFee: '', winningBonusPercentage: '0', expirationHours: '24' };
 const INPUT = 'w-full bg-navy/50 border border-glass-border rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-muted/60 outline-none focus:border-gold/40 transition-colors';
 const LABEL = 'block text-xs font-bold text-muted uppercase tracking-wider mb-1.5';
 
@@ -95,8 +95,13 @@ export function OwnerJockeysPage() {
 
   async function handleInvite() {
     setSubmitError(''); setSubmitSuccess('');
-    if (!form.horseId || !form.tournamentId || !form.jockeyId || !form.startDate || !form.endDate || !form.expirationHours) {
+    if (!form.horseId || !form.tournamentId || !form.jockeyId || !form.startDate || !form.endDate || form.rentalFee === '' || !form.expirationHours) {
       setSubmitError('Vui lòng điền đầy đủ thông tin.');
+      return;
+    }
+    const rentalFeeVal = Number(form.rentalFee);
+    if (Number.isNaN(rentalFeeVal) || rentalFeeVal < 0) {
+      setSubmitError('Tiền thuê phải là một số lớn hơn hoặc bằng 0.');
       return;
     }
     const selectedTournament = tournaments.find((t: any) => String(t.tournamentId) === String(form.tournamentId));
@@ -125,6 +130,8 @@ export function OwnerJockeysPage() {
         startDate: form.startDate,
         endDate: form.endDate,
         invitationExpiredAt: expirationDate,
+        rentalFee: rentalFeeVal,
+        winningBonusPercentage: Number(form.winningBonusPercentage || 0),
       });
       closeInvite();
       showToast('Thành công', 'Gửi lời mời Jockey thành công!', 'success');
@@ -253,7 +260,8 @@ export function OwnerJockeysPage() {
                           {p.startDate && <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/[0.04] border border-glass-border text-muted inline-flex items-center gap-1"><Calendar size={9} className="text-gold/60" /> Từ: {formatDate(p.startDate)}</span>}
                           {p.endDate && <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/[0.04] border border-glass-border text-muted inline-flex items-center gap-1"><Calendar size={9} className="text-gold/60" /> Đến: {formatDate(p.endDate)}</span>}
                           {p.invitationExpiredAt && <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/[0.04] border border-glass-border text-red-400 inline-flex items-center gap-1"><Clock size={9} className="text-red-400" /> Hạn: {new Date(p.invitationExpiredAt).toLocaleString('vi-VN')}</span>}
-
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/[0.04] border border-glass-border text-gold inline-flex items-center gap-1">💰 Thuê: ${p.rentalFee ?? 0}</span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/[0.04] border border-glass-border text-emerald-400 inline-flex items-center gap-1">🏆 Thưởng: {p.winningBonusPercentage ?? 0}%</span>
                         </div>
                       </div>
                       <div className="relative z-10 flex items-center gap-2 shrink-0">
@@ -371,6 +379,20 @@ export function OwnerJockeysPage() {
                   <input type="date" value={form.endDate} disabled className={`${INPUT} opacity-60 cursor-not-allowed`} style={{colorScheme:'dark'}} />
                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={LABEL}>Tiền thuê ($) *</label>
+                  <input type="number" min="0" step="any" placeholder="Ví dụ: 150" value={form.rentalFee} onChange={e => setForm(p => ({...p, rentalFee: e.target.value}))} className={INPUT} />
+                </div>
+                <div>
+                  <label className={LABEL}>Thưởng thắng (% giải thưởng) *</label>
+                  <select value={form.winningBonusPercentage} onChange={e => setForm(p => ({...p, winningBonusPercentage: e.target.value}))} className={INPUT}>
+                    {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100].map(pct => (
+                      <option key={pct} value={pct}>{pct}%</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
               <div>
                 <label className={LABEL}>Thời hạn phản hồi *</label>
                 <select value={form.expirationHours} onChange={e => setForm(p => ({...p, expirationHours: e.target.value}))} className={INPUT}>
@@ -379,7 +401,6 @@ export function OwnerJockeysPage() {
                   <option value="72">72 giờ</option>
                 </select>
               </div>
-
               {submitError && <div className="text-sm px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400">{submitError}</div>}
               {submitSuccess && <div className="text-sm px-4 py-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">{submitSuccess}</div>}
             </div>
