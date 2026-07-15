@@ -265,6 +265,36 @@ public class DataSeeder
                 }
             }
 
+            // 6.1. Seed Tournament "Expired Registration Tournament (Test Extend)"
+            var tExtendTestName = "Expired Registration Tournament (Test Extend)";
+            var tExtendTest = await _context.Tournaments.FirstOrDefaultAsync(t => t.Name == tExtendTestName);
+            if (tExtendTest == null)
+            {
+                tExtendTest = new Tournament
+                {
+                    Name = tExtendTestName,
+                    Description = "Seeded tournament to test extend registration feature.",
+                    RegistrationStartDate = DateTime.UtcNow.AddDays(-5),
+                    RegistrationEndDate = DateTime.UtcNow.AddDays(-1),
+                    StartDate = DateTime.UtcNow.AddDays(5),
+                    EndDate = DateTime.UtcNow.AddDays(15),
+                    Status = "Registration Open",
+                    CancelCount = 0
+                };
+                _context.Tournaments.Add(tExtendTest);
+                await _context.SaveChangesAsync();
+                _logger.LogInformation($"Tournament '{tExtendTestName}' seeded successfully.");
+            }
+            else
+            {
+                tExtendTest.RegistrationEndDate = DateTime.UtcNow.AddDays(-1);
+                tExtendTest.StartDate = DateTime.UtcNow.AddDays(5);
+                tExtendTest.EndDate = DateTime.UtcNow.AddDays(15);
+                tExtendTest.CancelCount = 0;
+                _context.Tournaments.Update(tExtendTest);
+                await _context.SaveChangesAsync();
+            }
+
             // 6.2. Seed Tournament "Giải Test 1" and register Owner-3's 12 horses to it and invite the 12 Jockey-Test Jockeys
             var t1Name = "Test Tournament 1";
             var t1 = await _context.Tournaments.FirstOrDefaultAsync(t => t.Name == t1Name);
