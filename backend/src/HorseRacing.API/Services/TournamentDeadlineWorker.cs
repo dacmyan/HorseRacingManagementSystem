@@ -2,6 +2,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using HorseRacing.Infrastructure.Persistence;
+using HorseRacing.Application.Features.Notifications.Interfaces;
 using System;
 using System.Linq;
 using System.Threading;
@@ -29,39 +30,74 @@ namespace HorseRacing.API.Services
                         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                         var now = DateTime.UtcNow;
 
-                        // Quét các giải đấu đã hết hạn đăng ký thực tế nhưng chưa được xử lý triệt để
+                        // Quét các giải đấu đã hết hạn đăng ký nhưng ở trạng thái "PendingRegistration"
                         var expiredTournaments = await context.Tournaments
-                            .Where(t => t.RegistrationEndDate != null && now > t.RegistrationEndDate && t.Status == "Registration Open")
+                            .Where(t => t.RegistrationEndDate != null && now > t.RegistrationEndDate && t.Status == "PendingRegistration")
                             .ToListAsync(stoppingToken);
 
                         foreach (var tournament in expiredTournaments)
                         {
-                            if (tournament.CancelCount == 0)
-                            {
-                                // LẦN 1 HẾT HẠN: Tạm đóng và thông báo cho Admin
-                                tournament.Status = "Registration Suspended";
-                                await context.SaveChangesAsync(stoppingToken);
-                                
-                                // Call Service: Gửi thông báo đến Admin hệ thống (Giả lập logs hệ thống)
-                                Console.WriteLine($"[NOTIFICATION TO ADMIN]: Giải đấu {tournament.TournamentId} hết hạn đăng ký lần đầu. Vui lòng thực hiện gia hạn.");
-                            }
-                            else if (tournament.CancelCount == 1)
-                            {
-                                // LẦN 2 HẾT HẠN: Kiểm tra số lượng ngựa tối thiểu (Giả định kiểm tra đơn đăng ký hợp lệ)
-                                int approvedOrPendingCount = await context.Registrations
-                                    .CountAsync(r => r.TournamentId == tournament.TournamentId, stoppingToken);
+                            int registeredCount = await context.Registrations
+                                .CountAsync(r => r.TournamentId == tournament.TournamentId, stoppingToken);
 
-                                if (approvedOrPendingCount < 12) // Giới hạn tối thiểu 12 con ngựa dựa trên kịch bản đua
+                            if (registeredCount >= 12)
+                            {
+                                // Đủ 12 ngựa -> Đóng đăng ký bình thường và chuyển sang trạng thái "PendingScheduling" (Chờ xếp lịch)
+                                tournament.Status = "PendingScheduling";
+                                await context.SaveChangesAsync(stoppingToken);
+                                Console.WriteLine($"[SYSTEM AUTOMATION]: Tournament {tournament.TournamentId} ({tournament.Name}) has {registeredCount} registered horses. Status updated to PendingScheduling.");
+                            }
+                            else
+                            {
+                                // Không đủ 12 ngựa
+                                if (tournament.CancelCount == 0)
                                 {
-                                    // Chuyển trạng thái giải đấu sang Hủy
+                                    // Lần 1: Tự động gia hạn thêm 3 ngày
+                                    tournament.RegistrationEndDate = tournament.RegistrationEndDate.Value.AddDays(3);
+                                    if (tournament.StartDate != null)
+                                        tournament.StartDate = tournament.StartDate.Value.AddDays(3);
+                                    if (tournament.EndDate != null)
+                                        tournament.EndDate = tournament.EndDate.Value.AddDays(3);
+                                    tournament.CancelCount = 1;
+                                    await context.SaveChangesAsync(stoppingToken);
+                                    Console.WriteLine($"[SYSTEM AUTOMATION]: Tournament {tournament.TournamentId} ({tournament.Name}) has only {registeredCount} registrations. Extended deadline by 3 days.");
+                                }
+                                else if (tournament.CancelCount == 1)
+                                {
+                                    // Lần 2: Hủy giải đấu
                                     tournament.Status = "Cancelled";
                                     tournament.CancelCount = 2;
                                     await context.SaveChangesAsync(stoppingToken);
+                                    Console.WriteLine($"[SYSTEM AUTOMATION]: Tournament {tournament.TournamentId} ({tournament.Name}) failed to reach 12 registrations after extension. Status updated to Cancelled.");
 
-                                    // Lấy danh sách email của tất cả các chủ ngựa đăng ký vào giải đấu này
-                                    // Giả lập logic truy vấn thông tin Email của Owner đăng ký
-                                    Console.WriteLine($"[SYSTEM AUTOMATION]: Giải đấu {tournament.TournamentId} chính thức bị HỦY hoàn toàn.");
-                                    Console.WriteLine($"[EMAIL SERVICE]: Đang gửi email thông báo hủy giải đấu đến tất cả các HorseOwner đã đăng ký...");
+                                    // Lấy danh sách OwnerId duy nhất của các ngựa đã đăng ký
+                                    var owners = await context.Registrations
+                                        .Where(r => r.TournamentId == tournament.TournamentId && r.Horse != null)
+                                        .Select(r => r.Horse.OwnerId)
+                                        .Distinct()
+                                        .ToListAsync(stoppingToken);
+
+                                    var notificationService = scope.ServiceProvider.GetService<INotificationService>();
+                                    if (notificationService != null)
+                                    {
+                                        foreach (var ownerId in owners)
+                                        {
+                                            try
+                                            {
+                                                await notificationService.SendNotificationToUserAsync(
+                                                    ownerId,
+                                                    "Giải đấu bị hủy",
+                                                    $"Giải đấu '{tournament.Name}' đã bị hủy do không đủ số lượng ngựa đăng ký tối thiểu (12 ngựa) sau thời gian gia hạn.",
+                                                    "System",
+                                                    (int)tournament.TournamentId
+                                                );
+                                            }
+                                            catch (Exception ex)
+                                            {
+                                                Console.WriteLine($"[NOTIFICATION ERROR] Failed to send notification to owner {ownerId}: {ex.Message}");
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
