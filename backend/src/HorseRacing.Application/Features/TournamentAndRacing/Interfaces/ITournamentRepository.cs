@@ -29,5 +29,6 @@ public interface ITournamentRepository
     Task ClearRoundsAndRacesAsync(long tournamentId);
     Task<List<HorseRacing.Domain.Entities.MedicalCheckRecord>> GetMedicalCheckRecordsForTournamentAsync(long tournamentId);
     Task<List<HorseRacing.Domain.Entities.Registration>> GetRegistrationsByTournamentIdAsync(long tournamentId);
+    Task<bool> HasOverlappingTournamentAsync(DateTime startDate, DateTime endDate, long? excludeTournamentId = null);
 }
 
