@@ -13,6 +13,7 @@ public class Tournament
     public DateTime? StartDate { get; set; }
     public DateTime? EndDate { get; set; }
     public string Status { get; set; } = "PendingRegistration";
+    public int CancelCount { get; set; } = 0;
 
     // Navigation Properties
     public ICollection<Round> Rounds { get; set; } = new List<Round>();

@@ -112,8 +112,8 @@ public class TournamentService : ITournamentService
         try
         {
             await _notificationService.BroadcastNotificationAsync(
-                "Tournament mới đã mở đăng ký",
-                $"Giải đấu '{tournament.Name}' bắt đầu từ {tournament.StartDate:dd/MM/yyyy} đã mở đăng ký.",
+                "New Tournament Open for Registration",
+                $"Tournament '{tournament.Name}' starting on {tournament.StartDate:dd/MM/yyyy} is now open for registration.",
                 "Tournament",
                 referenceId: (int)tournament.TournamentId,
                 actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
@@ -185,8 +185,8 @@ public class TournamentService : ITournamentService
         try
         {
             await _notificationService.BroadcastNotificationAsync(
-                "Tournament cập nhật",
-                $"Giải đấu '{tournament.Name}' đã cập nhật thông tin và chuyển trạng thái sang '{tournament.Status}'.",
+                "Tournament Updated",
+                $"Tournament '{tournament.Name}' has updated its information and status changed to '{tournament.Status}'.",
                 "Tournament",
                 referenceId: (int)tournament.TournamentId,
                 actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"

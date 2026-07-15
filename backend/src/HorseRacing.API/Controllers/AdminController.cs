@@ -599,7 +599,7 @@ public class AdminController : ControllerBase
                     ViolationId = v.Id,
                     RaceId = v.RaceId,
                     RaceName = v.Race != null ? v.Race.Name : "",
-                    Type = v.Description.Contains(":") ? v.Description.Split(':', StringSplitOptions.None)[0] : "Vi phạm",
+                    Type = v.Description.Contains(":") ? v.Description.Split(':', StringSplitOptions.None)[0] : "Violation",
                     Note = v.Description,
                     Penalty = v.Penalty,
                     Status = v.Status,
@@ -987,7 +987,7 @@ public class AdminController : ControllerBase
 
             if (!isSickOrInjured)
             {
-                return BadRequest(new { message = "Không thể loại bỏ ngựa này. Chỉ có thể loại bỏ những con ngựa đã được bác sĩ thú y kết luận là Bị bệnh (Sick) hoặc Chấn thương (Injured)." });
+                return BadRequest(new { message = "Cannot disqualify this horse. Only horses diagnosed by the veterinarian as Sick or Injured can be disqualified." });
             }
 
             var reason = request?.Reason ?? "AdminDecision";

@@ -112,7 +112,7 @@ public class RefereeController : ControllerBase
                     ViolationId = v.Id,
                     RaceId = v.RaceId,
                     RaceName = v.Race != null ? v.Race.Name : "",
-                    Type = v.Description.Contains(":") ? v.Description.Split(':', StringSplitOptions.None)[0] : "Vi phạm",
+                    Type = v.Description.Contains(":") ? v.Description.Split(':', StringSplitOptions.None)[0] : "Violation",
                     Note = v.Description,
                     Penalty = v.Penalty,
                     CreatedAt = DateTime.UtcNow // Using UTC now since Violation entity lacks CreatedAt

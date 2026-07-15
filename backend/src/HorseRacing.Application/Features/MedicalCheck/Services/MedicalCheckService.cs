@@ -250,7 +250,7 @@ public class MedicalCheckService : IMedicalCheckService
                 MedicalRecord      = Map(passRecord ?? newRecord),
                 HorseWithdrawn     = false,
                 RegistrationStatus = registration.Status,
-                Message            = $"Tái khám đạt yêu cầu. Ngựa '{registration.Horse?.Name}' tiếp tục thi đấu."
+                Message            = $"Re-inspection passed. Horse '{registration.Horse?.Name}' continues to compete."
             };
         }
 
@@ -302,8 +302,8 @@ public class MedicalCheckService : IMedicalCheckService
         // 6. Send notifications
         var horseName      = registration.Horse?.Name ?? $"RegistrationId #{registration.RegistrationId}";
         var tournamentName = registration.Tournament?.Name ?? string.Empty;
-        var failTitle      = "⚠️ Ngựa bị loại do tái khám y tế";
-        var failContent    = $"Ngựa {horseName} đã không đạt kỳ tái khám y tế trong giải {tournamentName}. Lý do: {withdrawReason}.";
+        var failTitle      = "⚠️ Horse disqualified due to medical check";
+        var failContent    = $"Horse {horseName} failed the medical re-inspection in tournament {tournamentName}. Reason: {withdrawReason}.";
 
         // Notify owner
         var ownerId = await _repository.GetOwnerUserIdByRegistrationAsync(request.RegistrationId);
@@ -318,7 +318,7 @@ public class MedicalCheckService : IMedicalCheckService
             if (jockeyId.HasValue)
                 await _notificationService.SendNotificationToUserAsync(
                     jockeyId.Value, failTitle,
-                    $"Ngựa {horseName} trong giải {tournamentName} bị rút do tái khám thất bại. Hợp đồng của bạn bị ảnh hưởng.",
+                    $"Horse {horseName} in tournament {tournamentName} has been withdrawn due to failed medical check. Your contract has been affected.",
                     "MedicalWithdrawal", (int?)raceEntry.RaceEntryId);
 
             var refereeIds = await _repository.GetRefereeUserIdsByRaceIdAsync(raceEntry.RaceId);
@@ -330,13 +330,13 @@ public class MedicalCheckService : IMedicalCheckService
             foreach (var bettorId in bettorIds)
                 await _notificationService.SendNotificationToUserAsync(
                     bettorId,
-                    "⚠️ Cập nhật đặt cược — Ngựa bị rút khỏi cuộc đua",
-                    $"Ngựa {horseName} đã bị rút khỏi cuộc đua trong giải {tournamentName} do thất bại tái khám y tế. Vui lòng kiểm tra trạng thái cược của bạn.",
+                    "⚠️ Bet Update — Horse withdrawn from race",
+                    $"Horse {horseName} has been withdrawn from the race in tournament {tournamentName} due to failing the medical check. Please check your bet status.",
                     "BettingUpdate", (int?)raceEntry.RaceId);
         }
 
         var populated = await _repository.GetByIdAsync(newRecord.Id);
-        var actionText = withdrawStatus == "DNF" ? "đánh dấu DNF" : "rút khỏi cuộc đua";
+        var actionText = withdrawStatus == "DNF" ? "marked as DNF" : "withdrawn from the race";
         return new RecheckResultResponse
         {
             MedicalRecord      = Map(populated ?? newRecord),
@@ -344,7 +344,7 @@ public class MedicalCheckService : IMedicalCheckService
             WithdrawStatus     = withdrawStatus == "None" ? null : withdrawStatus,
             WithdrawReason     = withdrawReason,
             RegistrationStatus = "Disqualified",
-            Message            = $"Tái khám thất bại. Ngựa '{horseName}' đã được {actionText}."
+            Message            = $"Re-inspection failed. Horse '{horseName}' has been {actionText}."
         };
     }
 

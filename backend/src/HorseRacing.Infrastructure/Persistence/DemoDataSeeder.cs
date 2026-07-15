@@ -79,20 +79,20 @@ public class DemoDataSeeder
             // 1. Seed Demo Users & Wallets & Profiles
             var demoUsersList = new List<DemoUserSeedDto>
             {
-                new() { Username = "owner",     Email = "owner@gmail.com",     FullName = "Nguyễn Văn Hùng", RoleId = 2 },
-                new() { Username = "owner2",    Email = "owner2@gmail.com",    FullName = "Trần Thị Mai",     RoleId = 2 },
-                new() { Username = "owner3",    Email = "owner3@gmail.com",    FullName = "Lê Minh Tuấn",     RoleId = 2 },
-                new() { Username = "jockey",    Email = "jockey@gmail.com",    FullName = "Jockey Nguyễn",    RoleId = 3 },
-                new() { Username = "referee",   Email = "referee@gmail.com",   FullName = "Trọng tài Nam",    RoleId = 4 },
-                new() { Username = "spectator", Email = "spectator@gmail.com", FullName = "Khán giả Bình",    RoleId = 5 },
-                new() { Username = "spectator2", Email = "spectator2@gmail.com", FullName = "Khán giả Hoàng",   RoleId = 5 },
-                new() { Username = "spectator3", Email = "spectator3@gmail.com", FullName = "Khán giả Dung",    RoleId = 5 },
-                new() { Username = "vet",        Email = "vet@gmail.com",        FullName = "Bác sĩ Thú y",     RoleId = 6 }
+                new() { Username = "owner",     Email = "owner@gmail.com",     FullName = "John Nguyen", RoleId = 2 },
+                new() { Username = "owner2",    Email = "owner2@gmail.com",    FullName = "Mary Tran",     RoleId = 2 },
+                new() { Username = "owner3",    Email = "owner3@gmail.com",    FullName = "David Le",     RoleId = 2 },
+                new() { Username = "jockey",    Email = "jockey@gmail.com",    FullName = "Jockey Nguyen",    RoleId = 3 },
+                new() { Username = "referee",   Email = "referee@gmail.com",   FullName = "Referee Nam",    RoleId = 4 },
+                new() { Username = "spectator", Email = "spectator@gmail.com", FullName = "Spectator Binh",    RoleId = 5 },
+                new() { Username = "spectator2", Email = "spectator2@gmail.com", FullName = "Spectator Hoang",   RoleId = 5 },
+                new() { Username = "spectator3", Email = "spectator3@gmail.com", FullName = "Spectator Dung",    RoleId = 5 },
+                new() { Username = "vet",        Email = "vet@gmail.com",        FullName = "Veterinarian",     RoleId = 6 }
             };
 
             for (int i = 1; i <= 10; i++)
             {
-                demoUsersList.Add(new DemoUserSeedDto { Username = $"jockey{i}", Email = $"jockey{i}@gmail.com", FullName = $"Jockey Số {i}", RoleId = 3 });
+                demoUsersList.Add(new DemoUserSeedDto { Username = $"jockey{i}", Email = $"jockey{i}@gmail.com", FullName = $"Jockey #{i}", RoleId = 3 });
             }
 
             foreach (var item in demoUsersList)
@@ -155,7 +155,7 @@ public class DemoDataSeeder
                     {
                         Username = jockeyUsername,
                         Email = jockeyEmail,
-                        FullName = $"Nài ngựa {i}",
+                        FullName = $"Jockey #{i}",
                         RoleId = 3, // Jockey
                         Status = "Active",
                         CreatedAt = fixedDate
@@ -190,7 +190,7 @@ public class DemoDataSeeder
                     {
                         Username = refUsername,
                         Email = refEmail,
-                        FullName = $"Trọng tài {i}",
+                        FullName = $"Referee #{i}",
                         RoleId = 4,
                         Status = "Active",
                         CreatedAt = fixedDate
@@ -303,46 +303,46 @@ public class DemoDataSeeder
             var completedTournaments = new List<(string Name, DateTime Start, DateTime End, string RaceName, int WinnerIndex, decimal[] Times, int[] Positions)>
             {
                 (
-                    "Giải Đua Ngựa Mùa Xuân 2026", 
+                    "Spring Horse Racing Tournament 2026", 
                     new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Utc), 
                     new DateTime(2026, 3, 10, 0, 0, 0, DateTimeKind.Utc),
-                    "Trận Đại Chiến Mùa Xuân",
+                    "Spring Grand Battle",
                     0, // Blaze wins
                     new decimal[] { 65.20m, 65.80m, 66.00m, 70.20m, 71.00m, 76.50m, 78.00m, 74.00m, 71.50m },
                     new int[] { 1, 2, 3, 4, 5, 8, 9, 7, 6 }
                 ),
                 (
-                    "Giải Cúp Hoàng Gia 2026", 
+                    "Royal Cup Tournament 2026", 
                     new DateTime(2026, 3, 15, 0, 0, 0, DateTimeKind.Utc), 
                     new DateTime(2026, 3, 20, 0, 0, 0, DateTimeKind.Utc),
-                    "Cúp Hoàng Gia Thường Niên",
+                    "Annual Royal Cup",
                     1, // Thunder wins
                     new decimal[] { 65.90m, 65.60m, 66.10m, 70.50m, 73.00m, 78.20m, 77.80m, 72.80m, 70.00m },
                     new int[] { 2, 1, 3, 5, 7, 9, 8, 6, 4 }
                 ),
                 (
-                    "Giải Derby Hà Nội 2026", 
+                    "Hanoi Derby Tournament 2026", 
                     new DateTime(2026, 4, 10, 0, 0, 0, DateTimeKind.Utc), 
                     new DateTime(2026, 4, 15, 0, 0, 0, DateTimeKind.Utc),
-                    "Trận Đua Hà Nội Derby",
+                    "Hanoi Derby Race",
                     8, // Wild Wind wins
                     new decimal[] { 65.10m, 66.00m, 65.90m, 71.80m, 71.20m, 75.80m, 78.50m, 71.00m, 65.00m },
                     new int[] { 2, 4, 3, 7, 6, 8, 9, 5, 1 }
                 ),
                 (
-                    "Giải Vô Địch Quốc Gia 2026", 
+                    "National Championship Tournament 2026", 
                     new DateTime(2026, 5, 5, 0, 0, 0, DateTimeKind.Utc), 
                     new DateTime(2026, 5, 10, 0, 0, 0, DateTimeKind.Utc),
-                    "Trận Chung Kết Quốc Gia",
+                    "National Finals",
                     0, // Blaze wins
                     new decimal[] { 64.90m, 68.50m, 65.50m, 70.10m, 70.90m, 75.50m, 78.10m, 68.20m, 77.20m },
                     new int[] { 1, 4, 2, 5, 6, 7, 9, 3, 8 }
                 ),
                 (
-                    "Giải Siêu Cúp Mùa Thu 2026", 
+                    "Autumn Super Cup Tournament 2026", 
                     new DateTime(2026, 9, 1, 0, 0, 0, DateTimeKind.Utc), 
                     new DateTime(2026, 9, 10, 0, 0, 0, DateTimeKind.Utc),
-                    "Siêu Cúp Mùa Thu",
+                    "Autumn Super Cup",
                     7, // Rising Star wins
                     new decimal[] { 65.90m, 66.00m, 66.20m, 70.00m, 70.80m, 75.00m, 78.30m, 65.80m, 69.50m },
                     new int[] { 2, 3, 4, 6, 7, 8, 9, 1, 5 }
@@ -371,7 +371,7 @@ public class DemoDataSeeder
                     var round = new Round
                     {
                         TournamentId = t.TournamentId,
-                        Name = "Chung Kết",
+                        Name = "Finals",
                         RoundNumber = 1,
                         StartDate = ct.Start,
                         EndDate = ct.End,
@@ -448,7 +448,7 @@ public class DemoDataSeeder
                     });
                     await _context.SaveChangesAsync();
 
-                    if (ct.Name == "Giải Đua Ngựa Mùa Xuân 2026")
+                    if (ct.Name == "Spring Horse Racing Tournament 2026")
                     {
                         var winnerEntry = entriesList.First(e => e.FinishPosition == 1);
                         var runnerUpEntry = entriesList.First(e => e.FinishPosition == 2);
@@ -540,7 +540,7 @@ public class DemoDataSeeder
             }
 
             // 4. Seed Tournament 2: "Giải Đua Ngựa Mùa Hè 2026" (ONGOING / LIVE)
-            var t2Name = "Giải Đua Ngựa Mùa Hè 2026";
+            var t2Name = "Summer Horse Racing Tournament 2026";
             var t2 = await _context.Tournaments.FirstOrDefaultAsync(t => t.Name == t2Name);
             if (t2 == null)
             {
@@ -557,7 +557,7 @@ public class DemoDataSeeder
                 var t2Round = new Round
                 {
                     TournamentId = t2.TournamentId,
-                    Name = "Vòng Loại 1",
+                    Name = "Qualifier 1",
                     RoundNumber = 1,
                     StartDate = new DateTime(2026, 6, 20, 0, 0, 0, DateTimeKind.Utc),
                     EndDate = new DateTime(2026, 6, 28, 0, 0, 0, DateTimeKind.Utc),
@@ -569,7 +569,7 @@ public class DemoDataSeeder
                 var t2Race = new Race
                 {
                     RoundId = t2Round.RoundId,
-                    Name = "Trận Đua Khai Mạc Mùa Hè",
+                    Name = "Summer Opening Race",
                     RaceDate = DateTime.UtcNow.AddDays(1),
                     DistanceMeter = 1400,
                     MaxLanes = 8,
@@ -728,7 +728,7 @@ public class DemoDataSeeder
             }
 
             // 5. Seed Tournament 3: "Giải Đua Ngựa Mùa Đông 2026" (UPCOMING)
-            var t3Name = "Giải Đua Ngựa Mùa Đông 2026";
+            var t3Name = "Winter Horse Racing Tournament 2026";
             var t3 = await _context.Tournaments.FirstOrDefaultAsync(t => t.Name == t3Name);
             if (t3 == null)
             {
@@ -737,7 +737,7 @@ public class DemoDataSeeder
                     Name = t3Name,
                     StartDate = new DateTime(2026, 12, 1, 0, 0, 0, DateTimeKind.Utc),
                     EndDate = new DateTime(2026, 12, 10, 0, 0, 0, DateTimeKind.Utc),
-                    Status = "Upcoming"
+                    Status = "Registration Open"
                 };
                 _context.Tournaments.Add(t3);
                 await _context.SaveChangesAsync();
@@ -745,7 +745,7 @@ public class DemoDataSeeder
                 var preRound = new Round
                 {
                     TournamentId = t3.TournamentId,
-                    Name = "Vòng Loại",
+                    Name = "Qualifier",
                     RoundNumber = 1,
                     StartDate = new DateTime(2026, 12, 1, 0, 0, 0, DateTimeKind.Utc),
                     EndDate = new DateTime(2026, 12, 5, 0, 0, 0, DateTimeKind.Utc),
@@ -828,7 +828,7 @@ public class DemoDataSeeder
 
 
             // 6. Seed Tournament 5: "Giải mùa Xuân 2027" (UPCOMING)
-            var t5Name = "Giải mùa Xuân 2027";
+            var t5Name = "Spring Tournament 2027";
             var t5 = await _context.Tournaments.FirstOrDefaultAsync(t => t.Name == t5Name);
             if (t5 == null)
             {
@@ -837,7 +837,7 @@ public class DemoDataSeeder
                     Name = t5Name,
                     StartDate = new DateTime(2027, 3, 1, 0, 0, 0, DateTimeKind.Utc),
                     EndDate = new DateTime(2027, 3, 10, 0, 0, 0, DateTimeKind.Utc),
-                    Status = "Upcoming"
+                    Status = "Registration Open"
                 };
                 _context.Tournaments.Add(t5);
                 await _context.SaveChangesAsync();
@@ -845,7 +845,7 @@ public class DemoDataSeeder
                 var preRound = new Round
                 {
                     TournamentId = t5.TournamentId,
-                    Name = "Vòng Loại",
+                    Name = "Qualifier",
                     RoundNumber = 1,
                     StartDate = new DateTime(2027, 3, 1, 0, 0, 0, DateTimeKind.Utc),
                     EndDate = new DateTime(2027, 3, 5, 0, 0, 0, DateTimeKind.Utc),
@@ -857,7 +857,7 @@ public class DemoDataSeeder
                 var finalRound = new Round
                 {
                     TournamentId = t5.TournamentId,
-                    Name = "Chung Kết",
+                    Name = "Finals",
                     RoundNumber = 2,
                     StartDate = new DateTime(2027, 3, 6, 0, 0, 0, DateTimeKind.Utc),
                     EndDate = new DateTime(2027, 3, 10, 0, 0, 0, DateTimeKind.Utc),
@@ -932,7 +932,7 @@ public class DemoDataSeeder
             await _context.SaveChangesAsync();
 
             // Recalculate and force update Odds for Summer and Winter races on startup
-            var racesToRecalculate = new[] { "Trận Đua Khai Mạc Mùa Hè", "Pre Race 1" };
+            var racesToRecalculate = new[] { "Summer Opening Race", "Pre Race 1" };
             foreach (var rName in racesToRecalculate)
             {
                 var rObj = await _context.Races.Include(r => r.Round).FirstOrDefaultAsync(r => r.Name == rName);
@@ -980,8 +980,8 @@ public class DemoDataSeeder
                         new Notification
                         {
                             UserId = spectator.UserId,
-                            Title = "Đặt cược thành công",
-                            Content = "Bạn vừa đặt cược thành công 100$ vào ngựa 'Chiến Binh' trong Race 5.",
+                            Title = "Bet Placed Successfully",
+                            Content = "You successfully placed a $100 bet on horse 'Warrior' in Race 5.",
                             Type = "Bet",
                             IsRead = false,
                             CreatedAt = DateTime.UtcNow.AddMinutes(-10),
@@ -990,8 +990,8 @@ public class DemoDataSeeder
                         new Notification
                         {
                             UserId = spectator.UserId,
-                            Title = "Tournament mở cược",
-                            Content = "Tournament 'Spring Cup 2026' đã mở cổng cá cược.",
+                            Title = "Betting Open",
+                            Content = "Tournament 'Spring Cup 2026' is now open for betting.",
                             Type = "Tournament",
                             IsRead = false,
                             CreatedAt = DateTime.UtcNow.AddMinutes(-2),
@@ -1000,8 +1000,8 @@ public class DemoDataSeeder
                         new Notification
                         {
                             UserId = spectator.UserId,
-                            Title = "Bạn thắng cược!",
-                            Content = "Chúc mừng! Bạn đã thắng cược ngựa 'Vinh Quang' trong Race 3. Nhận được 250$.",
+                            Title = "You Won the Bet!",
+                            Content = "Congratulations! You won your bet on horse 'Glory' in Race 3. Received $250.",
                             Type = "Bet",
                             IsRead = false,
                             CreatedAt = DateTime.UtcNow.AddHours(-1),
@@ -1010,8 +1010,8 @@ public class DemoDataSeeder
                         new Notification
                         {
                             UserId = spectator.UserId,
-                            Title = "Race 5 đã bắt đầu",
-                            Content = "Cuộc đua Race 5 đã chính thức bắt đầu. Hãy theo dõi trực tiếp kết quả!",
+                            Title = "Race 5 Started",
+                            Content = "Race 5 has officially started. Watch the live results!",
                             Type = "Race",
                             IsRead = true,
                             CreatedAt = DateTime.UtcNow.AddMinutes(-30),
@@ -1020,8 +1020,8 @@ public class DemoDataSeeder
                         new Notification
                         {
                             UserId = spectator.UserId,
-                            Title = "Hoàn tiền cược",
-                            Content = "Cuộc đua Race 2 bị hủy. Số tiền cược 150$ của bạn đã được hoàn trả vào ví.",
+                            Title = "Bet Refunded",
+                            Content = "Race 2 was cancelled. Your $150 bet has been refunded to your wallet.",
                             Type = "Wallet",
                             IsRead = true,
                             CreatedAt = DateTime.UtcNow.AddHours(-3),
@@ -1030,8 +1030,8 @@ public class DemoDataSeeder
                         new Notification
                         {
                             UserId = spectator.UserId,
-                            Title = "Bảo trì hệ thống",
-                            Content = "Hệ thống sẽ tiến hành bảo trì định kỳ từ 02:00 đến 04:00 ngày mai.",
+                            Title = "System Maintenance",
+                            Content = "The system will undergo scheduled maintenance from 02:00 to 04:00 tomorrow.",
                             Type = "System",
                             IsRead = true,
                             CreatedAt = DateTime.UtcNow.AddHours(-12),

@@ -144,8 +144,8 @@ public class BettingService : IBettingService
 
         await _notificationService.SendNotificationToUserAsync(
             userId,
-            "Đặt cược thành công",
-            $"Bạn đã đặt cược thành công {request.Amount:N2}$ vào ngựa '{horse.Name}' trong cuộc đua '{race.Name}' với odds là {currentOdds:N2}.",
+            "Bet Placed Successfully",
+            $"You successfully bet {request.Amount:N2}$ on horse '{horse.Name}' in race '{race.Name}' at odds {currentOdds:N2}.",
             "Bet",
             referenceId: (int)bet.Id,
             actionUrl: "/spectator/predictions"

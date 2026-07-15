@@ -83,8 +83,8 @@ public class PredictionService : IPredictionService
         var race = await _resultRepository.GetRaceByIdAsync(request.RaceId);
         await _notificationService.SendNotificationToUserAsync(
             userId,
-            "Dự đoán thành công",
-            $"Bạn đã gửi dự đoán thành công cho race '{race?.Name ?? request.RaceId.ToString()}'.",
+            "Prediction Submitted Successfully",
+            $"You successfully submitted a prediction for race '{race?.Name ?? request.RaceId.ToString()}'.",
             "Race",
             referenceId: (int)request.RaceId,
             actionUrl: $"/spectator/races/{request.RaceId}"
@@ -173,8 +173,8 @@ public class PredictionService : IPredictionService
 
                 await _notificationService.SendNotificationToUserAsync(
                     prediction.UserId,
-                    "Dự đoán chính xác!",
-                    $"Dự đoán của bạn cho race '{raceName}' đã chính xác! Bạn nhận được +1 điểm tích lũy.",
+                    "Correct Prediction!",
+                    $"Your prediction for race '{raceName}' was correct! You received +1 points.",
                     "Race",
                     referenceId: (int)raceId,
                     actionUrl: $"/spectator/races/{raceId}"
@@ -188,8 +188,8 @@ public class PredictionService : IPredictionService
 
                 await _notificationService.SendNotificationToUserAsync(
                     prediction.UserId,
-                    "Dự đoán không chính xác",
-                    $"Dự đoán của bạn cho race '{raceName}' không chính xác. Chúc bạn may mắn lần sau!",
+                    "Incorrect Prediction",
+                    $"Your prediction for race '{raceName}' was incorrect. Good luck next time!",
                     "Race",
                     referenceId: (int)raceId,
                     actionUrl: $"/spectator/races/{raceId}"

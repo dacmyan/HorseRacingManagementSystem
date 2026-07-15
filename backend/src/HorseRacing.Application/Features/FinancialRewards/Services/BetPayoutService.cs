@@ -132,8 +132,8 @@ public class BetPayoutService : IBetPayoutService
 
                 await _notificationService.SendNotificationToUserAsync(
                     bet.UserId,
-                    "Bạn thắng cược",
-                    $"Chúc mừng! Bạn đã thắng cược ngựa '{winningHorse.Name}' trong race '{race.Name}'. Nhận được {payoutAmount:N2}$. Số dư mới: {wallet.Balance:N2}$.",
+                    "You Won the Bet",
+                    $"Congratulations! You won your bet on horse '{winningHorse.Name}' in race '{race.Name}'. Received {payoutAmount:N2}$. New balance: {wallet.Balance:N2}$.",
                     "Bet",
                     referenceId: (int)bet.Id,
                     actionUrl: "/spectator/predictions"
@@ -148,8 +148,8 @@ public class BetPayoutService : IBetPayoutService
 
                 await _notificationService.SendNotificationToUserAsync(
                     bet.UserId,
-                    "Kết quả vé cược",
-                    $"Vé cược của bạn cho ngựa '{horseName}' trong race '{race.Name}' không trúng thưởng. Chúc bạn may mắn lần sau!",
+                    "Bet Result",
+                    $"Your bet on horse '{horseName}' in race '{race.Name}' did not win. Good luck next time!",
                     "Bet",
                     referenceId: (int)bet.Id,
                     actionUrl: "/spectator/predictions"
