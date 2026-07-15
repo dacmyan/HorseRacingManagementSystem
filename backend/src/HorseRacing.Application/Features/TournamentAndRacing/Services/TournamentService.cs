@@ -40,6 +40,14 @@ public class TournamentService : ITournamentService
             throw new ArgumentException("Tournament name cannot be empty.", nameof(request.Name));
         }
 
+        var comparisonTime = request.RegistrationStartDate.Kind == DateTimeKind.Utc
+            ? DateTime.UtcNow
+            : TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
+        if (request.RegistrationStartDate < comparisonTime.AddMinutes(-5))
+        {
+            throw new ArgumentException("Thời gian bắt đầu đăng ký không thể ở quá khứ.");
+        }
+
         if (request.RegistrationEndDate <= request.RegistrationStartDate)
         {
             throw new ArgumentException("Registration end date must be after registration start date.");
@@ -63,7 +71,7 @@ public class TournamentService : ITournamentService
             RegistrationEndDate = request.RegistrationEndDate,
             StartDate = request.StartDate,
             EndDate = request.EndDate,
-            Status = "Upcoming"
+            Status = "PendingRegistration"
         };
 
         await _tournamentRepository.AddAsync(tournament);
@@ -104,8 +112,8 @@ public class TournamentService : ITournamentService
         try
         {
             await _notificationService.BroadcastNotificationAsync(
-                "Tournament mới đã mở đăng ký",
-                $"Giải đấu '{tournament.Name}' bắt đầu từ {tournament.StartDate:dd/MM/yyyy} đã mở đăng ký.",
+                "New Tournament Open for Registration",
+                $"Tournament '{tournament.Name}' starting on {tournament.StartDate:dd/MM/yyyy} is now open for registration.",
                 "Tournament",
                 referenceId: (int)tournament.TournamentId,
                 actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
@@ -135,6 +143,14 @@ public class TournamentService : ITournamentService
         if (string.IsNullOrWhiteSpace(request.Name))
         {
             throw new ArgumentException("Tournament name cannot be empty.", nameof(request.Name));
+        }
+
+        var comparisonTime = request.RegistrationStartDate.Kind == DateTimeKind.Utc
+            ? DateTime.UtcNow
+            : TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
+        if (request.RegistrationStartDate != tournament.RegistrationStartDate && request.RegistrationStartDate < comparisonTime.AddMinutes(-5))
+        {
+            throw new ArgumentException("Thời gian bắt đầu đăng ký không thể ở quá khứ.");
         }
 
         if (request.RegistrationEndDate <= request.RegistrationStartDate)
@@ -169,8 +185,8 @@ public class TournamentService : ITournamentService
         try
         {
             await _notificationService.BroadcastNotificationAsync(
-                "Tournament cập nhật",
-                $"Giải đấu '{tournament.Name}' đã cập nhật thông tin và chuyển trạng thái sang '{tournament.Status}'.",
+                "Tournament Updated",
+                $"Tournament '{tournament.Name}' has updated its information and status changed to '{tournament.Status}'.",
                 "Tournament",
                 referenceId: (int)tournament.TournamentId,
                 actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
@@ -187,6 +203,31 @@ public class TournamentService : ITournamentService
     public async Task<List<TournamentResponse>> GetAllTournamentsAsync()
     {
         var tournaments = await _tournamentRepository.GetAllAsync();
+        
+        bool anyChanged = false;
+        DateTime vietnamNow = VietnamNow;
+        foreach (var t in tournaments)
+        {
+            if (t.Status == "PendingRegistration" && 
+                t.RegistrationEndDate.HasValue && 
+                vietnamNow >= t.RegistrationEndDate.Value)
+            {
+                t.Status = "PendingScheduling";
+                anyChanged = true;
+            }
+            if (t.Status == "Upcoming" && 
+                t.StartDate.HasValue && 
+                vietnamNow >= t.StartDate.Value)
+            {
+                t.Status = "Active";
+                anyChanged = true;
+            }
+        }
+        if (anyChanged)
+        {
+            await _tournamentRepository.SaveChangesAsync();
+        }
+
         return tournaments.Select(MapToResponse).ToList();
     }
 
@@ -196,6 +237,28 @@ public class TournamentService : ITournamentService
         if (tournament == null)
         {
             return null;
+        }
+
+        DateTime vietnamNow = VietnamNow;
+        bool changed = false;
+        if (tournament.Status == "PendingRegistration" && 
+            tournament.RegistrationEndDate.HasValue && 
+            vietnamNow >= tournament.RegistrationEndDate.Value)
+        {
+            tournament.Status = "PendingScheduling";
+            changed = true;
+        }
+        if (tournament.Status == "Upcoming" && 
+            tournament.StartDate.HasValue && 
+            vietnamNow >= tournament.StartDate.Value)
+        {
+            tournament.Status = "Active";
+            changed = true;
+        }
+        if (changed)
+        {
+            _tournamentRepository.Update(tournament);
+            await _tournamentRepository.SaveChangesAsync();
         }
 
         return MapToResponse(tournament);
@@ -217,7 +280,8 @@ public class TournamentService : ITournamentService
         }
 
         // Validation 2: Tournament must not have already generated races
-        if (string.Equals(tournament.Status, "Active", StringComparison.OrdinalIgnoreCase) ||
+        if (string.Equals(tournament.Status, "Upcoming", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(tournament.Status, "Active", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(tournament.Status, "Completed", StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException("Races have already been generated for this tournament.");
@@ -266,7 +330,7 @@ public class TournamentService : ITournamentService
         var activeJockeys = await _tournamentRepository.GetActiveJockeyProfileIdsByHorseAsync(tournamentId, qualifiedRegistrations.Select(r => r.HorseId)) ?? new Dictionary<long, int>();
         var resultRaces = new List<RaceScheduleResponse>();
 
-        if (N <= 12)
+        if (N == 12)
         {
             // Case 1: Organize only the Final Round directly
             var finalRound = new Round
@@ -398,8 +462,8 @@ public class TournamentService : ITournamentService
             }
         }
 
-        // Change tournament status to Active once races are generated
-        tournament.Status = "Active";
+        // Change tournament status to Upcoming once races are generated
+        tournament.Status = "Upcoming";
         _tournamentRepository.Update(tournament);
         await _tournamentRepository.SaveChangesAsync();
 
@@ -449,7 +513,8 @@ public class TournamentService : ITournamentService
             canAutoArrange = false;
             validationMessage = "Registration period has not ended yet.";
         }
-        else if (string.Equals(tournament.Status, "Active", StringComparison.OrdinalIgnoreCase) ||
+        else if (string.Equals(tournament.Status, "Upcoming", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(tournament.Status, "Active", StringComparison.OrdinalIgnoreCase) ||
                  string.Equals(tournament.Status, "Completed", StringComparison.OrdinalIgnoreCase))
         {
             canAutoArrange = false;
@@ -620,7 +685,7 @@ public class TournamentService : ITournamentService
                     var checkFinalEntries = await _tournamentRepository.GetRaceEntriesByRaceIdAsync(checkFinalRace.RaceId);
                     if (checkFinalEntries.Any())
                     {
-                        throw new InvalidOperationException("This tournament has 12 or fewer horses and was directly arranged into the Final Race. Pre Round is not required.");
+                        throw new InvalidOperationException("This tournament has exactly 12 horses and was directly arranged into the Final Race. Pre Round is not required.");
                     }
                 }
             }

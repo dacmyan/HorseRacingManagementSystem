@@ -182,7 +182,7 @@ public class JockeyContractService : IJockeyContractService
         // 5. Send notification to Jockey
         await _notificationService.SendNotificationToUserAsync(
             request.JockeyId,
-            "Đề xuất hợp đồng mới",
+            "New Contract Proposal",
             "You have received a riding invitation. Please respond before the expiration time.",
             "System",
             referenceId: (int)contract.ContractId,
@@ -232,7 +232,7 @@ public class JockeyContractService : IJockeyContractService
             // Notify Owner
             await _notificationService.SendNotificationToUserAsync(
                 contract.Horse?.OwnerId ?? 0,
-                "Lời mời đã hết hạn",
+                "Invitation Expired",
                 "The invitation has expired. You can invite another jockey.",
                 "System",
                 referenceId: contract.ContractId,
@@ -286,8 +286,8 @@ public class JockeyContractService : IJockeyContractService
         // Notify Owner of response
         await _notificationService.SendNotificationToUserAsync(
             contract.Horse?.OwnerId ?? 0,
-            "Phản hồi hợp đồng",
-            $"Jockey '{contract.Jockey?.FullName ?? "Jockey"}' đã phản hồi '{request.Status}' cho đề xuất hợp đồng ID {contract.ContractId} của ngựa '{contract.Horse?.Name ?? "Horse"}'.",
+            "Contract Response",
+            $"Jockey '{contract.Jockey?.FullName ?? "Jockey"}' responded '{request.Status}' to contract proposal ID {contract.ContractId} for horse '{contract.Horse?.Name ?? "Horse"}'.",
             "System",
             referenceId: (int)contract.ContractId,
             actionUrl: "/owner/jockeys"
@@ -317,8 +317,8 @@ public class JockeyContractService : IJockeyContractService
 
         await _notificationService.SendNotificationToUserAsync(
             contract.JockeyId,
-            "Hủy đề xuất hợp đồng",
-            $"Đề xuất hợp đồng cho ngựa '{contract.Horse?.Name ?? "Horse"}' đã bị hủy bởi Owner.",
+            "Contract Proposal Cancelled",
+            $"Contract proposal for horse '{contract.Horse?.Name ?? "Horse"}' has been cancelled by the Owner.",
             "System",
             referenceId: (int)contract.ContractId,
             actionUrl: "/jockey/invitations"
@@ -342,7 +342,7 @@ public class JockeyContractService : IJockeyContractService
                 // Notify Owner
                 await _notificationService.SendNotificationToUserAsync(
                     contract.Horse?.OwnerId ?? 0,
-                    "Lời mời đã hết hạn",
+                    "Invitation Expired",
                     "The invitation has expired. You can invite another jockey.",
                     "System",
                     referenceId: contract.ContractId,

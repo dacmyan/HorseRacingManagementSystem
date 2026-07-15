@@ -26,7 +26,7 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
             UnauthorizedAccessException => (HttpStatusCode.Unauthorized,     ex.Message),
             ArgumentException        => (HttpStatusCode.BadRequest,          ex.Message),
             InvalidOperationException => (HttpStatusCode.UnprocessableEntity, ex.Message),
-            _                        => (HttpStatusCode.InternalServerError, "Đã xảy ra lỗi hệ thống.")
+            _                        => (HttpStatusCode.InternalServerError, "An internal system error occurred.")
         };
 
         context.Response.ContentType = "application/json";

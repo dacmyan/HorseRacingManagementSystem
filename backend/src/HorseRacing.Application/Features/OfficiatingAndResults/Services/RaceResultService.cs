@@ -297,8 +297,8 @@ public class RaceResultService : IRaceResultService
         try
         {
             await _notificationService.BroadcastNotificationAsync(
-                "Kết quả Race đã có",
-                $"Kết quả cuộc đua '{race.Name}' đã được công bố. Nhấp để xem kết quả chi tiết.",
+                "Race Results Published",
+                $"The results for race '{race.Name}' have been published. Click to view details.",
                 "Race",
                 referenceId: (int)race.RaceId,
                 actionUrl: $"/spectator/races/{race.RaceId}"

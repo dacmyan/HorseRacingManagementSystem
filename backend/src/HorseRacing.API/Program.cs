@@ -71,6 +71,7 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddServiceExtensions(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddHostedService<HorseRacing.API.Services.TournamentDeadlineWorker>();
 
 var app = builder.Build();
 

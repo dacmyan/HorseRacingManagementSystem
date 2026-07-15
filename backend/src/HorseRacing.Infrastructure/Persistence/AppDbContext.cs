@@ -387,7 +387,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         });
         modelBuilder.Entity<Race>().ToTable("Race");
         modelBuilder.Entity<RaceResult>().ToTable("RaceResult");
-        modelBuilder.Entity<Tournament>().ToTable("Tournament");
+        modelBuilder.Entity<Tournament>(entity =>
+        {
+            entity.ToTable("Tournament");
+            entity.Property(t => t.CancelCount)
+                .IsRequired()
+                .HasDefaultValue(0);
+        });
 
         modelBuilder.Entity<RaceViolation>().ToTable("RaceViolation");
 

@@ -42,9 +42,8 @@ public class TournamentServiceTests
         _service = new TournamentService(_tournamentRepoMock.Object, _notificationMock.Object, _bettingServiceMock.Object);
     }
 
-
     [Fact]
-    public async Task CreateTournamentAsync_ShouldCreateTournamentAndPrizeConfigs_WithUpcomingStatus()
+    public async Task CreateTournamentAsync_ShouldCreateTournamentAndPrizeConfigs_WithPendingRegistrationStatus()
     {
         // Arrange
         Tournament? createdTournament = null;
@@ -73,10 +72,10 @@ public class TournamentServiceTests
         // Assert
         response.Name.Should().Be("Summer Cup");
         response.Description.Should().Be("This is a great tournament.");
-        response.Status.Should().Be("Upcoming");
+        response.Status.Should().Be("PendingRegistration");
         createdTournament.Should().NotBeNull();
         createdTournament!.Name.Should().Be("Summer Cup");
-        createdTournament.Status.Should().Be("Upcoming");
+        createdTournament.Status.Should().Be("PendingRegistration");
     }
 
     [Fact]
