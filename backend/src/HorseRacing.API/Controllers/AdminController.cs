@@ -297,6 +297,7 @@ public class AdminController : ControllerBase
             }
 
             tournament.RegistrationEndDate = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
+            tournament.Status = "PendingScheduling";
             await context.SaveChangesAsync();
 
             return Ok(new { message = "Registration closed successfully.", result = new { tournamentId = id, registrationEndDate = tournament.RegistrationEndDate } });
