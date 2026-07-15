@@ -167,7 +167,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         console.log('[SignalR] Connected successfully.');
         setConnection(newConnection);
       })
-      .catch(err => console.error('[SignalR] Connection failed:', err));
+      .catch((err: any) => console.error('[SignalR] Connection failed:', err));
 
     return () => {
       newConnection.stop();

@@ -93,14 +93,14 @@ export function AdminRacesPage() {
     const horseCount = selectedTournamentApprovedHorsesCount;
 
     if (horseCount <= 12 && horseCount > 0) {
-      return allRounds.filter(r => r.roundNumber === 2 || r.name?.toLowerCase().includes('final'));
+      return allRounds.filter((r: any) => r.roundNumber === 2 || r.name?.toLowerCase().includes('final'));
     }
     return allRounds;
   }, [selectedTournamentId, tournamentsList, selectedTournamentApprovedHorsesCount]);
 
   const selectedRound = useMemo(() => {
     if (!raceForm.roundId) return null;
-    return availableRounds.find(r => String(r.roundId) === raceForm.roundId);
+    return availableRounds.find((r: any) => String(r.roundId) === raceForm.roundId);
   }, [raceForm.roundId, availableRounds]);
 
   // Ghép làn (modal 'lanes'): race đang chọn + lựa chọn ngựa cho từng làn trống
