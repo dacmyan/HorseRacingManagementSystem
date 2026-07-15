@@ -71,7 +71,7 @@ public class TournamentService : ITournamentService
             RegistrationEndDate = request.RegistrationEndDate,
             StartDate = request.StartDate,
             EndDate = request.EndDate,
-            Status = "Registration Open"
+            Status = "PendingRegistration"
         };
 
         await _tournamentRepository.AddAsync(tournament);
@@ -203,6 +203,31 @@ public class TournamentService : ITournamentService
     public async Task<List<TournamentResponse>> GetAllTournamentsAsync()
     {
         var tournaments = await _tournamentRepository.GetAllAsync();
+        
+        bool anyChanged = false;
+        DateTime vietnamNow = VietnamNow;
+        foreach (var t in tournaments)
+        {
+            if (t.Status == "PendingRegistration" && 
+                t.RegistrationEndDate.HasValue && 
+                vietnamNow >= t.RegistrationEndDate.Value)
+            {
+                t.Status = "PendingScheduling";
+                anyChanged = true;
+            }
+            if (t.Status == "Upcoming" && 
+                t.StartDate.HasValue && 
+                vietnamNow >= t.StartDate.Value)
+            {
+                t.Status = "Active";
+                anyChanged = true;
+            }
+        }
+        if (anyChanged)
+        {
+            await _tournamentRepository.SaveChangesAsync();
+        }
+
         return tournaments.Select(MapToResponse).ToList();
     }
 
@@ -212,6 +237,28 @@ public class TournamentService : ITournamentService
         if (tournament == null)
         {
             return null;
+        }
+
+        DateTime vietnamNow = VietnamNow;
+        bool changed = false;
+        if (tournament.Status == "PendingRegistration" && 
+            tournament.RegistrationEndDate.HasValue && 
+            vietnamNow >= tournament.RegistrationEndDate.Value)
+        {
+            tournament.Status = "PendingScheduling";
+            changed = true;
+        }
+        if (tournament.Status == "Upcoming" && 
+            tournament.StartDate.HasValue && 
+            vietnamNow >= tournament.StartDate.Value)
+        {
+            tournament.Status = "Active";
+            changed = true;
+        }
+        if (changed)
+        {
+            _tournamentRepository.Update(tournament);
+            await _tournamentRepository.SaveChangesAsync();
         }
 
         return MapToResponse(tournament);
@@ -233,7 +280,8 @@ public class TournamentService : ITournamentService
         }
 
         // Validation 2: Tournament must not have already generated races
-        if (string.Equals(tournament.Status, "Active", StringComparison.OrdinalIgnoreCase) ||
+        if (string.Equals(tournament.Status, "Upcoming", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(tournament.Status, "Active", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(tournament.Status, "Completed", StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException("Races have already been generated for this tournament.");
@@ -414,8 +462,8 @@ public class TournamentService : ITournamentService
             }
         }
 
-        // Change tournament status to Active once races are generated
-        tournament.Status = "Active";
+        // Change tournament status to Upcoming once races are generated
+        tournament.Status = "Upcoming";
         _tournamentRepository.Update(tournament);
         await _tournamentRepository.SaveChangesAsync();
 
@@ -465,7 +513,8 @@ public class TournamentService : ITournamentService
             canAutoArrange = false;
             validationMessage = "Registration period has not ended yet.";
         }
-        else if (string.Equals(tournament.Status, "Active", StringComparison.OrdinalIgnoreCase) ||
+        else if (string.Equals(tournament.Status, "Upcoming", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(tournament.Status, "Active", StringComparison.OrdinalIgnoreCase) ||
                  string.Equals(tournament.Status, "Completed", StringComparison.OrdinalIgnoreCase))
         {
             canAutoArrange = false;

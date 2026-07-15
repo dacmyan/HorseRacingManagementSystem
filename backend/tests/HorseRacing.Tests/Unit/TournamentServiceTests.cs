@@ -43,8 +43,7 @@ public class TournamentServiceTests
     }
 
 
-    [Fact]
-    public async Task CreateTournamentAsync_ShouldCreateTournamentAndPrizeConfigs_WithRegistrationOpenStatus()
+    public async Task CreateTournamentAsync_ShouldCreateTournamentAndPrizeConfigs_WithPendingRegistrationStatus()
     {
         // Arrange
         Tournament? createdTournament = null;
@@ -73,10 +72,10 @@ public class TournamentServiceTests
         // Assert
         response.Name.Should().Be("Summer Cup");
         response.Description.Should().Be("This is a great tournament.");
-        response.Status.Should().Be("Registration Open");
+        response.Status.Should().Be("PendingRegistration");
         createdTournament.Should().NotBeNull();
         createdTournament!.Name.Should().Be("Summer Cup");
-        createdTournament.Status.Should().Be("Registration Open");
+        createdTournament.Status.Should().Be("PendingRegistration");
     }
 
     [Fact]
