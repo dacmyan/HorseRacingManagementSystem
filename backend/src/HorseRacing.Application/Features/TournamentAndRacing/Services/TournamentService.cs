@@ -282,7 +282,7 @@ public class TournamentService : ITournamentService
         var activeJockeys = await _tournamentRepository.GetActiveJockeyProfileIdsByHorseAsync(tournamentId, qualifiedRegistrations.Select(r => r.HorseId)) ?? new Dictionary<long, int>();
         var resultRaces = new List<RaceScheduleResponse>();
 
-        if (N <= 12)
+        if (N == 12)
         {
             // Case 1: Organize only the Final Round directly
             var finalRound = new Round
@@ -636,7 +636,7 @@ public class TournamentService : ITournamentService
                     var checkFinalEntries = await _tournamentRepository.GetRaceEntriesByRaceIdAsync(checkFinalRace.RaceId);
                     if (checkFinalEntries.Any())
                     {
-                        throw new InvalidOperationException("This tournament has 12 or fewer horses and was directly arranged into the Final Race. Pre Round is not required.");
+                        throw new InvalidOperationException("This tournament has exactly 12 horses and was directly arranged into the Final Race. Pre Round is not required.");
                     }
                 }
             }
