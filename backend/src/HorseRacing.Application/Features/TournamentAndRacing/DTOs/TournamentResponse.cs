@@ -12,7 +12,7 @@ public class TournamentResponse
     public DateTime? RegistrationEndDate { get; set; }
     public DateTime? StartDate { get; set; }
     public DateTime? EndDate { get; set; }
-    public string Status { get; set; } = "Upcoming";
+    public string Status { get; set; } = "Registration Open";
     public List<RoundResponse> Rounds { get; set; } = new List<RoundResponse>();
 }
 

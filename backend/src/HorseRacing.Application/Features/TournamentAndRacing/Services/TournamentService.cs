@@ -71,7 +71,7 @@ public class TournamentService : ITournamentService
             RegistrationEndDate = request.RegistrationEndDate,
             StartDate = request.StartDate,
             EndDate = request.EndDate,
-            Status = "Upcoming"
+            Status = "Registration Open"
         };
 
         await _tournamentRepository.AddAsync(tournament);

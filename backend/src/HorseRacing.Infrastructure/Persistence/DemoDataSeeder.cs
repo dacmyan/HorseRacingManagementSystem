@@ -737,7 +737,7 @@ public class DemoDataSeeder
                     Name = t3Name,
                     StartDate = new DateTime(2026, 12, 1, 0, 0, 0, DateTimeKind.Utc),
                     EndDate = new DateTime(2026, 12, 10, 0, 0, 0, DateTimeKind.Utc),
-                    Status = "Upcoming"
+                    Status = "Registration Open"
                 };
                 _context.Tournaments.Add(t3);
                 await _context.SaveChangesAsync();
@@ -837,7 +837,7 @@ public class DemoDataSeeder
                     Name = t5Name,
                     StartDate = new DateTime(2027, 3, 1, 0, 0, 0, DateTimeKind.Utc),
                     EndDate = new DateTime(2027, 3, 10, 0, 0, 0, DateTimeKind.Utc),
-                    Status = "Upcoming"
+                    Status = "Registration Open"
                 };
                 _context.Tournaments.Add(t5);
                 await _context.SaveChangesAsync();
