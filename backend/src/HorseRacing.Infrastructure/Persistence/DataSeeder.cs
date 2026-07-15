@@ -144,7 +144,7 @@ public class DataSeeder
                 {
                     Username = owner3Username,
                     Email = owner3Email,
-                    FullName = "Owner-3 (Lê Minh Tuấn)",
+                    FullName = "Owner-3 (David Le)",
                     RoleId = 2, // HorseOwner Role
                     Status = "Active",
                     CreatedAt = DateTime.UtcNow
@@ -198,14 +198,14 @@ public class DataSeeder
             }
 
             // 6. Seed Tournament "Giải Test 5" and register Owner-3's 12 horses to it and invite the 12 Jockey-Test Jockeys
-            var t5Name = "Giải Test 5";
+            var t5Name = "Test Tournament 5";
             var t5 = await _context.Tournaments.FirstOrDefaultAsync(t => t.Name == t5Name);
             if (t5 == null)
             {
                 t5 = new Tournament
                 {
                     Name = t5Name,
-                    Description = "Giải đua thử nghiệm số 5",
+                    Description = "Test Tournament 5 Description",
                     RegistrationStartDate = DateTime.UtcNow.AddDays(-5),
                     RegistrationEndDate = DateTime.UtcNow.AddDays(5),
                     StartDate = DateTime.UtcNow.AddDays(6),
@@ -266,14 +266,14 @@ public class DataSeeder
             }
 
             // 6.2. Seed Tournament "Giải Test 1" and register Owner-3's 12 horses to it and invite the 12 Jockey-Test Jockeys
-            var t1Name = "Giải Test 1";
+            var t1Name = "Test Tournament 1";
             var t1 = await _context.Tournaments.FirstOrDefaultAsync(t => t.Name == t1Name);
             if (t1 == null)
             {
                 t1 = new Tournament
                 {
                     Name = t1Name,
-                    Description = "Giải đua thử nghiệm số 1",
+                    Description = "Test Tournament 1 Description",
                     RegistrationStartDate = DateTime.UtcNow.AddDays(-5),
                     RegistrationEndDate = DateTime.UtcNow.AddDays(-1),
                     StartDate = DateTime.UtcNow.AddDays(1),
@@ -342,14 +342,14 @@ public class DataSeeder
             }
 
             // 6.5. Seed Tournament "Giải Test 6" and register Owner-3's 12 horses to it and invite the 12 Jockey-Test Jockeys (Pending)
-            var t6Name = "Giải Test 6";
+            var t6Name = "Test Tournament 6";
             var t6 = await _context.Tournaments.FirstOrDefaultAsync(t => t.Name == t6Name);
             if (t6 == null)
             {
                 t6 = new Tournament
                 {
                     Name = t6Name,
-                    Description = "Giải đua thử nghiệm số 6",
+                    Description = "Test Tournament 6 Description",
                     RegistrationStartDate = DateTime.UtcNow.AddDays(-5),
                     RegistrationEndDate = DateTime.UtcNow.AddDays(5),
                     StartDate = DateTime.UtcNow.AddDays(6),
@@ -410,14 +410,14 @@ public class DataSeeder
             }
 
             // 6.6. Seed Tournament "Giải Test 7" and register Owner-3's 12 horses to it and invite the 12 Jockey-Test Jockeys (Pending)
-            var t7Name = "Giải Test 7";
+            var t7Name = "Test Tournament 7";
             var t7 = await _context.Tournaments.FirstOrDefaultAsync(t => t.Name == t7Name);
             if (t7 == null)
             {
                 t7 = new Tournament
                 {
                     Name = t7Name,
-                    Description = "Giải đua thử nghiệm số 7",
+                    Description = "Test Tournament 7 Description",
                     RegistrationStartDate = DateTime.UtcNow.AddDays(-5),
                     RegistrationEndDate = DateTime.UtcNow.AddDays(5),
                     StartDate = DateTime.UtcNow.AddDays(6),
@@ -538,7 +538,7 @@ public class DataSeeder
             }
 
             // 8. Auto-approve all registrations and seed passing MedicalCheckRecords for "Giải Test 1", "Giải Test 5", "Giải Test 6" and "Giải Test 7"
-            var targetTournamentNames = new[] { "Giải Test 1", "Giải Test 5", "Giải Test 6", "Giải Test 7" };
+            var targetTournamentNames = new[] { "Test Tournament 1", "Test Tournament 5", "Test Tournament 6", "Test Tournament 7" };
             var targetTournaments = await _context.Tournaments
                 .Where(t => targetTournamentNames.Contains(t.Name))
                 .ToListAsync();
@@ -591,7 +591,7 @@ public class DataSeeder
                 await _context.SaveChangesAsync();
 
                 // 9. Auto-generate rounds, races, and entries for "Giải Test 1" if not exists
-                if (t.Name == "Giải Test 1")
+                if (t.Name == "Test Tournament 1")
                 {
                     var hasRounds = await _context.Rounds.AnyAsync(r => r.TournamentId == t.TournamentId);
                     if (!hasRounds)

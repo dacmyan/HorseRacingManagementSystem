@@ -81,8 +81,8 @@ public class WalletService : IWalletService
         // Create wallet notification
         await _notificationService.SendNotificationToUserAsync(
             userId,
-            "Nạp tiền thành công",
-            $"Bạn đã nạp thành công {request.Amount:N2}$ vào ví. Số dư mới: {wallet.Balance:N2}$.",
+            "Deposit Successful",
+            $"You successfully deposited {request.Amount:N2}$ into your wallet. New balance: {wallet.Balance:N2}$.",
             "Wallet",
             actionUrl: "/spectator/wallet"
         );
@@ -123,8 +123,8 @@ public class WalletService : IWalletService
         // Create wallet notification
         await _notificationService.SendNotificationToUserAsync(
             userId,
-            "Rút tiền thành công",
-            $"Bạn đã rút thành công {request.Amount:N2}$ từ ví. Số dư mới: {wallet.Balance:N2}$.",
+            "Withdrawal Successful",
+            $"You successfully withdrew {request.Amount:N2}$ from your wallet. New balance: {wallet.Balance:N2}$.",
             "Wallet",
             actionUrl: "/spectator/wallet"
         );

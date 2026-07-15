@@ -190,8 +190,8 @@ public class PrizePayoutService : IPrizePayoutService
 
             await _notificationService.SendNotificationToUserAsync(
                 horse.OwnerId,
-                "Nhận giải thưởng Tournament",
-                $"Chúc mừng! Ngựa '{horse.Name}' của bạn đạt Hạng {rank} trong giải đấu '{tournament.Name}'. Bạn nhận được giải thưởng của Chủ Ngựa là {ownerAmount:N2}$ (bao gồm thưởng thêm {bonusAmount * (prize.OwnerPercentage / 100m):N2}$). Số dư mới: {ownerWallet.Balance:N2}$.",
+                "Tournament Prize Awarded",
+                $"Congratulations! Your horse '{horse.Name}' won Rank {rank} in tournament '{tournament.Name}'. You received the Owner prize of {ownerAmount:N2}$ (including bonus of {bonusAmount * (prize.OwnerPercentage / 100m):N2}$). New balance: {ownerWallet.Balance:N2}$.",
                 "Wallet",
                 referenceId: (int)tournament.TournamentId,
                 actionUrl: "/owner/wallet"
@@ -230,8 +230,8 @@ public class PrizePayoutService : IPrizePayoutService
 
                 await _notificationService.SendNotificationToUserAsync(
                     jockeyUserId,
-                    "Nhận giải thưởng Tournament",
-                    $"Chúc mừng! Bạn đạt Hạng {rank} trong giải đấu '{tournament.Name}' khi nài ngựa '{horse.Name}'. Bạn nhận được giải thưởng của Nài Ngựa là {jockeyAmount:N2}$ (bao gồm thưởng thêm {bonusAmount * (prize.JockeyPercentage / 100m):N2}$). Số dư mới: {jockeyWallet.Balance:N2}$.",
+                    "Tournament Prize Awarded",
+                    $"Congratulations! You won Rank {rank} in tournament '{tournament.Name}' as jockey of '{horse.Name}'. You received the Jockey prize of {jockeyAmount:N2}$ (including bonus of {bonusAmount * (prize.JockeyPercentage / 100m):N2}$). New balance: {jockeyWallet.Balance:N2}$.",
                     "Wallet",
                     referenceId: (int)tournament.TournamentId,
                     actionUrl: "/spectator/wallet"

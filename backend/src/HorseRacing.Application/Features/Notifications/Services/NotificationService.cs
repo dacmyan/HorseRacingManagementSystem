@@ -46,7 +46,7 @@ public class NotificationService : INotificationService
     {
         await SendNotificationToUserAsync(
             request.UserId,
-            "Thông báo",
+            "Notification",
             request.Message,
             "System"
         );
@@ -172,7 +172,7 @@ public class NotificationService : INotificationService
     private static NotificationResponse MapToResponse(Notification n)
     {
         var content = string.IsNullOrEmpty(n.Content) ? (n.Message ?? string.Empty) : n.Content;
-        var title = string.IsNullOrEmpty(n.Title) ? "Thông báo" : n.Title;
+        var title = string.IsNullOrEmpty(n.Title) ? "Notification" : n.Title;
         var type = string.IsNullOrEmpty(n.Type) ? "System" : n.Type;
 
         return new NotificationResponse
