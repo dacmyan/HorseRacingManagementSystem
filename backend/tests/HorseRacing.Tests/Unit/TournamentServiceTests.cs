@@ -258,6 +258,57 @@ public class TournamentServiceTests
             .WithMessage("Cannot generate Final Race because it has already started or completed.");
     }
 
+    [Fact]
+    public async Task CreateTournamentAsync_ShouldThrowArgumentException_WhenOverlappingTournamentExists()
+    {
+        // Arrange
+        _tournamentRepoMock.Setup(r => r.HasOverlappingTournamentAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<long?>()))
+            .ReturnsAsync(true);
+
+        var request = new CreateTournamentRequest
+        {
+            Name = "Overlapping Cup",
+            RegistrationStartDate = DateTime.UtcNow,
+            RegistrationEndDate = DateTime.UtcNow.AddHours(12),
+            StartDate = DateTime.UtcNow.AddDays(1),
+            EndDate = DateTime.UtcNow.AddDays(3)
+        };
+
+        // Act
+        Func<Task> act = async () => await _service.CreateTournamentAsync(request);
+
+        // Assert
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithMessage("Thời gian diễn ra giải đấu bị lồng trùng với một giải đấu khác đang tồn tại.");
+    }
+
+    [Fact]
+    public async Task UpdateTournamentAsync_ShouldThrowArgumentException_WhenOverlappingTournamentExists()
+    {
+        // Arrange
+        var tournament = BuildTournament();
+        _tournamentRepoMock.Setup(r => r.GetByIdWithRoundsAsync(tournament.TournamentId))
+            .ReturnsAsync(tournament);
+        _tournamentRepoMock.Setup(r => r.HasOverlappingTournamentAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<long?>()))
+            .ReturnsAsync(true);
+
+        var request = new UpdateTournamentRequest
+        {
+            Name = "Summer Cup Updated",
+            RegistrationStartDate = tournament.RegistrationStartDate ?? DateTime.UtcNow,
+            RegistrationEndDate = tournament.RegistrationEndDate ?? DateTime.UtcNow.AddHours(12),
+            StartDate = DateTime.UtcNow.AddDays(1),
+            EndDate = DateTime.UtcNow.AddDays(3)
+        };
+
+        // Act
+        Func<Task> act = async () => await _service.UpdateTournamentAsync(tournament.TournamentId, request);
+
+        // Assert
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithMessage("Thời gian của giải đấu bị trùng lặp với một giải đấu khác đang diễn ra.");
+    }
+
     private static Tournament BuildTournament()
     {
         var startDate = DateTime.UtcNow.AddDays(1);

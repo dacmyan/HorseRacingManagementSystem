@@ -290,4 +290,14 @@ public class TournamentRepository : ITournamentRepository
             .Where(r => r.TournamentId == tournamentId)
             .ToListAsync();
     }
+
+    public async Task<bool> HasOverlappingTournamentAsync(DateTime startDate, DateTime endDate, long? excludeTournamentId = null)
+    {
+        return await _context.Tournaments
+            .AsNoTracking()
+            .Where(t => t.Status != "Completed")
+            .Where(t => t.StartDate.HasValue && t.EndDate.HasValue)
+            .Where(t => excludeTournamentId == null || t.TournamentId != excludeTournamentId)
+            .AnyAsync(t => t.StartDate.Value <= endDate && t.EndDate.Value >= startDate);
+    }
 }
