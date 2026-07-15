@@ -641,6 +641,7 @@ public class TournamentService : ITournamentService
             StartDate = tournament.StartDate,
             EndDate = tournament.EndDate,
             Status = tournament.Status,
+            CancelCount = tournament.CancelCount,
             Rounds = tournament.Rounds
                 .OrderBy(r => r.RoundNumber)
                 .Select(r => new RoundResponse
