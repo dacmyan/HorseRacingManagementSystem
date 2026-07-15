@@ -91,4 +91,17 @@ public class JockeyContractRepository : IJockeyContractRepository
     {
         await _context.SaveChangesAsync();
     }
+
+    public async Task<IEnumerable<JockeyContract>> GetOtherPendingContractsForJockeyInTournamentAsync(int jockeyUserId, long tournamentId, int excludeContractId)
+    {
+        return await _context.JockeyContracts
+            .Include(jc => jc.Horse)
+            .Include(jc => jc.Jockey)
+            .Include(jc => jc.Tournament)
+            .Where(jc => jc.JockeyId == jockeyUserId 
+                && jc.TournamentId == tournamentId 
+                && jc.ContractId != excludeContractId 
+                && jc.Status == "Pending")
+            .ToListAsync();
+    }
 }

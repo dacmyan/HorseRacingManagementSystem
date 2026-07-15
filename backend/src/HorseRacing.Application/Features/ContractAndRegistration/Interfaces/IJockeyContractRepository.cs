@@ -13,6 +13,7 @@ public interface IJockeyContractRepository
     Task<JockeyContract?> GetByTournamentHorseAndJockeyAsync(long tournamentId, long horseId, int jockeyUserId);
     Task<bool> HasActiveContractForJockeyInTournamentAsync(int jockeyUserId, long tournamentId);
     Task<bool> HasPendingOrActiveContractForHorseInTournamentAsync(long horseId, long tournamentId);
+    Task<IEnumerable<JockeyContract>> GetOtherPendingContractsForJockeyInTournamentAsync(int jockeyUserId, long tournamentId, int excludeContractId);
     Task AddAsync(JockeyContract contract);
     Task SaveChangesAsync();
 }
