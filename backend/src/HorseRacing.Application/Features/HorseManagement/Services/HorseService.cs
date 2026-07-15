@@ -116,7 +116,7 @@ public class HorseService : IHorseService
         horse.Age = request.Age;
         horse.Gender = request.Gender;
         horse.Breed = request.Breed;
-        horse.HealthStatus = request.HealthStatus;
+        // horse.HealthStatus = request.HealthStatus; // Disabled: Only Vet can update health status via medical checkups
 
         _horseRepository.Update(horse);
         await _horseRepository.SaveChangesAsync();
