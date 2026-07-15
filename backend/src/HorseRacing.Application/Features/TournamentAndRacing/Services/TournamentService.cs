@@ -40,6 +40,14 @@ public class TournamentService : ITournamentService
             throw new ArgumentException("Tournament name cannot be empty.", nameof(request.Name));
         }
 
+        var comparisonTime = request.RegistrationStartDate.Kind == DateTimeKind.Utc
+            ? DateTime.UtcNow
+            : TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
+        if (request.RegistrationStartDate < comparisonTime.AddMinutes(-5))
+        {
+            throw new ArgumentException("Thời gian bắt đầu đăng ký không thể ở quá khứ.");
+        }
+
         if (request.RegistrationEndDate <= request.RegistrationStartDate)
         {
             throw new ArgumentException("Registration end date must be after registration start date.");
@@ -135,6 +143,14 @@ public class TournamentService : ITournamentService
         if (string.IsNullOrWhiteSpace(request.Name))
         {
             throw new ArgumentException("Tournament name cannot be empty.", nameof(request.Name));
+        }
+
+        var comparisonTime = request.RegistrationStartDate.Kind == DateTimeKind.Utc
+            ? DateTime.UtcNow
+            : TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
+        if (request.RegistrationStartDate != tournament.RegistrationStartDate && request.RegistrationStartDate < comparisonTime.AddMinutes(-5))
+        {
+            throw new ArgumentException("Thời gian bắt đầu đăng ký không thể ở quá khứ.");
         }
 
         if (request.RegistrationEndDate <= request.RegistrationStartDate)
@@ -266,7 +282,7 @@ public class TournamentService : ITournamentService
         var activeJockeys = await _tournamentRepository.GetActiveJockeyProfileIdsByHorseAsync(tournamentId, qualifiedRegistrations.Select(r => r.HorseId)) ?? new Dictionary<long, int>();
         var resultRaces = new List<RaceScheduleResponse>();
 
-        if (N <= 12)
+        if (N == 12)
         {
             // Case 1: Organize only the Final Round directly
             var finalRound = new Round
@@ -620,7 +636,7 @@ public class TournamentService : ITournamentService
                     var checkFinalEntries = await _tournamentRepository.GetRaceEntriesByRaceIdAsync(checkFinalRace.RaceId);
                     if (checkFinalEntries.Any())
                     {
-                        throw new InvalidOperationException("This tournament has 12 or fewer horses and was directly arranged into the Final Race. Pre Round is not required.");
+                        throw new InvalidOperationException("This tournament has exactly 12 horses and was directly arranged into the Final Race. Pre Round is not required.");
                     }
                 }
             }

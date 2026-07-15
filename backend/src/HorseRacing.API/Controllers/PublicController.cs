@@ -327,6 +327,7 @@ private readonly IRaceResultService _resultService;
             var result = tournaments.Select(t => new {
                 t.TournamentId,
                 t.Name,
+                t.Description,
                 t.RegistrationStartDate,
                 t.RegistrationEndDate,
                 t.StartDate,
@@ -375,6 +376,7 @@ private readonly IRaceResultService _resultService;
             var result = new {
                 tournament.TournamentId,
                 tournament.Name,
+                tournament.Description,
                 tournament.RegistrationStartDate,
                 tournament.RegistrationEndDate,
                 tournament.StartDate,

@@ -39,6 +39,14 @@ function fmtDate(v: any): string {
   return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
+function formatToDatetimeLocal(v: any): string {
+  if (!v) return '';
+  const d = new Date(v);
+  if (isNaN(d.getTime())) return '';
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 export function AdminRacesPage() {
   const { showToast } = useNotifications();
   const [modal, setModal] = useState<Modal>('none');
@@ -69,6 +77,31 @@ export function AdminRacesPage() {
   const [raceForm, setRaceForm] = useState(INIT_RACE);
   const [raceLoading, setRaceLoading] = useState(false);
   const [raceError, setRaceError] = useState('');
+  const [selectedTournamentId, setSelectedTournamentId] = useState<string>('');
+
+  const selectedTournamentApprovedHorsesCount = useMemo(() => {
+    if (!selectedTournamentId) return 0;
+    return registrationsList.filter(
+      r => String(r.tournamentId) === selectedTournamentId && r.status === 'Approved'
+    ).length;
+  }, [selectedTournamentId, registrationsList]);
+
+  const availableRounds = useMemo(() => {
+    if (!selectedTournamentId) return [];
+    const selectedTour = tournamentsList.find(t => String(t.tournamentId) === selectedTournamentId);
+    const allRounds = selectedTour?.rounds ?? [];
+    const horseCount = selectedTournamentApprovedHorsesCount;
+
+    if (horseCount <= 12 && horseCount > 0) {
+      return allRounds.filter(r => r.roundNumber === 2 || r.name?.toLowerCase().includes('final'));
+    }
+    return allRounds;
+  }, [selectedTournamentId, tournamentsList, selectedTournamentApprovedHorsesCount]);
+
+  const selectedRound = useMemo(() => {
+    if (!raceForm.roundId) return null;
+    return availableRounds.find(r => String(r.roundId) === raceForm.roundId);
+  }, [raceForm.roundId, availableRounds]);
 
   // Ghép làn (modal 'lanes'): race đang chọn + lựa chọn ngựa cho từng làn trống
   const [laneRaceId, setLaneRaceId] = useState('');
@@ -175,6 +208,14 @@ export function AdminRacesPage() {
   }
 
   function openRaceModal(roundId?: number) {
+    let tourId = '';
+    if (roundId) {
+      const tour = tournamentsList.find(t => (t.rounds ?? []).some((r: any) => r.roundId === roundId));
+      if (tour) {
+        tourId = String(tour.tournamentId);
+      }
+    }
+    setSelectedTournamentId(tourId);
     setRaceForm({
       roundId: roundId ? String(roundId) : '',
       name: '',
@@ -188,6 +229,7 @@ export function AdminRacesPage() {
   function closeModal() {
     setModal('none');
     setRaceError(''); setRaceForm(INIT_RACE);
+    setSelectedTournamentId('');
     setLaneRaceId(''); setLaneEntries([]); setLaneSel({}); setLaneMsg(null);
     setRefError(''); setRefForm(INIT_REF);
     setReferees([]);
@@ -745,22 +787,49 @@ export function AdminRacesPage() {
 
             <div className="space-y-4">
               <div>
-                <label className={LABEL}>Vòng đấu của giải đấu *</label>
+                <label className={LABEL}>Giải đấu *</label>
                 <select
-                  value={raceForm.roundId}
-                  onChange={e => setR('roundId', e.target.value)}
+                  value={selectedTournamentId}
+                  onChange={e => {
+                    setSelectedTournamentId(e.target.value);
+                    setR('roundId', '');
+                  }}
                   className={`${INPUT} bg-navy`}
                   style={{ colorScheme: 'dark' }}
                 >
-                  <option value="">-- Chọn vòng đấu --</option>
+                  <option value="">-- Chọn giải đấu --</option>
                   {tournamentsList.map(t => (
-                    <optgroup key={t.tournamentId} label={t.name}>
-                      {(t.rounds ?? []).map((r: any) => (
-                        <option key={r.roundId} value={r.roundId}>
-                          {r.name} (Round {r.roundNumber})
-                        </option>
-                      ))}
-                    </optgroup>
+                    <option key={t.tournamentId} value={t.tournamentId}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {selectedTournamentId && (
+                <div className="text-xs px-3 py-2.5 rounded-lg bg-gold/10 border border-gold/20 text-gold/90 flex items-center gap-2 my-2">
+                  <span>📢</span>
+                  <span>
+                    Giải đấu hiện có <strong>{selectedTournamentApprovedHorsesCount}</strong> ngựa đã duyệt đăng ký.
+                    {selectedTournamentApprovedHorsesCount <= 12 ? " (Đấu thẳng Chung kết - Final)" : " (Cần đấu Vòng loại & Chung kết)"}
+                  </span>
+                </div>
+              )}
+              <div>
+                <label className={LABEL}>Vòng đấu *</label>
+                <select
+                  value={raceForm.roundId}
+                  onChange={e => setR('roundId', e.target.value)}
+                  disabled={!selectedTournamentId}
+                  className={`${INPUT} bg-navy disabled:opacity-60 disabled:cursor-not-allowed`}
+                  style={{ colorScheme: 'dark' }}
+                >
+                  <option value="">
+                    {selectedTournamentId ? "-- Chọn vòng đấu --" : "-- Chọn giải đấu trước --"}
+                  </option>
+                  {availableRounds.map((r: any) => (
+                    <option key={r.roundId} value={r.roundId}>
+                      {r.name} (Round {r.roundNumber})
+                    </option>
                   ))}
                 </select>
               </div>
@@ -770,7 +839,23 @@ export function AdminRacesPage() {
               </div>
               <div>
                 <label className={LABEL}>Ngày & giờ đua *</label>
-                <input type="datetime-local" value={raceForm.raceDate} onChange={e => setR('raceDate', e.target.value)} className={INPUT} style={{ colorScheme: 'dark' }} />
+                <input
+                  type="datetime-local"
+                  value={raceForm.raceDate}
+                  onChange={e => setR('raceDate', e.target.value)}
+                  min={selectedRound ? formatToDatetimeLocal(selectedRound.startDate) : undefined}
+                  max={selectedRound ? formatToDatetimeLocal(selectedRound.endDate) : undefined}
+                  className={INPUT}
+                  style={{ colorScheme: 'dark' }}
+                />
+                {selectedRound && (selectedRound.startDate || selectedRound.endDate) && (
+                  <div className="text-xs text-gold/80 mt-1.5 flex items-center gap-1.5">
+                    <span>⏰</span>
+                    <span>
+                      Thời gian hợp lệ: <strong>{fmtDate(selectedRound.startDate)}</strong> đến <strong>{fmtDate(selectedRound.endDate)}</strong>
+                    </span>
+                  </div>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

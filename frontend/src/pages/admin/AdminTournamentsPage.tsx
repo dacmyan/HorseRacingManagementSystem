@@ -73,49 +73,7 @@ export function AdminTournamentsPage() {
     loadTournaments();
   }, []);
 
-  useEffect(() => {
-    setError('');
-    const now = new Date();
 
-    // 1. Validate registration window
-    if (form.registrationStartDate && form.registrationEndDate) {
-      const regStartVal = new Date(form.registrationStartDate);
-      const regEndVal = new Date(form.registrationEndDate);
-      if (regEndVal <= regStartVal) {
-        setError(t('Thời gian kết thúc đăng ký phải sau thời gian bắt đầu đăng ký.'));
-        return;
-      }
-    }
-
-    // 2. Validate registration start date vs past
-    if (form.registrationStartDate) {
-      const regStartVal = new Date(form.registrationStartDate);
-      if (regStartVal.getTime() < now.getTime() - 5 * 60 * 1000) {
-        setError(t('Thời gian bắt đầu đăng ký không thể ở quá khứ.'));
-        return;
-      }
-    }
-
-    // 3. Validate tournament start date vs registration end date
-    if (form.startDate && form.registrationEndDate) {
-      const startVal = new Date(form.startDate);
-      const regEndVal = new Date(form.registrationEndDate);
-      if (startVal < regEndVal) {
-        setError(t('Thời gian bắt đầu giải đấu phải sau hoặc bằng thời hạn kết thúc đăng ký.'));
-        return;
-      }
-    }
-
-    // 4. Validate tournament window
-    if (form.startDate && form.endDate) {
-      const startVal = new Date(form.startDate);
-      const endVal = new Date(form.endDate);
-      if (endVal <= startVal) {
-        setError(t('Thời gian kết thúc giải đấu phải sau thời gian bắt đầu giải đấu.'));
-        return;
-      }
-    }
-  }, [form.registrationStartDate, form.registrationEndDate, form.startDate, form.endDate, t]);
 
   function set(field: string, value: string) {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -134,11 +92,21 @@ export function AdminTournamentsPage() {
     const endVal = new Date(form.endDate);
     const now = new Date();
 
-    if (regStartVal.getTime() < now.getTime() - 5 * 60 * 1000 ||
-        regEndVal <= regStartVal ||
-        startVal < regEndVal ||
-        endVal <= startVal) {
-      return; // prevent submit if invalid dates
+    if (regStartVal.getTime() < now.getTime() - 5 * 60 * 1000) {
+      setError(t('Thời gian bắt đầu đăng ký không thể ở quá khứ.'));
+      return;
+    }
+    if (regEndVal <= regStartVal) {
+      setError(t('Thời gian kết thúc đăng ký phải sau thời gian bắt đầu đăng ký.'));
+      return;
+    }
+    if (startVal < regEndVal) {
+      setError(t('Thời gian bắt đầu giải đấu phải sau hoặc bằng thời hạn kết thúc đăng ký.'));
+      return;
+    }
+    if (endVal <= startVal) {
+      setError(t('Thời gian kết thúc giải đấu phải sau thời gian bắt đầu giải đấu.'));
+      return;
     }
 
     const prizes = [
@@ -180,13 +148,13 @@ export function AdminTournamentsPage() {
 
   async function handleCloseRegistration(tournamentId: number) {
     setGeneratingForTournament(tournamentId);
-    setError('');
     try {
       await closeTournamentRegistration(tournamentId);
       showToast(t('Thành công'), t('Đã đóng thời hạn đăng ký giải đấu thành công!'));
       await loadTournaments();
     } catch (err: unknown) {
-      setError(parseApiError(err as Error));
+      const errorMsg = parseApiError(err as Error);
+      showToast(t('Thất bại'), errorMsg, 'error');
     } finally {
       setGeneratingForTournament(null);
     }
@@ -194,13 +162,13 @@ export function AdminTournamentsPage() {
 
   async function handleGenerateRaces(tournamentId: number) {
     setGeneratingForTournament(tournamentId);
-    setError('');
     try {
       await generateTournamentRaces(tournamentId);
       showToast(t('Thành công'), t('Đã tự động sắp xếp cuộc đua cho giải đấu.'));
       await loadTournaments();
     } catch (err: unknown) {
-      setError(parseApiError(err as Error));
+      const errorMsg = parseApiError(err as Error);
+      showToast(t('Thất bại'), errorMsg, 'error');
     } finally {
       setGeneratingForTournament(null);
     }
@@ -208,13 +176,13 @@ export function AdminTournamentsPage() {
 
   async function handleGenerateFinal(tournamentId: number) {
     setGeneratingForTournament(tournamentId);
-    setError('');
     try {
       await generateFinalRace(tournamentId);
       showToast(t('Thành công'), t('Đã tự động sắp xếp bảng Chung kết (Top 12) thành công.'));
       await loadTournaments();
     } catch (err: unknown) {
-      setError(parseApiError(err as Error));
+      const errorMsg = parseApiError(err as Error);
+      showToast(t('Thất bại'), errorMsg, 'error');
     } finally {
       setGeneratingForTournament(null);
     }
@@ -326,9 +294,7 @@ export function AdminTournamentsPage() {
             </div>
           </div>
 
-          {!showModal && error && (
-            <div className="text-sm px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400">{error}</div>
-          )}
+
 
 
           {/* Tournament Cards */}
