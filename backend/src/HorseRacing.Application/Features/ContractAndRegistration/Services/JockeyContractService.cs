@@ -271,13 +271,39 @@ public class JockeyContractService : IJockeyContractService
 
         contract.Status = request.Status;
 
-        // If accepting, cancel/expire other active contracts for the same horse
+        // If accepting, cancel/expire other active contracts for the same horse and cancel other pending contracts for the same jockey in this tournament
         if (contract.Status.Equals("Accepted", StringComparison.OrdinalIgnoreCase) || contract.Status.Equals("Active", StringComparison.OrdinalIgnoreCase))
         {
             var existingContract = await _contractRepository.GetActiveContractForHorseAsync((int)contract.HorseId);
             if (existingContract != null)
             {
                 existingContract.Status = "Expired";
+            }
+
+            var otherPendingContracts = await _contractRepository.GetOtherPendingContractsForJockeyInTournamentAsync(
+                jockeyUserId, 
+                contract.TournamentId, 
+                contract.ContractId
+            );
+
+            foreach (var otherContract in otherPendingContracts)
+            {
+                otherContract.Status = "Cancelled";
+                try
+                {
+                    await _notificationService.SendNotificationToUserAsync(
+                        otherContract.Horse?.OwnerId ?? 0,
+                        "Lời mời nài ngựa bị hủy",
+                        $"Lời mời nài ngựa cho ngựa '{otherContract.Horse?.Name ?? "Horse"}' gửi tới Jockey '{contract.Jockey?.FullName ?? "Jockey"}' đã bị tự động hủy do Jockey đã nhận lời mời từ chủ ngựa khác trong giải đấu '{contract.Tournament?.Name ?? "Tournament"}'.",
+                        "System",
+                        referenceId: (int)otherContract.ContractId,
+                        actionUrl: "/owner/jockeys"
+                    );
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[Notification Error] Failed to notify owner of cancelled contract: {ex.Message}");
+                }
             }
         }
 
