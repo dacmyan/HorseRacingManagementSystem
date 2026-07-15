@@ -42,7 +42,7 @@ public class TournamentServiceTests
         _service = new TournamentService(_tournamentRepoMock.Object, _notificationMock.Object, _bettingServiceMock.Object);
     }
 
-
+    [Fact]
     public async Task CreateTournamentAsync_ShouldCreateTournamentAndPrizeConfigs_WithPendingRegistrationStatus()
     {
         // Arrange
