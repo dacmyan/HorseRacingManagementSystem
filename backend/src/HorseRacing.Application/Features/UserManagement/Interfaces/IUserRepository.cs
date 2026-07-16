@@ -15,4 +15,5 @@ public interface IUserRepository
     Task AddJockeyProfileAsync(JockeyProfile profile);
     Task AddRefereeProfileAsync(RefereeProfile profile);
     Task AddWalletAsync(Wallet wallet);
+    Task<AppUser?> GetByVerificationTokenAsync(string token);
 }

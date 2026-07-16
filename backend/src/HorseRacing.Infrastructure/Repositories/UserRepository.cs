@@ -63,4 +63,9 @@ public class UserRepository : IUserRepository
     {
         await _context.Wallets.AddAsync(wallet);
     }
+
+    public async Task<AppUser?> GetByVerificationTokenAsync(string token)
+    {
+        return await _context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.VerificationToken == token);
+    }
 }

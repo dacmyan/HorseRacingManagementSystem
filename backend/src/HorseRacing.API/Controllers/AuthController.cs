@@ -67,4 +67,16 @@ public class AuthController : ControllerBase
             return StatusCode(500, new { message = "Đã xảy ra lỗi trong quá trình xác thực.", detail = ex.Message });
         }
     }
+
+    [HttpGet("verify-email")]
+    public async Task<IActionResult> VerifyEmail([FromQuery] string token)
+    {
+        var result = await _authService.VerifyEmailAsync(token);
+        if (!result)
+        {
+            return BadRequest(new { message = "Mã xác thực không hợp lệ, sai hoặc đã hết hạn." });
+        }
+
+        return Ok(new { message = "Kích hoạt tài khoản thành công. Bạn đã có thể đăng nhập." });
+    }
 }

@@ -11,6 +11,9 @@ public class AppUser
     public Role? Role { get; set; }
     public string Status { get; set; } = "Active";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public string? VerificationToken { get; set; }
+    public bool IsEmailConfirmed { get; set; } = false;
+    public DateTime? TokenExpiresAt { get; set; }
     public ICollection<Horse> Horses { get; set; }
     = new List<Horse>();
 }
