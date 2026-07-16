@@ -279,7 +279,7 @@ public class TournamentServiceTests
 
         // Assert
         await act.Should().ThrowAsync<ArgumentException>()
-            .WithMessage("Thời gian diễn ra giải đấu bị lồng trùng với một giải đấu khác đang tồn tại.");
+            .WithMessage("The tournament duration overlaps with another existing tournament.");
     }
 
     [Fact]
@@ -306,7 +306,7 @@ public class TournamentServiceTests
 
         // Assert
         await act.Should().ThrowAsync<ArgumentException>()
-            .WithMessage("Thời gian của giải đấu bị trùng lặp với một giải đấu khác đang diễn ra.");
+            .WithMessage("The tournament duration overlaps with another ongoing tournament.");
     }
 
     private static Tournament BuildTournament()

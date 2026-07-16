@@ -334,6 +334,7 @@ private readonly IRaceResultService _resultService;
                 t.EndDate,
                 t.Status,
                 t.Rounds,
+                t.CancelCount,
                 Prizes = prizesGrouped.ContainsKey(t.TournamentId)
                     ? prizesGrouped[t.TournamentId].Select(p => (object)new { p.Id, p.RankPosition, p.Amount }).ToList()
                     : new List<object>()
@@ -383,6 +384,7 @@ private readonly IRaceResultService _resultService;
                 tournament.EndDate,
                 tournament.Status,
                 tournament.Rounds,
+                tournament.CancelCount,
                 Prizes = prizes
             };
 

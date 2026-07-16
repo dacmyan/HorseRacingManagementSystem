@@ -26,32 +26,33 @@ namespace HorseRacing.API.Controllers
         {
             if (request == null || request.AdditionalDays <= 0)
             {
-                return BadRequest("Số ngày gia hạn phải lớn hơn 0.");
+                return BadRequest("Additional days must be greater than 0.");
             }
 
             var tournament = await _context.Tournaments.FindAsync(id);
             if (tournament == null)
             {
-                return NotFound("Không tìm thấy giải đấu.");
+                return NotFound("Tournament not found.");
             }
 
             if (tournament.CancelCount != 0)
             {
-                return BadRequest("Giải đấu đã qua lượt gia hạn đầu tiên hoặc trạng thái không hợp lệ.");
+                return BadRequest("The tournament has already been extended once or has an invalid status.");
             }
 
             if (!tournament.RegistrationEndDate.HasValue || !tournament.StartDate.HasValue)
             {
-                return BadRequest("Thời gian đăng ký hoặc thời gian bắt đầu giải đấu chưa được cấu hình.");
+                return BadRequest("Registration or start date has not been configured.");
             }
 
-            // Tính toán ngày kết thúc đăng ký mới
-            DateTime newRegistrationEndDate = tournament.RegistrationEndDate.Value.AddDays(request.AdditionalDays);
+            // Tính toán ngày kết thúc đăng ký mới từ thời gian hiện tại
+            DateTime baseDate = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
+            DateTime newRegistrationEndDate = baseDate.AddDays(request.AdditionalDays);
 
             // Validation Ràng buộc: Phải cách ngày bắt đầu giải đấu ít nhất 1 ngày trước khi đua
             if (newRegistrationEndDate > tournament.StartDate.Value.AddDays(-1))
             {
-                return BadRequest("Ngày gia hạn vượt quá giới hạn cho phép. Thời gian đóng đăng ký mới phải cách ngày bắt đầu giải đấu ít nhất 1 ngày.");
+                return BadRequest("The extended registration date exceeds the limit. The new registration end date must be at least 1 day before the tournament starts.");
             }
 
             // Cập nhật thông tin giải đấu
@@ -61,7 +62,22 @@ namespace HorseRacing.API.Controllers
 
             await _context.SaveChangesAsync();
 
-            return Ok(new { Message = "Gia hạn thời gian đăng ký giải đấu thành công.", NewRegistrationEndDate = tournament.RegistrationEndDate });
+            return Ok(new { Message = "Registration period extended successfully.", NewRegistrationEndDate = tournament.RegistrationEndDate });
+        }
+
+        [HttpPut("{id}/cancel")]
+        public async Task<IActionResult> CancelTournament(long id)
+        {
+            var tournament = await _context.Tournaments.FindAsync(id);
+            if (tournament == null)
+            {
+                return NotFound("Tournament not found.");
+            }
+
+            tournament.Status = "Cancelled";
+            await _context.SaveChangesAsync();
+
+            return Ok(new { Message = "Tournament cancelled successfully." });
         }
     }
 }

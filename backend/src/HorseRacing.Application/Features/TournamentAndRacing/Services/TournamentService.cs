@@ -65,7 +65,7 @@ public class TournamentService : ITournamentService
 
         if (await _tournamentRepository.HasOverlappingTournamentAsync(request.StartDate, request.EndDate))
         {
-            throw new ArgumentException("Thời gian diễn ra giải đấu bị lồng trùng với một giải đấu khác đang tồn tại.");
+            throw new ArgumentException("The tournament duration overlaps with another existing tournament.");
         }
 
         var tournament = new Tournament
@@ -175,7 +175,7 @@ public class TournamentService : ITournamentService
 
         if (await _tournamentRepository.HasOverlappingTournamentAsync(request.StartDate, request.EndDate, id))
         {
-            throw new ArgumentException("Thời gian của giải đấu bị trùng lặp với một giải đấu khác đang diễn ra.");
+            throw new ArgumentException("The tournament duration overlaps with another ongoing tournament.");
         }
 
         tournament.Name = request.Name;
