@@ -52,6 +52,7 @@ public class AdminService : IAdminService
             Username = request.Email.Split('@')[0],
             RoleId = dbRole.RoleId,
             Status = "Active",
+            IsEmailConfirmed = true, // Admin-created accounts don't require email verification
             CreatedAt = DateTime.UtcNow
         };
         newUser.PasswordHash = _passwordHasher.HashPassword(newUser, request.Password);

@@ -106,6 +106,7 @@ public class DemoDataSeeder
                         FullName = item.FullName,
                         RoleId = item.RoleId,
                         Status = "Active",
+                        IsEmailConfirmed = true, // Demo account — no email verification needed
                         CreatedAt = fixedDate
                     };
                     user.PasswordHash = hasher.HashPassword(user, "123456");
@@ -158,6 +159,7 @@ public class DemoDataSeeder
                         FullName = $"Jockey #{i}",
                         RoleId = 3, // Jockey
                         Status = "Active",
+                        IsEmailConfirmed = true, // Demo account — no email verification needed
                         CreatedAt = fixedDate
                     };
                     user.PasswordHash = hasher.HashPassword(user, "123456");
@@ -193,6 +195,7 @@ public class DemoDataSeeder
                         FullName = $"Referee #{i}",
                         RoleId = 4,
                         Status = "Active",
+                        IsEmailConfirmed = true, // Demo account — no email verification needed
                         CreatedAt = fixedDate
                     };
                     user.PasswordHash = hasher.HashPassword(user, "123456");

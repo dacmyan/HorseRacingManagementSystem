@@ -67,6 +67,7 @@ public class DataSeeder
                     FullName = "System Administrator",
                     RoleId = 1, // Admin Role
                     Status = "Active",
+                    IsEmailConfirmed = true, // System account — no email verification needed
                     CreatedAt = DateTime.UtcNow
                 };
                 adminUser.PasswordHash = hasher.HashPassword(adminUser, "123456");
@@ -89,6 +90,7 @@ public class DataSeeder
                     FullName = "System Veterinarian",
                     RoleId = 6, // Veterinarian Role
                     Status = "Active",
+                    IsEmailConfirmed = true, // System account — no email verification needed
                     CreatedAt = DateTime.UtcNow
                 };
                 vetUser.PasswordHash = hasher.HashPassword(vetUser, "123456");
@@ -112,6 +114,7 @@ public class DataSeeder
                         FullName = $"Jockey-Test{i}",
                         RoleId = 3, // Jockey
                         Status = "Active",
+                        IsEmailConfirmed = true, // Seeded test account — no email verification needed
                         CreatedAt = DateTime.UtcNow
                     };
                     user.PasswordHash = hasher.HashPassword(user, "123456");
@@ -147,6 +150,7 @@ public class DataSeeder
                     FullName = "Owner-3 (David Le)",
                     RoleId = 2, // HorseOwner Role
                     Status = "Active",
+                    IsEmailConfirmed = true, // Seeded test account — no email verification needed
                     CreatedAt = DateTime.UtcNow
                 };
                 owner3User.PasswordHash = hasher.HashPassword(owner3User, "123456");
