@@ -44,4 +44,27 @@ public class AuthController : ControllerBase
             return StatusCode(500, new { message = "An error occurred during registration", detail = ex.Message });
         }
     }
+
+    [HttpPost("google-login")]
+    public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequest request)
+    {
+        try
+        {
+            var response = await _authService.GoogleLoginAsync(request);
+            if (response == null)
+            {
+                return Unauthorized(new { message = "Mã xác thực Google không hợp lệ hoặc đã hết hạn." });
+            }
+
+            return Ok(response);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi trong quá trình xác thực.", detail = ex.Message });
+        }
+    }
 }

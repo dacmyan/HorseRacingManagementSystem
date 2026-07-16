@@ -10,12 +10,14 @@ public class AuthService : IAuthService
 {
     private readonly IUserRepository _userRepository;
     private readonly IJwtTokenGenerator _jwtTokenGenerator;
+    private readonly IGoogleTokenVerifier _googleTokenVerifier;
     private readonly PasswordHasher<AppUser> _passwordHasher;
 
-    public AuthService(IUserRepository userRepository, IJwtTokenGenerator jwtTokenGenerator)
+    public AuthService(IUserRepository userRepository, IJwtTokenGenerator jwtTokenGenerator, IGoogleTokenVerifier googleTokenVerifier)
     {
         _userRepository = userRepository;
         _jwtTokenGenerator = jwtTokenGenerator;
+        _googleTokenVerifier = googleTokenVerifier;
         _passwordHasher = new PasswordHasher<AppUser>();
     }
 
@@ -105,6 +107,75 @@ public class AuthService : IAuthService
                     FullName = newUser.FullName,
                     Email = newUser.Email,
                     Role = "Spectator"
+                }
+            }
+        };
+    }
+
+    public async Task<AuthResponse?> GoogleLoginAsync(GoogleLoginRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.IdToken))
+        {
+            throw new ArgumentException("IdToken is required.");
+        }
+
+        var googleUser = await _googleTokenVerifier.VerifyTokenAsync(request.IdToken);
+        if (googleUser == null)
+        {
+            return null;
+        }
+
+        var email = googleUser.Email;
+        var existingUser = await _userRepository.GetByEmailAsync(email);
+
+        AppUser user;
+        if (existingUser != null)
+        {
+            var roleName = existingUser.Role?.Name ?? string.Empty;
+            if (roleName.Equals("Admin", StringComparison.OrdinalIgnoreCase) || 
+                roleName.Equals("Referee", StringComparison.OrdinalIgnoreCase) || 
+                roleName.Equals("RaceReferee", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new UnauthorizedAccessException("Tài khoản thuộc nhóm quản trị hệ thống không được phép liên kết tự động bằng Google Login.");
+            }
+
+            user = existingUser;
+        }
+        else
+        {
+            user = new AppUser
+            {
+                Username = email.Split('@')[0],
+                Email = email,
+                FullName = string.IsNullOrWhiteSpace(googleUser.Name) ? email.Split('@')[0] : googleUser.Name,
+                RoleId = 5, // Spectator role
+                Status = "Active",
+                CreatedAt = DateTime.UtcNow,
+                PasswordHash = string.Empty
+            };
+
+            await _userRepository.AddAsync(user);
+            await _userRepository.SaveChangesAsync();
+
+            // Fetch user with role information populated
+            user = await _userRepository.GetByEmailAsync(email) ?? user;
+        }
+
+        var token = _jwtTokenGenerator.GenerateToken(user);
+
+        return new AuthResponse
+        {
+            Message = "Google login successful",
+            Result = new AuthResult
+            {
+                AccessToken = token,
+                RefreshToken = null,
+                User = new UserDto
+                {
+                    Id = user.UserId,
+                    FullName = user.FullName,
+                    Email = user.Email,
+                    Role = user.Role?.Name ?? "Spectator"
                 }
             }
         };

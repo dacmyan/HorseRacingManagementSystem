@@ -48,6 +48,7 @@ public static class DependencyInjection
         services.AddScoped<IMedicalCheckRepository, MedicalCheckRepository>();
         services.AddScoped<IMedicalCheckService, MedicalCheckService>();
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
+        services.AddScoped<IGoogleTokenVerifier, GoogleTokenVerifier>();
         services.AddScoped<DataSeeder>();
         services.AddScoped<DemoDataSeeder>();
 

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Horse Racing Google Login Test</title>
+
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 30px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 200px;
+            margin-top: 10px;
+        }
+
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border: 1px solid #ddd;
+            overflow: auto;
+        }
+
+        button {
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Horse Racing Management System</h2>
+
+    <div id="g_id_onload"
+         data-client_id="588813132928-jqi9822kgu028rv22l0pettm9j2h8o8c.apps.googleusercontent.com"
+         data-callback="handleCredentialResponse">
+    </div>
+
+    <div class="g_id_signin"></div>
+
+    <hr>
+
+    <h3>JWT Token</h3>
+
+    <textarea id="tokenBox" readonly></textarea>
+
+    <button onclick="copyToken()">Copy Token</button>
+
+    <hr>
+
+    <h3>Backend Response</h3>
+
+    <pre id="responseBox">Waiting for login...</pre>
+
+    <script>
+
+        async function handleCredentialResponse(response) {
+
+            try {
+
+                console.log("Google Token:");
+                console.log(response.credential);
+
+                const res = await fetch(
+                    "http://localhost:5001/api/Auth/google-login",
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            idToken: response.credential
+                        })
+                    });
+
+                const data = await res.json();
+
+                console.log("Backend Response:");
+                console.log(data);
+
+                document.getElementById("responseBox")
+                    .textContent = JSON.stringify(data, null, 2);
+
+                if (data.result?.accessToken) {
+
+                    document.getElementById("tokenBox").value =
+                        data.result.accessToken;
+
+                    localStorage.setItem(
+                        "token",
+                        data.result.accessToken
+                    );
+
+                    alert("Google Login Success");
+                }
+                else {
+                    alert("No JWT token returned");
+                }
+
+            }
+            catch (error) {
+
+                console.error(error);
+
+                document.getElementById("responseBox")
+                    .textContent = error.toString();
+
+                alert("Login Failed");
+            }
+        }
+
+        function copyToken() {
+
+            const tokenBox =
+                document.getElementById("tokenBox");
+
+            tokenBox.select();
+            tokenBox.setSelectionRange(0, 99999);
+
+            navigator.clipboard.writeText(
+                tokenBox.value
+            );
+
+            alert("Token copied");
+        }
+
+    </script>
+
+</body>
+</html>
