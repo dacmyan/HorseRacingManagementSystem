@@ -23,7 +23,7 @@ public class EmailService : IEmailService
         var host = mailSettings["Host"] ?? "smtp.gmail.com";
         var port = int.Parse(mailSettings["Port"] ?? "587");
         var fromMail = mailSettings["Mail"] ?? "dackimvo@gmail.com";
-        var password = mailSettings["Password"] ?? "0965272758";
+        var password = mailSettings["Password"] ?? string.Empty;
         var displayName = mailSettings["DisplayName"] ?? "Horse Racing Admin";
 
         var email = new MimeMessage();

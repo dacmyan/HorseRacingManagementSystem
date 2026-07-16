@@ -87,7 +87,7 @@ public class AuthService : IAuthService
             throw new ArgumentException("Email already exists.");
         }
 
-        var verificationToken = Guid.NewGuid().ToString("N");
+        var verificationToken = Guid.NewGuid().ToString();
         var tokenExpiresAt = DateTime.UtcNow.AddMinutes(15);
 
         var newUser = new AppUser
