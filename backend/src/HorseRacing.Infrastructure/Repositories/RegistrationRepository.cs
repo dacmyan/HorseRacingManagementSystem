@@ -28,6 +28,7 @@ public class RegistrationRepository : IRegistrationRepository
     public async Task<Registration?> GetByHorseIdAndTournamentIdAsync(long horseId, long tournamentId)
     {
         return await _context.Registrations
+            .Include(r => r.MedicalCheckRecords)
             .FirstOrDefaultAsync(r => r.HorseId == horseId && r.TournamentId == tournamentId);
     }
 

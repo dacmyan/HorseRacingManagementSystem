@@ -21,19 +21,22 @@ public class JockeyContractService : IJockeyContractService
     private readonly IUserRepository _userRepository;
     private readonly INotificationService _notificationService;
     private readonly ITournamentRepository _tournamentRepository;
+    private readonly IRegistrationRepository _registrationRepository;
 
     public JockeyContractService(
         IJockeyContractRepository contractRepository,
         IHorseRepository horseRepository,
         IUserRepository userRepository,
         INotificationService notificationService,
-        ITournamentRepository tournamentRepository)
+        ITournamentRepository tournamentRepository,
+        IRegistrationRepository registrationRepository)
     {
         _contractRepository = contractRepository;
         _horseRepository = horseRepository;
         _userRepository = userRepository;
         _notificationService = notificationService;
         _tournamentRepository = tournamentRepository;
+        _registrationRepository = registrationRepository;
     }
 
     private JockeyContractResponse MapToResponse(JockeyContract contract)
@@ -68,6 +71,19 @@ public class JockeyContractService : IJockeyContractService
         if (horse.OwnerId != ownerUserId)
         {
             throw new InvalidOperationException("Access denied. You do not own this horse.");
+        }
+
+        // Verify horse registration and medical check
+        var registration = await _registrationRepository.GetByHorseIdAndTournamentIdAsync(request.HorseId, request.TournamentId);
+        if (registration == null)
+        {
+            throw new InvalidOperationException("This horse is not registered in this tournament.");
+        }
+        var hasPassedMedical = registration.MedicalCheckRecords != null &&
+                               registration.MedicalCheckRecords.Any(m => m.CheckType == "Initial" && m.MedicalResult == "Pass");
+        if (!hasPassedMedical)
+        {
+            throw new InvalidOperationException("Cannot hire a jockey: The horse has not passed the medical examination for this tournament.");
         }
 
         // 2. Verify Jockey user exists and has Jockey role
