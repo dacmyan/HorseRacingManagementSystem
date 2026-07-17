@@ -9,8 +9,6 @@ using HorseRacing.Application.Features.Notifications.Interfaces;
 using HorseRacing.Domain.Entities;
 using HorseRacing.Domain.Entities.Tournaments;
 
-using HorseRacing.Application.Features.Notifications.Interfaces;
-
 namespace HorseRacing.Application.Features.BettingEngine.Services;
 
 public class BettingService : IBettingService
@@ -320,7 +318,7 @@ public class BettingService : IBettingService
         {
             RaceId = race.RaceId,
             RaceName = race.Name ?? string.Empty,
-            RaceStatus = race.Status,
+            RaceStatus = race.Status ?? string.Empty,
             TournamentStatus = race.Round?.Tournament?.Status ?? string.Empty,
             CanBet = canBet,
             Entries = entriesDto

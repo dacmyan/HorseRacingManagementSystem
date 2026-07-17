@@ -52,6 +52,7 @@ public static class DependencyInjection
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<DataSeeder>();
         services.AddScoped<DemoDataSeeder>();
+        services.AddScoped<MainflowDataSeeder>();
 
         return services;
     }

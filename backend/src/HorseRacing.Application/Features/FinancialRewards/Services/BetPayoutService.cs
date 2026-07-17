@@ -7,8 +7,6 @@ using HorseRacing.Application.Features.Notifications.Interfaces;
 using HorseRacing.Domain.Entities;
 using HorseRacing.Domain.Entities.Tournaments;
 
-using HorseRacing.Application.Features.Notifications.Interfaces;
-
 namespace HorseRacing.Application.Features.FinancialRewards.Services;
 
 public class BetPayoutService : IBetPayoutService

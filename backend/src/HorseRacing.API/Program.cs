@@ -115,6 +115,9 @@ using (var scope = app.Services.CreateScope())
 
         var dataSeeder = services.GetRequiredService<DataSeeder>();
         await dataSeeder.SeedAsync();
+
+        var mainflowDataSeeder = services.GetRequiredService<MainflowDataSeeder>();
+        await mainflowDataSeeder.SeedAsync();
     }
     catch (Exception ex)
     {

@@ -141,12 +141,12 @@ public class PrizePayoutService : IPrizePayoutService
 
         var finalEntries = (await _betRepository.GetRaceEntriesWithHorseAsync(finalRace.RaceId))
             .Where(re => re.FinishPosition.HasValue)
-            .OrderBy(re => re.FinishPosition.Value)
+            .OrderBy(re => re.FinishPosition!.Value)
             .ToList();
 
         foreach (var entry in finalEntries)
         {
-            int rank = entry.FinishPosition.Value;
+            int rank = entry.FinishPosition!.Value;
             if (rank < 1 || rank > 3) continue;
 
             var prize = await _prizeRepository.GetByTournamentAndRankAsync(request.TournamentId, rank);

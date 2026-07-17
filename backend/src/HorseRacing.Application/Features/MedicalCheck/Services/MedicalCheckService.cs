@@ -66,6 +66,26 @@ public class MedicalCheckService : IMedicalCheckService
     }
 
     // ─── Commands ────────────────────────────────────────────────────────────
+    // ─── Health Threshold Validation (Business Rule) ─────────────────────────
+    /// <summary>
+    /// A horse can only receive a "Pass" result if ALL of the following vital signs are within safe range:
+    /// - Temperature: 37.2 – 38.3 °C (inclusive)
+    /// - HeartRate:   28 – 44 bpm (inclusive)
+    /// - DopingResult: must be "Negative"
+    /// This rule is enforced at both the service layer (server-side) and the frontend (client-side).
+    /// </summary>
+    private static void ValidatePassEligibility(decimal? temperature, int? heartRate, decimal? weight, string dopingResult)
+    {
+        bool tempOk   = temperature.HasValue && temperature.Value >= 37.2m && temperature.Value <= 38.3m;
+        bool hrOk     = heartRate.HasValue   && heartRate.Value   >= 28    && heartRate.Value   <= 44;
+        bool weightOk = weight.HasValue      && weight.Value      >= 300m  && weight.Value      <= 700m;
+        bool dopingOk = string.Equals(dopingResult, "Negative", StringComparison.OrdinalIgnoreCase);
+
+        if (!tempOk || !hrOk || !weightOk || !dopingOk)
+            throw new ArgumentException(
+                "Setting PASS status is not allowed when weight is out of the 300-700kg range or vital/doping signs do not meet the required health standards!");
+    }
+
     public async Task<MedicalCheckResponse> CreateAsync(int performedByUserId, CreateMedicalCheckRequest request)
     {
         if (request.Weight <= 0)
@@ -86,6 +106,10 @@ public class MedicalCheckService : IMedicalCheckService
 
         if (request.MedicalResult == "Fail" && string.IsNullOrWhiteSpace(request.FailReason))
             throw new ArgumentException("FailReason is required when MedicalResult is 'Fail'.");
+
+        // ✅ Business Rule: Validate vital signs thresholds before allowing Pass
+        if (string.Equals(request.MedicalResult, "Pass", StringComparison.OrdinalIgnoreCase))
+            ValidatePassEligibility(request.Temperature, request.HeartRate, request.Weight, request.DopingResult);
 
         // Business Validation: Registration must exist and be Approved.
         var registration = await _registrationRepository.GetByIdAsync(request.RegistrationId);
@@ -161,6 +185,17 @@ public class MedicalCheckService : IMedicalCheckService
             var valid = new[] { "Pass", "Fail" };
             if (!valid.Contains(request.MedicalResult))
                 throw new ArgumentException("MedicalResult must be 'Pass' or 'Fail'.");
+
+            // ✅ Business Rule: Validate vital signs thresholds before allowing Pass on update
+            if (string.Equals(request.MedicalResult, "Pass", StringComparison.OrdinalIgnoreCase))
+            {
+                var effectiveTemp   = request.Temperature ?? record.Temperature;
+                var effectiveHr     = request.HeartRate   ?? record.HeartRate;
+                var effectiveWeight = request.Weight      ?? record.Weight;
+                var effectiveDoping = request.DopingResult ?? record.DopingResult;
+                ValidatePassEligibility(effectiveTemp, effectiveHr, effectiveWeight, effectiveDoping);
+            }
+
             record.MedicalResult = request.MedicalResult;
         }
 
@@ -209,6 +244,10 @@ public class MedicalCheckService : IMedicalCheckService
             throw new ArgumentException("MedicalResult must be 'Pass' or 'Fail'.");
         if (request.MedicalResult == "Fail" && string.IsNullOrWhiteSpace(request.FailReason))
             throw new ArgumentException("FailReason is required when MedicalResult is 'Fail'.");
+
+        // ✅ Business Rule: Validate vital signs thresholds before allowing Pass in recheck
+        if (string.Equals(request.MedicalResult, "Pass", StringComparison.OrdinalIgnoreCase))
+            ValidatePassEligibility(request.Temperature, request.HeartRate, request.Weight, request.DopingResult);
 
         // 2. Validate registration exists and is eligible for re-check
         var registration = await _repository.GetRegistrationWithDetailsAsync(request.RegistrationId)

@@ -8,8 +8,6 @@ using HorseRacing.Application.Features.Notifications.Interfaces;
 using HorseRacing.Application.Features.OfficiatingAndResults.Interfaces;
 using HorseRacing.Domain.Entities;
 
-using HorseRacing.Application.Features.Notifications.Interfaces;
-
 namespace HorseRacing.Application.Features.BettingEngine.Services;
 
 public class PredictionService : IPredictionService
