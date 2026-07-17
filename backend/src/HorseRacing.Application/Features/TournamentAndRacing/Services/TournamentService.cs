@@ -218,11 +218,18 @@ public class TournamentService : ITournamentService
         DateTime vietnamNow = VietnamNow;
         foreach (var t in tournaments)
         {
-            if (t.Status == "PendingRegistration" && 
+            if ((t.Status == "PendingRegistration" || t.Status == "Registration Open") && 
                 t.RegistrationEndDate.HasValue && 
                 vietnamNow >= t.RegistrationEndDate.Value)
             {
                 t.Status = "PendingScheduling";
+                anyChanged = true;
+            }
+            if (t.Status == "PendingRegistration" && 
+                t.RegistrationStartDate.HasValue && 
+                vietnamNow >= t.RegistrationStartDate.Value)
+            {
+                t.Status = "Registration Open";
                 anyChanged = true;
             }
             if (t.Status == "Upcoming" && 
@@ -251,11 +258,18 @@ public class TournamentService : ITournamentService
 
         DateTime vietnamNow = VietnamNow;
         bool changed = false;
-        if (tournament.Status == "PendingRegistration" && 
+        if ((tournament.Status == "PendingRegistration" || tournament.Status == "Registration Open") && 
             tournament.RegistrationEndDate.HasValue && 
             vietnamNow >= tournament.RegistrationEndDate.Value)
         {
             tournament.Status = "PendingScheduling";
+            changed = true;
+        }
+        if (tournament.Status == "PendingRegistration" && 
+            tournament.RegistrationStartDate.HasValue && 
+            vietnamNow >= tournament.RegistrationStartDate.Value)
+        {
+            tournament.Status = "Registration Open";
             changed = true;
         }
         if (tournament.Status == "Upcoming" && 

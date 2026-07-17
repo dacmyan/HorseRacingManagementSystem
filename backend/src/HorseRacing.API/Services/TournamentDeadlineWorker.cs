@@ -32,7 +32,7 @@ namespace HorseRacing.API.Services
 
                         // Quét các giải đấu đã hết hạn đăng ký nhưng ở trạng thái "PendingRegistration"
                         var expiredTournaments = await context.Tournaments
-                            .Where(t => t.RegistrationEndDate != null && now > t.RegistrationEndDate && t.Status == "PendingRegistration")
+                            .Where(t => t.RegistrationEndDate != null && now > t.RegistrationEndDate && (t.Status == "PendingRegistration" || t.Status == "Registration Open"))
                             .ToListAsync(stoppingToken);
 
                         foreach (var tournament in expiredTournaments)
