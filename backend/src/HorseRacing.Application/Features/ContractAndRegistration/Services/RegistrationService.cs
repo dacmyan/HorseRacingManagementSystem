@@ -17,18 +17,21 @@ public class RegistrationService : IRegistrationService
     private readonly IRegistrationRepository _registrationRepository;
     private readonly IHorseRepository _horseRepository;
     private readonly IBetRepository _betRepository;
+    private readonly IJockeyContractRepository _contractRepository;
 
     public RegistrationService(
         IRegistrationRepository registrationRepository,
         IHorseRepository horseRepository,
-        IBetRepository betRepository)
+        IBetRepository betRepository,
+        IJockeyContractRepository contractRepository)
     {
         _registrationRepository = registrationRepository;
         _horseRepository = horseRepository;
         _betRepository = betRepository;
+        _contractRepository = contractRepository;
     }
 
-    private RegistrationResponse MapToResponse(Registration reg)
+    private RegistrationResponse MapToResponse(Registration reg, JockeyContract? contract = null)
     {
         return new RegistrationResponse
         {
@@ -38,7 +41,9 @@ public class RegistrationService : IRegistrationService
             HorseId = reg.HorseId,
             HorseName = reg.Horse?.Name ?? "Unknown Horse",
             Status = reg.Status,
-            RegisteredAt = reg.RegisteredAt
+            RegisteredAt = reg.RegisteredAt,
+            JockeyId = contract?.JockeyId,
+            JockeyName = contract?.Jockey?.FullName ?? contract?.Jockey?.Email
         };
     }
 
@@ -106,8 +111,21 @@ public class RegistrationService : IRegistrationService
         var now = VietnamNow;
         var filteredRegs = regs.Where(r => r.Tournament == null || 
             (r.Tournament.RegistrationStartDate.HasValue && r.Tournament.RegistrationStartDate.Value <= now) || 
-            (r.Tournament.StartDate.HasValue && r.Tournament.StartDate.Value <= now));
-        return filteredRegs.Select(MapToResponse);
+            (r.Tournament.StartDate.HasValue && r.Tournament.StartDate.Value <= now)).ToList();
+
+        // Fetch jockey contracts for this owner to enrich registrations with jockey names
+        var contracts = await _contractRepository.GetByOwnerIdAsync(ownerUserId);
+        var contractList = contracts.ToList();
+
+        return filteredRegs.Select(reg =>
+        {
+            // Only bind jockeys that have accepted or active contracts
+            var contract = contractList.FirstOrDefault(c =>
+                c.HorseId == reg.HorseId &&
+                c.TournamentId == reg.TournamentId &&
+                (c.Status == "Accepted" || c.Status == "Active"));
+            return MapToResponse(reg, contract);
+        });
     }
 
     public async Task<RegistrationResponse> ReviewRegistrationAsync(long id, ReviewRegistrationRequest request)
