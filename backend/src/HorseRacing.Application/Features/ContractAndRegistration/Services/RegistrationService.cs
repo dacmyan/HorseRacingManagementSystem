@@ -89,7 +89,7 @@ public class RegistrationService : IRegistrationService
         {
             TournamentId = request.TournamentId,
             HorseId = request.HorseId,
-            Status = "Pending",
+            Status = "PendingVet",
             RegisteredAt = DateTime.UtcNow
         };
 
