@@ -1,6 +1,7 @@
 using System;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using HorseRacing.Domain.Entities;
 using HorseRacing.Application.Features.Notifications.Interfaces;
 using HorseRacing.Application.Features.Notifications.DTOs;
 using HorseRacing.Application.Features.UserManagement.DTOs;
@@ -324,20 +325,49 @@ private readonly IRaceResultService _resultService;
             var prizesGrouped = prizes.GroupBy(p => p.TournamentId)
                 .ToDictionary(g => g.Key, g => g.ToList());
 
-            var result = tournaments.Select(t => new {
-                t.TournamentId,
-                t.Name,
-                t.Description,
-                t.RegistrationStartDate,
-                t.RegistrationEndDate,
-                t.StartDate,
-                t.EndDate,
-                t.Status,
-                t.Rounds,
-                t.CancelCount,
-                Prizes = prizesGrouped.ContainsKey(t.TournamentId)
-                    ? prizesGrouped[t.TournamentId].Select(p => (object)new { p.Id, p.RankPosition, p.Amount }).ToList()
-                    : new List<object>()
+            var registrations = await _context.Registrations
+                .Include(r => r.MedicalCheckRecords)
+                .Where(r => tournamentIds.Contains(r.TournamentId))
+                .ToListAsync();
+
+            var registrationsGrouped = registrations.GroupBy(r => r.TournamentId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            var result = tournaments.Select(t => {
+                var tournamentRegs = registrationsGrouped.ContainsKey(t.TournamentId)
+                    ? registrationsGrouped[t.TournamentId]
+                    : new List<Registration>();
+
+                var approvedRegistration = tournamentRegs.Count(r => string.Equals(r.Status, "Approved", StringComparison.OrdinalIgnoreCase));
+                var qualifiedRegistration = tournamentRegs.Count(r => 
+                {
+                    if (!string.Equals(r.Status, "Approved", StringComparison.OrdinalIgnoreCase)) return false;
+                    var check = r.MedicalCheckRecords?.FirstOrDefault();
+                    if (check == null) return false;
+                    bool isMedicalPassed = string.Equals(check.MedicalResult, "Pass", StringComparison.OrdinalIgnoreCase) || 
+                                           string.Equals(check.MedicalResult, "Passed", StringComparison.OrdinalIgnoreCase);
+                    bool isDopingNegative = !string.Equals(check.DopingResult, "Positive", StringComparison.OrdinalIgnoreCase);
+                    return isMedicalPassed && isDopingNegative;
+                });
+
+                return new {
+                    t.TournamentId,
+                    t.Name,
+                    t.Description,
+                    t.RegistrationStartDate,
+                    t.RegistrationEndDate,
+                    t.StartDate,
+                    t.EndDate,
+                    t.Status,
+                    t.Rounds,
+                    t.CancelCount,
+                    t.HasMissingReferees,
+                    ApprovedRegistration = approvedRegistration,
+                    QualifiedRegistration = qualifiedRegistration,
+                    Prizes = prizesGrouped.ContainsKey(t.TournamentId)
+                        ? prizesGrouped[t.TournamentId].Select(p => (object)new { p.Id, p.RankPosition, p.Amount }).ToList()
+                        : new List<object>()
+                };
             }).ToList();
 
             return Ok(new { message = "Tournaments retrieved successfully", result = result });
@@ -374,6 +404,23 @@ private readonly IRaceResultService _resultService;
                 .Select(p => new { p.Id, p.RankPosition, p.Amount })
                 .ToListAsync();
 
+            var registrations = await _context.Registrations
+                .Include(r => r.MedicalCheckRecords)
+                .Where(r => r.TournamentId == id)
+                .ToListAsync();
+
+            var approvedRegistration = registrations.Count(r => string.Equals(r.Status, "Approved", StringComparison.OrdinalIgnoreCase));
+            var qualifiedRegistration = registrations.Count(r => 
+            {
+                if (!string.Equals(r.Status, "Approved", StringComparison.OrdinalIgnoreCase)) return false;
+                var check = r.MedicalCheckRecords?.FirstOrDefault();
+                if (check == null) return false;
+                bool isMedicalPassed = string.Equals(check.MedicalResult, "Pass", StringComparison.OrdinalIgnoreCase) || 
+                                       string.Equals(check.MedicalResult, "Passed", StringComparison.OrdinalIgnoreCase);
+                bool isDopingNegative = !string.Equals(check.DopingResult, "Positive", StringComparison.OrdinalIgnoreCase);
+                return isMedicalPassed && isDopingNegative;
+            });
+
             var result = new {
                 tournament.TournamentId,
                 tournament.Name,
@@ -385,6 +432,9 @@ private readonly IRaceResultService _resultService;
                 tournament.Status,
                 tournament.Rounds,
                 tournament.CancelCount,
+                tournament.HasMissingReferees,
+                ApprovedRegistration = approvedRegistration,
+                QualifiedRegistration = qualifiedRegistration,
                 Prizes = prizes
             };
 
