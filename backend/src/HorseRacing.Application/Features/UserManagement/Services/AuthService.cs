@@ -56,7 +56,8 @@ public class AuthService : IAuthService
                     Id = user.UserId,
                     FullName = user.FullName,
                     Email = user.Email,
-                    Role = user.Role?.Name ?? "Spectator"
+                    Role = user.Role?.Name ?? "Spectator",
+                    Status = user.Status
                 }
             }
         };
@@ -141,7 +142,8 @@ public class AuthService : IAuthService
                     Id = newUser.UserId,
                     FullName = newUser.FullName,
                     Email = newUser.Email,
-                    Role = "Spectator"
+                    Role = "Spectator",
+                    Status = newUser.Status
                 }
             }
         };
@@ -210,7 +212,8 @@ public class AuthService : IAuthService
                     Id = user.UserId,
                     FullName = user.FullName,
                     Email = user.Email,
-                    Role = user.Role?.Name ?? "Spectator"
+                    Role = user.Role?.Name ?? "Spectator",
+                    Status = user.Status
                 }
             }
         };

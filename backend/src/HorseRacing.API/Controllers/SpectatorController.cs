@@ -7,6 +7,7 @@ using HorseRacing.Application.Features.FinancialRewards.DTOs;
 using HorseRacing.Application.Features.FinancialRewards.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using HorseRacing.API.Filters;
 
 namespace HorseRacing.API.Controllers;
 
@@ -40,6 +41,7 @@ public class SpectatorController : ControllerBase
     }
 
     [HttpPost("wallet/deposit")]
+    [BlockLockedUser]
     public async Task<IActionResult> Deposit([FromBody] DepositRequest request)
     {
         try
@@ -112,6 +114,7 @@ public class SpectatorController : ControllerBase
     }
 
     [HttpPost("bets")]
+    [BlockLockedUser]
     public async Task<IActionResult> PlaceBet([FromBody] PlaceBetRequest request)
     {
         try
@@ -169,6 +172,7 @@ public class SpectatorController : ControllerBase
     }
 
     [HttpPost("predictions")]
+    [BlockLockedUser]
     public async Task<IActionResult> CreatePrediction([FromBody] CreatePredictionRequest request)
     {
         try

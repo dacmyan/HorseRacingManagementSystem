@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Mvc;
 using HorseRacing.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
+using HorseRacing.API.Filters;
 
 namespace HorseRacing.API.Controllers;
 
@@ -51,6 +52,7 @@ public class OwnerController : ControllerBase
     }
 
     [HttpPost("horses")]
+    [BlockLockedUser]
     public async Task<IActionResult> CreateHorse([FromBody] RegisterHorseRequest request)
     {
         try
@@ -104,6 +106,7 @@ public class OwnerController : ControllerBase
     }
 
     [HttpPut("horses/{id}")]
+    [BlockLockedUser]
     public async Task<IActionResult> UpdateHorse(int id, [FromBody] UpdateHorseRequest request)
     {
         try
@@ -127,6 +130,7 @@ public class OwnerController : ControllerBase
     }
 
     [HttpDelete("horses/{id}")]
+    [BlockLockedUser]
     public async Task<IActionResult> DeleteHorse(int id)
     {
         try
@@ -150,6 +154,7 @@ public class OwnerController : ControllerBase
     }
 
     [HttpPost("horses/{id}/documents")]
+    [BlockLockedUser]
     public async Task<IActionResult> UploadDocument(int id, [FromBody] UploadHorseDocumentRequest request)
     {
         try
@@ -173,6 +178,7 @@ public class OwnerController : ControllerBase
     }
 
     [HttpPost("jockey-contracts")]
+    [BlockLockedUser]
     public async Task<IActionResult> CreateContract([FromBody] CreateJockeyContract request)
     {
         try
@@ -247,6 +253,7 @@ public class OwnerController : ControllerBase
     }
 
     [HttpDelete("jockey-contracts/{id:int}")]
+    [BlockLockedUser]
     public async Task<IActionResult> CancelContract(int id)
     {
         try
@@ -270,6 +277,7 @@ public class OwnerController : ControllerBase
     }
 
     [HttpPost("registrations")]
+    [BlockLockedUser]
     public async Task<IActionResult> RegisterHorse([FromBody] CreateRegistrationRequest request)
     {
         try
