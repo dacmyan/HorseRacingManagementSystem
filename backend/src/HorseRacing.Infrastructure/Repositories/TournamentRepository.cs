@@ -300,4 +300,38 @@ public class TournamentRepository : ITournamentRepository
             .Where(t => excludeTournamentId == null || t.TournamentId != excludeTournamentId)
             .AnyAsync(t => t.StartDate.Value <= endDate && t.EndDate.Value >= startDate);
     }
+
+    public async Task<bool> HasRacesMissingRefereesAsync(long tournamentId)
+    {
+        var races = await (
+            from round in _context.Rounds.AsNoTracking()
+            join race in _context.Races.AsNoTracking()
+                on round.RoundId equals race.RoundId
+            where round.TournamentId == tournamentId
+            select race
+        ).ToListAsync();
+
+        if (!races.Any())
+        {
+            return false;
+        }
+
+        var raceIds = races.Select(r => r.RaceId).ToList();
+
+        var assignedRaceIds = await _context.RaceRefereeAssignments.AsNoTracking()
+            .Where(a => raceIds.Contains(a.RaceId))
+            .Select(a => a.RaceId)
+            .Distinct()
+            .ToListAsync();
+
+        return assignedRaceIds.Count < races.Count;
+    }
+
+    public async Task<List<int>> GetAdminUserIdsAsync()
+    {
+        return await _context.Users.AsNoTracking()
+            .Where(u => u.RoleId == 1)
+            .Select(u => u.UserId)
+            .ToListAsync();
+    }
 }

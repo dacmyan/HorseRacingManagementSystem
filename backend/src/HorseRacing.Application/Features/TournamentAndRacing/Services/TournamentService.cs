@@ -229,7 +229,32 @@ public class TournamentService : ITournamentService
                 t.StartDate.HasValue && 
                 vietnamNow >= t.StartDate.Value)
             {
-                t.Status = "Active";
+                if (await _tournamentRepository.HasRacesMissingRefereesAsync(t.TournamentId))
+                {
+                    t.Status = "PendingAdminAttention";
+                    try
+                    {
+                        var adminIds = await _tournamentRepository.GetAdminUserIdsAsync();
+                        foreach (var adminId in adminIds)
+                        {
+                            await _notificationService.SendNotificationToUserAsync(
+                                adminId,
+                                "Giải đấu cần phân công trọng tài",
+                                $"Giải đấu '{t.Name}' chưa được phân công trọng tài đầy đủ cho tất cả cuộc đua. Vui lòng phân công để giải đấu có thể bắt đầu.",
+                                "System",
+                                (int)t.TournamentId
+                            );
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[NOTIFICATION ERROR] Failed to notify admins: {ex.Message}");
+                    }
+                }
+                else
+                {
+                    t.Status = "Active";
+                }
                 anyChanged = true;
             }
         }
@@ -238,7 +263,12 @@ public class TournamentService : ITournamentService
             await _tournamentRepository.SaveChangesAsync();
         }
 
-        return tournaments.Select(MapToResponse).ToList();
+        var responses = tournaments.Select(MapToResponse).ToList();
+        foreach (var r in responses)
+        {
+            r.HasMissingReferees = await _tournamentRepository.HasRacesMissingRefereesAsync(r.TournamentId);
+        }
+        return responses;
     }
 
     public async Task<TournamentResponse?> GetTournamentByIdAsync(long id)
@@ -262,7 +292,32 @@ public class TournamentService : ITournamentService
             tournament.StartDate.HasValue && 
             vietnamNow >= tournament.StartDate.Value)
         {
-            tournament.Status = "Active";
+            if (await _tournamentRepository.HasRacesMissingRefereesAsync(tournament.TournamentId))
+            {
+                tournament.Status = "PendingAdminAttention";
+                try
+                {
+                    var adminIds = await _tournamentRepository.GetAdminUserIdsAsync();
+                    foreach (var adminId in adminIds)
+                    {
+                        await _notificationService.SendNotificationToUserAsync(
+                            adminId,
+                            "Giải đấu cần phân công trọng tài",
+                            $"Giải đấu '{tournament.Name}' chưa được phân công trọng tài đầy đủ cho tất cả cuộc đua. Vui lòng phân công để giải đấu có thể bắt đầu.",
+                            "System",
+                            (int)tournament.TournamentId
+                        );
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[NOTIFICATION ERROR] Failed to notify admins: {ex.Message}");
+                }
+            }
+            else
+            {
+                tournament.Status = "Active";
+            }
             changed = true;
         }
         if (changed)
@@ -271,7 +326,9 @@ public class TournamentService : ITournamentService
             await _tournamentRepository.SaveChangesAsync();
         }
 
-        return MapToResponse(tournament);
+        var response = MapToResponse(tournament);
+        response.HasMissingReferees = await _tournamentRepository.HasRacesMissingRefereesAsync(id);
+        return response;
     }
 
     private static DateTime VietnamNow => TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
@@ -292,6 +349,7 @@ public class TournamentService : ITournamentService
         // Validation 2: Tournament must not have already generated races
         if (string.Equals(tournament.Status, "Upcoming", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(tournament.Status, "Active", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(tournament.Status, "PendingAdminAttention", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(tournament.Status, "Completed", StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException("Races have already been generated for this tournament.");
@@ -525,6 +583,7 @@ public class TournamentService : ITournamentService
         }
         else if (string.Equals(tournament.Status, "Upcoming", StringComparison.OrdinalIgnoreCase) ||
                  string.Equals(tournament.Status, "Active", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(tournament.Status, "PendingAdminAttention", StringComparison.OrdinalIgnoreCase) ||
                  string.Equals(tournament.Status, "Completed", StringComparison.OrdinalIgnoreCase))
         {
             canAutoArrange = false;
