@@ -369,6 +369,36 @@ public class TournamentService : ITournamentService
             throw new InvalidOperationException("Races have already been generated for this tournament.");
         }
 
+        // Validation 2b: Prevent generating races if the tournament status is Ongoing, Finished, or Completed
+        if (string.Equals(tournament.Status, "Ongoing", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(tournament.Status, "Finished", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Giải đấu đã hoặc đang diễn ra. Không được phép gán lại làn đua!");
+        }
+
+        // Validation 2c: Prevent generating races if lanes are already assigned or any race is Live/InProgress/Finished/Completed
+        var existingRounds = tournament.Rounds.ToList();
+        foreach (var round in existingRounds)
+        {
+            var races = await _tournamentRepository.GetRacesByRoundIdAsync(round.RoundId);
+            foreach (var race in races)
+            {
+                if (string.Equals(race.Status, "Live", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(race.Status, "InProgress", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(race.Status, "Finished", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(race.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException("Lượt đua này đã hoặc đang bắt đầu diễn ra. Không được phép gán lại làn đua!");
+                }
+
+                var entries = await _tournamentRepository.GetRaceEntriesByRaceIdAsync(race.RaceId);
+                if (entries.Any(re => re.LaneNo > 0))
+                {
+                    throw new InvalidOperationException("Lượt đua này đã được xếp làn. Không được phép gán lại làn đua!");
+                }
+            }
+        }
+
         // Fetch registrations and medical checks to filter qualified horses
         var registrations = await _tournamentRepository.GetApprovedRegistrationsAsync(tournamentId);
         var medicalChecks = await _tournamentRepository.GetMedicalCheckRecordsForTournamentAsync(tournamentId);
