@@ -49,10 +49,10 @@ namespace HorseRacing.API.Controllers
             DateTime baseDate = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
             DateTime newRegistrationEndDate = baseDate.AddDays(request.AdditionalDays);
 
-            // Validation Ràng buộc: Phải cách ngày bắt đầu giải đấu ít nhất 1 ngày trước khi đua
-            if (newRegistrationEndDate > tournament.StartDate.Value.AddDays(-1))
+            // Validation Ràng buộc: Phải cách ngày bắt đầu giải đấu ít nhất 2 ngày trước khi đua
+            if (newRegistrationEndDate > tournament.StartDate.Value.AddDays(-2))
             {
-                return BadRequest("The extended registration date exceeds the limit. The new registration end date must be at least 1 day before the tournament starts.");
+                return BadRequest("The extended registration date exceeds the limit. The new registration end date must be at least 2 days before the tournament starts.");
             }
 
             // Cập nhật thông tin giải đấu

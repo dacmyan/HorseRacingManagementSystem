@@ -123,6 +123,15 @@ public class JockeyContractService : IJockeyContractService
             throw new InvalidOperationException("Tournament dates are not configured.");
         }
 
+        if (tournament.RegistrationEndDate.HasValue)
+        {
+            var invitationExpiredAtVietnam = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(request.InvitationExpiredAt, "SE Asia Standard Time");
+            if (invitationExpiredAtVietnam > tournament.RegistrationEndDate.Value)
+            {
+                throw new ArgumentException("Invitation expiration deadline cannot be set after the tournament's registration end date.");
+            }
+        }
+
         var contractStart = request.StartDate.Date;
         var contractEnd = request.EndDate.Date;
         var tournamentStart = tournament.StartDate.Value.Date;
