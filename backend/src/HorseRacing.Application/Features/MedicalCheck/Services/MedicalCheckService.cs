@@ -157,6 +157,27 @@ public class MedicalCheckService : IMedicalCheckService
         await _repository.AddAsync(record);
         await _repository.SaveChangesAsync();
 
+        if (registration?.Horse != null)
+        {
+            var ownerId = registration.Horse.OwnerId;
+            var horseName = registration.Horse.Name;
+            var tournamentName = registration.Tournament?.Name ?? "Giải đấu";
+            if (request.MedicalResult == "Fail")
+            {
+                var failTitle = "Đăng ký giải đấu bị từ chối";
+                var failContent = $"Đăng ký tham gia {tournamentName} của ngựa {horseName} đã bị từ chối do không đạt yêu cầu khám sức khỏe lâm sàng: {request.FailReason}.";
+                await _notificationService.SendNotificationToUserAsync(
+                    ownerId, failTitle, failContent, "MedicalCheck", (int?)registration.RegistrationId, null, "/owner/registrations");
+            }
+            else
+            {
+                var passTitle = "Đạt yêu cầu khám sức khỏe";
+                var passContent = $"Ngựa {horseName} đã vượt qua vòng khám sức khỏe ban đầu cho giải đấu {tournamentName} và đang chờ Admin duyệt.";
+                await _notificationService.SendNotificationToUserAsync(
+                    ownerId, passTitle, passContent, "MedicalCheck", (int?)registration.RegistrationId, null, "/owner/registrations");
+            }
+        }
+
         var populated = await _repository.GetByIdAsync(record.Id);
         return Map(populated ?? record);
     }
