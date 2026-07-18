@@ -388,7 +388,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .HasPrecision(5, 2);
         });
         modelBuilder.Entity<Race>().ToTable("Race");
-        modelBuilder.Entity<RaceResult>().ToTable("RaceResult");
+        modelBuilder.Entity<RaceResult>(entity =>
+        {
+            entity.ToTable("RaceResult");
+            entity.HasOne(rr => rr.Race)
+                .WithMany()
+                .HasForeignKey(rr => rr.RaceId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
         modelBuilder.Entity<Tournament>(entity =>
         {
             entity.ToTable("Tournament");
