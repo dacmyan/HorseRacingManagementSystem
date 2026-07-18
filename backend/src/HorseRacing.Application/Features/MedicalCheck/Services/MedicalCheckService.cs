@@ -164,15 +164,15 @@ public class MedicalCheckService : IMedicalCheckService
             var tournamentName = registration.Tournament?.Name ?? "Giải đấu";
             if (request.MedicalResult == "Fail")
             {
-                var failTitle = "Đăng ký giải đấu bị từ chối";
-                var failContent = $"Đăng ký tham gia {tournamentName} của ngựa {horseName} đã bị từ chối do không đạt yêu cầu khám sức khỏe lâm sàng: {request.FailReason}.";
+                var failTitle = "Khám sức khỏe không đạt";
+                var failContent = $"Ngựa {horseName} của bạn không đạt yêu cầu khám sức khỏe cho giải đấu {tournamentName} vì lý do: {request.FailReason}.";
                 await _notificationService.SendNotificationToUserAsync(
                     ownerId, failTitle, failContent, "MedicalCheck", (int?)registration.RegistrationId, null, "/owner/registrations");
             }
             else
             {
-                var passTitle = "Đạt yêu cầu khám sức khỏe";
-                var passContent = $"Ngựa {horseName} đã vượt qua vòng khám sức khỏe ban đầu cho giải đấu {tournamentName} và đang chờ Admin duyệt.";
+                var passTitle = "Khám sức khỏe đạt (Pass)";
+                var passContent = $"Ngựa {horseName} của bạn đã đạt (pass) yêu cầu khám sức khỏe cho giải đấu {tournamentName}.";
                 await _notificationService.SendNotificationToUserAsync(
                     ownerId, passTitle, passContent, "MedicalCheck", (int?)registration.RegistrationId, null, "/owner/registrations");
             }
