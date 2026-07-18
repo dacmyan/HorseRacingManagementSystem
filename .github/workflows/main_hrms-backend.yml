@@ -24,10 +24,10 @@ jobs:
           dotnet-version: '10.x'
 
       - name: Build with dotnet
-        run: dotnet build backend/HorseRacing.slnx --configuration Release
+        run: dotnet build --configuration Release
 
       - name: dotnet publish
-        run: dotnet publish backend/src/HorseRacing.API/HorseRacing.API.csproj -c Release -o "${{env.DOTNET_ROOT}}/myapp"
+        run: dotnet publish -c Release -o "${{env.DOTNET_ROOT}}/myapp"
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
@@ -51,9 +51,9 @@ jobs:
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_F2C21160CCA9447DAC842E694A2EAB81 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_66792D77085C430AA84511A9CCD74E59 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_8C84F1B05E9442BDBCDCA91A35DC4BF6 }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_30285A5F392C4BE284370080D5987B55 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_0577EC96821C44E8B4F26D404ADD1663 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_8B54DD81FB244BC2BAB3F55BB20586EA }}
 
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
@@ -62,3 +62,4 @@ jobs:
           app-name: 'hrms-backend'
           slot-name: 'Production'
           package: .
+          
