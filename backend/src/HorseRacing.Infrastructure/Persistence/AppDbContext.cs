@@ -1,3 +1,5 @@
+using System.Threading;
+using System.Threading.Tasks;
 using HorseRacing.Domain.Entities;
 using HorseRacing.Domain.Entities.Tournaments;
 using HorseRacing.Domain.Entities.Financials;
@@ -422,6 +424,35 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.SeedData();
 
         base.OnModelCreating(modelBuilder);
+    }
+
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        var modifiedRegistrations = ChangeTracker.Entries<Registration>()
+            .Where(e => (e.State == EntityState.Modified || e.State == EntityState.Added) &&
+                        (e.Entity.Status == "Rejected" || e.Entity.Status == "Disqualified"))
+            .Select(e => e.Entity)
+            .ToList();
+
+        if (modifiedRegistrations.Any())
+        {
+            foreach (var reg in modifiedRegistrations)
+            {
+                var contracts = await JockeyContracts
+                    .Where(jc => jc.TournamentId == reg.TournamentId && jc.HorseId == reg.HorseId)
+                    .ToListAsync(cancellationToken);
+
+                foreach (var contract in contracts)
+                {
+                    if (contract.Status == "Pending" || contract.Status == "Accepted" || contract.Status == "Active")
+                    {
+                        contract.Status = "Cancelled";
+                    }
+                }
+            }
+        }
+
+        return await base.SaveChangesAsync(cancellationToken);
     }
 }
 
