@@ -86,7 +86,6 @@ namespace HorseRacing.API.Services
 
                                 if (cancelledRegs.Count > 0)
                                 {
-                                    var notificationService = scope.ServiceProvider.GetService<INotificationService>();
                                     if (notificationService != null)
                                     {
                                         // Group by owner to send one notification per owner

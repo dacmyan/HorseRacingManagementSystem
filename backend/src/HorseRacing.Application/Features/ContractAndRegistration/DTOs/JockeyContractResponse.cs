@@ -16,7 +16,6 @@ public class JockeyContractResponse
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }
     public string Status { get; set; } = string.Empty;
-    public string TournamentName { get; set; } = string.Empty;
     public DateTime InvitationExpiredAt { get; set; }
     public DateTime CreatedAt { get; set; }
 }
