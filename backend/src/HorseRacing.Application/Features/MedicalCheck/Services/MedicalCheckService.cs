@@ -175,6 +175,30 @@ public class MedicalCheckService : IMedicalCheckService
                 var passContent = $"Ngựa {horseName} của bạn đã đạt (pass) yêu cầu khám sức khỏe cho giải đấu {tournamentName}.";
                 await _notificationService.SendNotificationToUserAsync(
                     ownerId, passTitle, passContent, "MedicalCheck", (int?)registration.RegistrationId, null, "/owner/registrations");
+
+                try
+                {
+                    var ownerName = registration.Horse.Owner != null 
+                        ? (registration.Horse.Owner.FullName ?? registration.Horse.Owner.Username) 
+                        : "Chủ ngựa";
+                    var adminIds = await _registrationRepository.GetAdminUserIdsAsync();
+                    foreach (var adminId in adminIds)
+                    {
+                        await _notificationService.SendNotificationToUserAsync(
+                            adminId,
+                            "Ngựa đủ điều kiện đăng ký giải",
+                            $"Ngựa '{horseName}' của chủ ngựa '{ownerName}' đã đủ điều kiện đăng ký giải đấu '{tournamentName}'.",
+                            "MedicalCheck",
+                            (int?)registration.RegistrationId,
+                            null,
+                            "/admin/registrations"
+                        );
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[NOTIFICATION ERROR] Failed to send medical pass notification to admin: {ex.Message}");
+                }
             }
         }
 
