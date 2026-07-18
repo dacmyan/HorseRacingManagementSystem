@@ -119,8 +119,8 @@ public class TournamentService : ITournamentService
         try
         {
             await _notificationService.BroadcastNotificationAsync(
-                "New Tournament Open for Registration",
-                $"Tournament '{tournament.Name}' starting on {tournament.StartDate:dd/MM/yyyy} is now open for registration.",
+                "New Tournament Scheduled",
+                $"Tournament '{tournament.Name}' starting on {tournament.StartDate:dd/MM/yyyy} has been scheduled. Registration will open on {tournament.RegistrationStartDate:dd/MM/yyyy HH:mm} (Vietnam Time).",
                 "Tournament",
                 referenceId: (int)tournament.TournamentId,
                 actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
