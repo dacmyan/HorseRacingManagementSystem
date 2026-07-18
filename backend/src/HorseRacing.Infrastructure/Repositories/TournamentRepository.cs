@@ -1,7 +1,10 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using HorseRacing.Application.Features.TournamentAndRacing.DTOs;
 using HorseRacing.Application.Features.TournamentAndRacing.Interfaces;
+using HorseRacing.Domain.Entities;
 using HorseRacing.Domain.Entities.Tournaments;
 using HorseRacing.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -333,5 +336,63 @@ public class TournamentRepository : ITournamentRepository
             .Where(u => u.RoleId == 1)
             .Select(u => u.UserId)
             .ToListAsync();
+    }
+
+    public async Task<List<CancelledRegistrationInfo>> CancelRegistrationsWithoutJockeyAsync(long tournamentId)
+    {
+        // Find registrations that are still Pending or PendingVet (not yet approved/rejected)
+        var registrations = await _context.Registrations
+            .Include(r => r.Horse)
+            .Include(r => r.Tournament)
+            .Where(r => r.TournamentId == tournamentId &&
+                       (r.Status == "Pending" || r.Status == "PendingVet"))
+            .ToListAsync();
+
+        var cancelledList = new List<CancelledRegistrationInfo>();
+
+        foreach (var reg in registrations)
+        {
+            // Check if there's an accepted/active jockey contract for this horse in this tournament
+            var hasAcceptedJockey = await _context.JockeyContracts
+                .AnyAsync(jc => jc.TournamentId == tournamentId &&
+                               jc.HorseId == reg.HorseId &&
+                               (jc.Status == "Accepted" || jc.Status == "Active"));
+
+            if (!hasAcceptedJockey)
+            {
+                // Cancel the registration
+                reg.Status = "Cancelled";
+
+                // Also cancel any pending jockey contracts for this horse in this tournament
+                var pendingContracts = await _context.JockeyContracts
+                    .Where(jc => jc.TournamentId == tournamentId &&
+                                jc.HorseId == reg.HorseId &&
+                                jc.Status == "Pending")
+                    .ToListAsync();
+
+                foreach (var contract in pendingContracts)
+                {
+                    contract.Status = "Cancelled";
+                }
+
+                cancelledList.Add(new CancelledRegistrationInfo
+                {
+                    RegistrationId = reg.RegistrationId,
+                    OwnerId = reg.Horse?.OwnerId ?? 0,
+                    HorseName = reg.Horse?.Name ?? "Unknown Horse",
+                    TournamentName = reg.Tournament?.Name ?? "Unknown Tournament",
+                    TournamentId = tournamentId
+                });
+
+                Console.WriteLine($"[SYSTEM AUTOMATION]: Registration #{reg.RegistrationId} (Horse: {reg.Horse?.Name}) cancelled - no accepted jockey contract when registration closed for Tournament #{tournamentId}.");
+            }
+        }
+
+        if (cancelledList.Count > 0)
+        {
+            await _context.SaveChangesAsync();
+        }
+
+        return cancelledList;
     }
 }
