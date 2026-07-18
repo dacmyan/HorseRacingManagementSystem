@@ -25,5 +25,5 @@ timeout /t 1 /nobreak >nul
 echo [*] San sang khoi dong...
 echo.
 
-npx concurrently -k -p "[{name}]" -n "Backend,Frontend" -c "blue.bold,green.bold" "cd backend && dotnet run --project src/HorseRacing.API -- --urls http://localhost:5005" "cd frontend && npm run dev"
+npx concurrently -k -p "[{name}]" -n "Backend,Frontend" -c "blue.bold,green.bold" "cd backend && dotnet run --project src/HorseRacing.API -- --urls http://localhost:5005" "cd /d d:\SU26_semeter5\SWP\Horse-Tournament-Management-Frontend && npm run dev"
 
