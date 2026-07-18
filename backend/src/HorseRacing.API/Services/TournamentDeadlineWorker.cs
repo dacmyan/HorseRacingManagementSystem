@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using HorseRacing.Infrastructure.Persistence;
 using HorseRacing.Application.Features.Notifications.Interfaces;
+using HorseRacing.Application.Features.TournamentAndRacing.Interfaces;
 using System;
 using System.Linq;
 using System.Threading;
@@ -78,6 +79,41 @@ namespace HorseRacing.API.Services
                                 tournament.Status = "PendingScheduling";
                                 await context.SaveChangesAsync(stoppingToken);
                                 Console.WriteLine($"[SYSTEM AUTOMATION]: Tournament {tournament.TournamentId} ({tournament.Name}) has {registeredCount} registered horses. Status updated to PendingScheduling.");
+
+                                // Auto-cancel registrations without accepted jockey
+                                var tournamentRepo = scope.ServiceProvider.GetRequiredService<ITournamentRepository>();
+                                var cancelledRegs = await tournamentRepo.CancelRegistrationsWithoutJockeyAsync(tournament.TournamentId);
+
+                                if (cancelledRegs.Count > 0)
+                                {
+                                    var notificationService = scope.ServiceProvider.GetService<INotificationService>();
+                                    if (notificationService != null)
+                                    {
+                                        // Group by owner to send one notification per owner
+                                        var ownerGroups = cancelledRegs.GroupBy(c => c.OwnerId);
+                                        foreach (var group in ownerGroups)
+                                        {
+                                            var horseNames = string.Join(", ", group.Select(c => c.HorseName));
+                                            var tournamentName = group.First().TournamentName;
+                                            try
+                                            {
+                                                await notificationService.SendNotificationToUserAsync(
+                                                    group.Key,
+                                                    "Đăng ký bị hủy tự động",
+                                                    $"Đăng ký của ngựa [{horseNames}] trong giải đấu '{tournamentName}' đã bị hủy tự động do chưa có jockey được chấp nhận khi đăng ký đóng.",
+                                                    "System",
+                                                    (int)tournament.TournamentId,
+                                                    actionUrl: "/owner/registrations"
+                                                );
+                                            }
+                                            catch (Exception ex)
+                                            {
+                                                Console.WriteLine($"[NOTIFICATION ERROR] Failed to send auto-cancel notification to owner {group.Key}: {ex.Message}");
+                                            }
+                                        }
+                                    }
+                                    Console.WriteLine($"[SYSTEM AUTOMATION]: {cancelledRegs.Count} registration(s) auto-cancelled for Tournament {tournament.TournamentId} ({tournament.Name}) due to missing jockey.");
+                                }
                             }
                             else
                             {

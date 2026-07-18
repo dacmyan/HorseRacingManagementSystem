@@ -219,6 +219,7 @@ public class TournamentService : ITournamentService
         var tournaments = await _tournamentRepository.GetAllAsync();
         
         bool anyChanged = false;
+        var closedRegistrationTournamentIds = new List<long>();
         DateTime vietnamNow = VietnamNow;
         foreach (var t in tournaments)
         {
@@ -227,6 +228,7 @@ public class TournamentService : ITournamentService
                 vietnamNow >= t.RegistrationEndDate.Value)
             {
                 t.Status = "PendingScheduling";
+                closedRegistrationTournamentIds.Add(t.TournamentId);
                 anyChanged = true;
             }
             if (t.Status == "PendingRegistration" && 
@@ -274,6 +276,43 @@ public class TournamentService : ITournamentService
             await _tournamentRepository.SaveChangesAsync();
         }
 
+        // Auto-cancel registrations without accepted jockey for tournaments that just closed registration
+        foreach (var tournamentId in closedRegistrationTournamentIds)
+        {
+            try
+            {
+                var cancelledRegs = await _tournamentRepository.CancelRegistrationsWithoutJockeyAsync(tournamentId);
+                if (cancelledRegs.Count > 0)
+                {
+                    var ownerGroups = cancelledRegs.GroupBy(c => c.OwnerId);
+                    foreach (var group in ownerGroups)
+                    {
+                        var horseNames = string.Join(", ", group.Select(c => c.HorseName));
+                        var tournamentName = group.First().TournamentName;
+                        try
+                        {
+                            await _notificationService.SendNotificationToUserAsync(
+                                group.Key,
+                                "Đăng ký bị hủy tự động",
+                                $"Đăng ký của ngựa [{horseNames}] trong giải đấu '{tournamentName}' đã bị hủy tự động do chưa có jockey được chấp nhận khi đăng ký đóng.",
+                                "System",
+                                (int)tournamentId,
+                                actionUrl: "/owner/registrations"
+                            );
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[NOTIFICATION ERROR] Failed to send auto-cancel notification to owner {group.Key}: {ex.Message}");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] Failed to cancel registrations without jockey for tournament {tournamentId}: {ex.Message}");
+            }
+        }
+
         var responses = tournaments.Select(MapToResponse).ToList();
         foreach (var r in responses)
         {
@@ -292,11 +331,13 @@ public class TournamentService : ITournamentService
 
         DateTime vietnamNow = VietnamNow;
         bool changed = false;
+        bool registrationJustClosed = false;
         if ((tournament.Status == "PendingRegistration" || tournament.Status == "Registration Open") && 
             tournament.RegistrationEndDate.HasValue && 
             vietnamNow >= tournament.RegistrationEndDate.Value)
         {
             tournament.Status = "PendingScheduling";
+            registrationJustClosed = true;
             changed = true;
         }
         if (tournament.Status == "PendingRegistration" && 
@@ -342,6 +383,43 @@ public class TournamentService : ITournamentService
         {
             _tournamentRepository.Update(tournament);
             await _tournamentRepository.SaveChangesAsync();
+        }
+
+        // Auto-cancel registrations without accepted jockey when registration just closed
+        if (registrationJustClosed)
+        {
+            try
+            {
+                var cancelledRegs = await _tournamentRepository.CancelRegistrationsWithoutJockeyAsync(id);
+                if (cancelledRegs.Count > 0)
+                {
+                    var ownerGroups = cancelledRegs.GroupBy(c => c.OwnerId);
+                    foreach (var group in ownerGroups)
+                    {
+                        var horseNames = string.Join(", ", group.Select(c => c.HorseName));
+                        var tournamentName = group.First().TournamentName;
+                        try
+                        {
+                            await _notificationService.SendNotificationToUserAsync(
+                                group.Key,
+                                "Đăng ký bị hủy tự động",
+                                $"Đăng ký của ngựa [{horseNames}] trong giải đấu '{tournamentName}' đã bị hủy tự động do chưa có jockey được chấp nhận khi đăng ký đóng.",
+                                "System",
+                                (int)id,
+                                actionUrl: "/owner/registrations"
+                            );
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[NOTIFICATION ERROR] Failed to send auto-cancel notification to owner {group.Key}: {ex.Message}");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] Failed to cancel registrations without jockey for tournament {id}: {ex.Message}");
+            }
         }
 
         var response = MapToResponse(tournament);

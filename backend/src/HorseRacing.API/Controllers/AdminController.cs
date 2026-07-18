@@ -4,10 +4,12 @@ using HorseRacing.Application.Features.FinancialRewards.DTOs;
 using HorseRacing.Application.Features.FinancialRewards.Interfaces;
 using HorseRacing.Application.Features.TournamentAndRacing.DTOs;
 using HorseRacing.Application.Features.TournamentAndRacing.Services;
+using HorseRacing.Application.Features.TournamentAndRacing.Interfaces;
 using HorseRacing.Application.Features.OfficiatingAndResults.Interfaces;
 using HorseRacing.Application.Features.OfficiatingAndResults.DTOs;
 using HorseRacing.Application.Features.ContractAndRegistration.DTOs;
 using HorseRacing.Application.Features.ContractAndRegistration.Interfaces;
+using HorseRacing.Application.Features.Notifications.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System;
@@ -300,7 +302,40 @@ public class AdminController : ControllerBase
             tournament.Status = "PendingScheduling";
             await context.SaveChangesAsync();
 
-            return Ok(new { message = "Registration closed successfully.", result = new { tournamentId = id, registrationEndDate = tournament.RegistrationEndDate } });
+            // Auto-cancel registrations without accepted jockey
+            var tournamentRepo = HttpContext.RequestServices.GetRequiredService<ITournamentRepository>();
+            var cancelledRegs = await tournamentRepo.CancelRegistrationsWithoutJockeyAsync(id);
+
+            if (cancelledRegs.Count > 0)
+            {
+                var notificationService = HttpContext.RequestServices.GetService<INotificationService>();
+                if (notificationService != null)
+                {
+                    var ownerGroups = cancelledRegs.GroupBy(c => c.OwnerId);
+                    foreach (var group in ownerGroups)
+                    {
+                        var horseNames = string.Join(", ", group.Select(c => c.HorseName));
+                        var tournamentName = group.First().TournamentName;
+                        try
+                        {
+                            await notificationService.SendNotificationToUserAsync(
+                                group.Key,
+                                "Đăng ký bị hủy tự động",
+                                $"Đăng ký của ngựa [{horseNames}] trong giải đấu '{tournamentName}' đã bị hủy tự động do chưa có jockey được chấp nhận khi đăng ký đóng.",
+                                "System",
+                                (int)id,
+                                actionUrl: "/owner/registrations"
+                            );
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[NOTIFICATION ERROR] Failed to send auto-cancel notification to owner {group.Key}: {ex.Message}");
+                        }
+                    }
+                }
+            }
+
+            return Ok(new { message = "Registration closed successfully.", cancelledRegistrations = cancelledRegs.Count, result = new { tournamentId = id, registrationEndDate = tournament.RegistrationEndDate } });
         }
         catch (Exception ex)
         {

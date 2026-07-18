@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using HorseRacing.Application.Features.TournamentAndRacing.DTOs;
 using HorseRacing.Domain.Entities.Tournaments;
 
 namespace HorseRacing.Application.Features.TournamentAndRacing.Interfaces;
@@ -32,5 +33,12 @@ public interface ITournamentRepository
     Task<bool> HasOverlappingTournamentAsync(DateTime startDate, DateTime endDate, long? excludeTournamentId = null);
     Task<bool> HasRacesMissingRefereesAsync(long tournamentId);
     Task<List<int>> GetAdminUserIdsAsync();
+
+    /// <summary>
+    /// Cancel registrations (Pending/PendingVet) that don't have an accepted/active jockey contract.
+    /// Also cancels any pending jockey contracts for those registrations.
+    /// Returns info about cancelled registrations for notification purposes.
+    /// </summary>
+    Task<List<CancelledRegistrationInfo>> CancelRegistrationsWithoutJockeyAsync(long tournamentId);
 }
 
