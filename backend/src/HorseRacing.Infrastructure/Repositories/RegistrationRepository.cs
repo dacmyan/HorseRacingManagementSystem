@@ -21,6 +21,7 @@ public class RegistrationRepository : IRegistrationRepository
     {
         return await _context.Registrations
             .Include(r => r.Horse)
+                .ThenInclude(h => h!.Owner)
             .Include(r => r.Tournament)
             .FirstOrDefaultAsync(r => r.RegistrationId == id);
     }
@@ -54,5 +55,13 @@ public class RegistrationRepository : IRegistrationRepository
     public async Task SaveChangesAsync()
     {
         await _context.SaveChangesAsync();
+    }
+
+    public async Task<List<int>> GetAdminUserIdsAsync()
+    {
+        return await _context.Users.AsNoTracking()
+            .Where(u => u.RoleId == 1)
+            .Select(u => u.UserId)
+            .ToListAsync();
     }
 }

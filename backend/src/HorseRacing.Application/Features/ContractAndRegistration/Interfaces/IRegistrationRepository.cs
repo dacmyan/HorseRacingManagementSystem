@@ -12,4 +12,5 @@ public interface IRegistrationRepository
     Task AddAsync(Registration registration);
     void Update(Registration registration);
     Task SaveChangesAsync();
+    Task<List<int>> GetAdminUserIdsAsync();
 }
