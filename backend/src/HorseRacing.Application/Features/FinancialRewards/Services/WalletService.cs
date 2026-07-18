@@ -148,6 +148,7 @@ public class WalletService : IWalletService
             WalletId = t.WalletId,
             Amount = t.Amount,
             Type = t.Type,
+            Description = t.Description,
             CreatedAt = t.CreatedAt
         });
     }

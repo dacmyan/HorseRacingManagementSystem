@@ -44,6 +44,7 @@ public class JockeyContractService : IJockeyContractService
             HorseId = (int)contract.HorseId,
             HorseName = contract.Horse?.Name ?? "Unknown Horse",
             TournamentId = contract.TournamentId,
+            TournamentName = contract.Tournament?.Name ?? "Unknown Tournament",
             OwnerId = contract.Horse?.OwnerId ?? 0,
             OwnerName = contract.Horse?.Owner?.FullName ?? "Unknown Owner",
             JockeyId = contract.JockeyId,

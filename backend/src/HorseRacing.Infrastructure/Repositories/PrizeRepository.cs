@@ -4,8 +4,19 @@ using HorseRacing.Domain.Entities;
 using HorseRacing.Domain.Entities.Financials;
 using HorseRacing.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace HorseRacing.Infrastructure.Repositories;
+
+/// <summary>Wraps an EF Core IDbContextTransaction to satisfy the application-layer IDbTransaction.</summary>
+internal sealed class EfDbTransaction : IDbTransaction
+{
+    private readonly IDbContextTransaction _inner;
+    public EfDbTransaction(IDbContextTransaction inner) => _inner = inner;
+    public ValueTask DisposeAsync() => _inner.DisposeAsync();
+    public Task CommitAsync() => _inner.CommitAsync();
+    public Task RollbackAsync() => _inner.RollbackAsync();
+}
 
 public class PrizeRepository : IPrizeRepository
 {
@@ -35,5 +46,11 @@ public class PrizeRepository : IPrizeRepository
     public async Task SaveChangesAsync()
     {
         await _context.SaveChangesAsync();
+    }
+
+    public async Task<IDbTransaction> BeginTransactionAsync()
+    {
+        var tx = await _context.Database.BeginTransactionAsync();
+        return new EfDbTransaction(tx);
     }
 }

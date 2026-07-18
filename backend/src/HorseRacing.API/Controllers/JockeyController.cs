@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 using HorseRacing.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
+using HorseRacing.API.Filters;
 
 namespace HorseRacing.API.Controllers;
 
@@ -49,6 +50,7 @@ public class JockeyController : ControllerBase
     }
 
     [HttpPut("contracts/{id}/respond")]
+    [BlockLockedUser]
     public async Task<IActionResult> RespondToContract(int id, [FromBody] RespondToContractRequest request)
     {
         try
