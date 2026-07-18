@@ -111,13 +111,13 @@ public class MedicalCheckService : IMedicalCheckService
         if (string.Equals(request.MedicalResult, "Pass", StringComparison.OrdinalIgnoreCase))
             ValidatePassEligibility(request.Temperature, request.HeartRate, request.Weight, request.DopingResult);
 
-        // Business Validation: Registration must exist and be Approved.
+        // Business Validation: Registration must exist and be PendingVet.
         var registration = await _registrationRepository.GetByIdAsync(request.RegistrationId);
         if (registration == null)
             throw new ArgumentException($"Registration with ID {request.RegistrationId} does not exist.");
 
-        if (!string.Equals(registration.Status, "Approved", StringComparison.OrdinalIgnoreCase))
-            throw new ArgumentException("Registration must be approved before an initial medical check can be performed.");
+        if (!string.Equals(registration.Status, "PendingVet", StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("Registration must be pending medical check before an initial medical check can be performed.");
 
         // For Initial checks: only one Initial check allowed per Registration
         if (request.CheckType == "Initial")
@@ -149,8 +149,34 @@ public class MedicalCheckService : IMedicalCheckService
                 : "Healthy";
         }
 
+        if (registration != null)
+        {
+            registration.Status = request.MedicalResult == "Pass" ? "Pending" : "Rejected";
+        }
+
         await _repository.AddAsync(record);
         await _repository.SaveChangesAsync();
+
+        if (registration?.Horse != null)
+        {
+            var ownerId = registration.Horse.OwnerId;
+            var horseName = registration.Horse.Name;
+            var tournamentName = registration.Tournament?.Name ?? "Giải đấu";
+            if (request.MedicalResult == "Fail")
+            {
+                var failTitle = "Khám sức khỏe không đạt";
+                var failContent = $"Ngựa {horseName} của bạn không đạt yêu cầu khám sức khỏe cho giải đấu {tournamentName} vì lý do: {request.FailReason}.";
+                await _notificationService.SendNotificationToUserAsync(
+                    ownerId, failTitle, failContent, "MedicalCheck", (int?)registration.RegistrationId, null, "/owner/registrations");
+            }
+            else
+            {
+                var passTitle = "Khám sức khỏe đạt (Pass)";
+                var passContent = $"Ngựa {horseName} của bạn đã đạt (pass) yêu cầu khám sức khỏe cho giải đấu {tournamentName}.";
+                await _notificationService.SendNotificationToUserAsync(
+                    ownerId, passTitle, passContent, "MedicalCheck", (int?)registration.RegistrationId, null, "/owner/registrations");
+            }
+        }
 
         var populated = await _repository.GetByIdAsync(record.Id);
         return Map(populated ?? record);

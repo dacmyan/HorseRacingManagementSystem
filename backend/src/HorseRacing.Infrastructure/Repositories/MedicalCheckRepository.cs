@@ -68,7 +68,7 @@ public class MedicalCheckRepository : IMedicalCheckRepository
             .Include(r => r.Horse)
                 .ThenInclude(h => h!.Owner)
             .Include(r => r.Tournament)
-            .Where(r => r.Status == "Approved" && !initialCheckedRegIds.Contains(r.RegistrationId))
+            .Where(r => r.Status == "PendingVet" && !initialCheckedRegIds.Contains(r.RegistrationId))
             .OrderByDescending(r => r.RegisteredAt)
             .ToListAsync();
     }

@@ -24,6 +24,7 @@ public class JockeyContractServiceTests
     private readonly Mock<IUserRepository> _userRepoMock;
     private readonly Mock<INotificationService> _notificationMock;
     private readonly Mock<ITournamentRepository> _tournamentRepoMock;
+    private readonly Mock<IRegistrationRepository> _registrationRepoMock;
     private readonly JockeyContractService _service;
 
     public JockeyContractServiceTests()
@@ -33,13 +34,15 @@ public class JockeyContractServiceTests
         _userRepoMock = new Mock<IUserRepository>();
         _notificationMock = new Mock<INotificationService>();
         _tournamentRepoMock = new Mock<ITournamentRepository>();
+        _registrationRepoMock = new Mock<IRegistrationRepository>();
 
         _service = new JockeyContractService(
             _contractRepoMock.Object,
             _horseRepoMock.Object,
             _userRepoMock.Object,
             _notificationMock.Object,
-            _tournamentRepoMock.Object
+            _tournamentRepoMock.Object,
+            _registrationRepoMock.Object
         );
     }
 
