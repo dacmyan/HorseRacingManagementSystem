@@ -68,6 +68,8 @@ public class TournamentService : ITournamentService
             throw new ArgumentException("The tournament duration overlaps with another existing tournament.");
         }
 
+        await ValidateRegistrationGapAsync(request.RegistrationStartDate, request.EndDate);
+
         var tournament = new Tournament
         {
             Name = request.Name,
@@ -177,6 +179,8 @@ public class TournamentService : ITournamentService
         {
             throw new ArgumentException("The tournament duration overlaps with another ongoing tournament.");
         }
+
+        await ValidateRegistrationGapAsync(request.RegistrationStartDate, request.EndDate, id);
 
         tournament.Name = request.Name;
         tournament.Description = request.Description ?? string.Empty;
@@ -928,5 +932,41 @@ public class TournamentService : ITournamentService
             MaxLanes = finalRace.MaxLanes,
             Status = finalRace.Status
         };
+    }
+
+    private async Task ValidateRegistrationGapAsync(DateTime registrationStartDate, DateTime endDate, long? excludeTournamentId = null)
+    {
+        var tournaments = await _tournamentRepository.GetAllAsync();
+        foreach (var t in tournaments)
+        {
+            if (t.Status == "Completed" || !t.StartDate.HasValue || !t.EndDate.HasValue || !t.RegistrationStartDate.HasValue)
+            {
+                continue;
+            }
+
+            if (excludeTournamentId.HasValue && t.TournamentId == excludeTournamentId.Value)
+            {
+                continue;
+            }
+
+            // Case 1: New tournament B is after existing tournament T
+            if (registrationStartDate.Date >= t.StartDate.Value.Date)
+            {
+                var minAllowedDate = t.EndDate.Value.Date.AddDays(2);
+                if (registrationStartDate.Date < minAllowedDate)
+                {
+                    throw new ArgumentException($"Thời gian mở đăng ký ({registrationStartDate:dd/MM/yyyy}) phải cách ngày kết thúc của giải đấu '{t.Name}' ({t.EndDate.Value:dd/MM/yyyy}) ít nhất 1 ngày trống (chỉ có thể mở đăng ký từ ngày {minAllowedDate:dd/MM/yyyy}).");
+                }
+            }
+            // Case 2: New tournament B is before existing tournament T
+            else
+            {
+                var minAllowedExistingDate = endDate.Date.AddDays(2);
+                if (t.RegistrationStartDate.Value.Date < minAllowedExistingDate)
+                {
+                    throw new ArgumentException($"Giải đấu mới kết thúc vào ngày {endDate:dd/MM/yyyy}, trong khi giải đấu '{t.Name}' đã cấu hình mở đăng ký vào ngày {t.RegistrationStartDate.Value:dd/MM/yyyy}. Khoảng cách mở đăng ký của giải '{t.Name}' phải cách ngày kết thúc giải mới ít nhất 1 ngày trống (chỉ có thể mở từ ngày {minAllowedExistingDate:dd/MM/yyyy}).");
+                }
+            }
+        }
     }
 }
