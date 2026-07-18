@@ -55,6 +55,7 @@ public class JockeyContractService : IJockeyContractService
             StartDate = contract.StartDate,
             EndDate = contract.EndDate,
             Status = contract.Status,
+            TournamentName = contract.Tournament?.Name ?? "Unknown Tournament",
             InvitationExpiredAt = contract.InvitationExpiredAt,
             CreatedAt = contract.CreatedAt
         };

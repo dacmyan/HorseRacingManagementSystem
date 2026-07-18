@@ -305,9 +305,12 @@ private readonly IRaceResultService _resultService;
             var tournaments = await _tournamentService.GetAllTournamentsAsync();
             
             var role = User.FindFirst(ClaimTypes.Role)?.Value;
-            bool isAdmin = string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase);
+            bool isAllowed = string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(role, "Referee", StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(role, "HorseOwner", StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(role, "Spectator", StringComparison.OrdinalIgnoreCase);
 
-            if (!isAdmin)
+            if (!isAllowed)
             {
                 var now = VietnamNow;
                 tournaments = tournaments.Where(t => 
@@ -391,8 +394,12 @@ private readonly IRaceResultService _resultService;
             }
 
             var role = User.FindFirst(ClaimTypes.Role)?.Value;
-            bool isAdmin = string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase);
-            if (!isAdmin && 
+            bool isAllowed = string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(role, "Referee", StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(role, "HorseOwner", StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(role, "Spectator", StringComparison.OrdinalIgnoreCase);
+
+            if (!isAllowed && 
                 (!tournament.RegistrationStartDate.HasValue || tournament.RegistrationStartDate.Value > VietnamNow) && 
                 (!tournament.StartDate.HasValue || tournament.StartDate.Value > VietnamNow))
             {

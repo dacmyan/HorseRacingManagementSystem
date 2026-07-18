@@ -14,6 +14,7 @@ namespace HorseRacing.API.Services
     public class TournamentDeadlineWorker : BackgroundService
     {
         private readonly IServiceProvider _serviceProvider;
+        private static DateTime VietnamNow => TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
 
         public TournamentDeadlineWorker(IServiceProvider serviceProvider)
         {
@@ -29,9 +30,40 @@ namespace HorseRacing.API.Services
                     using (var scope = _serviceProvider.CreateScope())
                     {
                         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                        var now = DateTime.UtcNow;
+                        var now = VietnamNow;
+                        var notificationService = scope.ServiceProvider.GetService<INotificationService>();
 
-                        // Quét các giải đấu đã hết hạn đăng ký nhưng ở trạng thái "PendingRegistration"
+                        // 1. Quét các giải đấu cần chuyển sang trạng thái "Registration Open"
+                        var pendingOpenTournaments = await context.Tournaments
+                            .Where(t => t.Status == "PendingRegistration" && t.RegistrationStartDate != null && now >= t.RegistrationStartDate)
+                            .ToListAsync(stoppingToken);
+
+                        foreach (var tournament in pendingOpenTournaments)
+                        {
+                            tournament.Status = "Registration Open";
+                            await context.SaveChangesAsync(stoppingToken);
+                            Console.WriteLine($"[SYSTEM AUTOMATION]: Tournament {tournament.TournamentId} ({tournament.Name}) is now open for registration. Status updated to Registration Open.");
+
+                            if (notificationService != null)
+                            {
+                                try
+                                {
+                                    await notificationService.BroadcastNotificationAsync(
+                                        "New Tournament Open for Registration",
+                                        $"Tournament '{tournament.Name}' starting on {tournament.StartDate:dd/MM/yyyy} is now open for registration.",
+                                        "Tournament",
+                                        referenceId: (int)tournament.TournamentId,
+                                        actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
+                                    );
+                                }
+                                catch (Exception ex)
+                                {
+                                    Console.WriteLine($"[NOTIFICATION ERROR] Failed to broadcast tournament open: {ex.Message}");
+                                }
+                            }
+                        }
+
+                        // 2. Quét các giải đấu đã hết hạn đăng ký nhưng ở trạng thái "PendingRegistration" hoặc "Registration Open"
                         var expiredTournaments = await context.Tournaments
                             .Where(t => t.RegistrationEndDate != null && now > t.RegistrationEndDate && (t.Status == "PendingRegistration" || t.Status == "Registration Open"))
                             .ToListAsync(stoppingToken);
@@ -113,7 +145,6 @@ namespace HorseRacing.API.Services
                                         .Distinct()
                                         .ToListAsync(stoppingToken);
 
-                                    var notificationService = scope.ServiceProvider.GetService<INotificationService>();
                                     if (notificationService != null)
                                     {
                                         foreach (var ownerId in owners)
@@ -144,8 +175,8 @@ namespace HorseRacing.API.Services
                     Console.WriteLine($"[ERROR] Error in TournamentDeadlineWorker: {ex.Message}");
                 }
 
-                // Quét định kỳ mỗi giờ
-                await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
+                // Quét định kỳ mỗi phút
+                await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
             }
         }
     }

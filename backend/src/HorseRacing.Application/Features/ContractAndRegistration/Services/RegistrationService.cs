@@ -86,6 +86,18 @@ public class RegistrationService : IRegistrationService
         var existing = await _registrationRepository.GetByHorseIdAndTournamentIdAsync(request.HorseId, request.TournamentId);
         if (existing != null)
         {
+            if (existing.Status.Equals("Rejected", StringComparison.OrdinalIgnoreCase))
+            {
+                // Re-register: Update existing registration status back to Pending and update timestamp
+                existing.Status = "Pending";
+                existing.RegisteredAt = DateTime.UtcNow;
+                
+                await _registrationRepository.SaveChangesAsync();
+                
+                var populatedOld = await _registrationRepository.GetByIdAsync(existing.RegistrationId);
+                return MapToResponse(populatedOld ?? existing);
+            }
+
             throw new InvalidOperationException($"Horse '{horse.Name}' is already registered for this tournament.");
         }
 
