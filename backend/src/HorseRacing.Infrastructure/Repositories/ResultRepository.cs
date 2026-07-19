@@ -97,18 +97,19 @@ public class ResultRepository : IResultRepository
 
         if (horseEntries.Count > 0)
         {
-            var avgTime = horseEntries.Average(re => re.FinishTime!.Value);
-            var recentAvgTime = horseEntries
+            var avgSpeed = horseEntries.Average(re => (decimal)re.Race!.DistanceMeter / re.FinishTime!.Value);
+            var recentAvgSpeed = horseEntries
                 .OrderByDescending(re => re.Race!.RaceDate)
                 .Take(3)
-                .Average(re => re.FinishTime!.Value);
+                .Average(re => (decimal)re.Race!.DistanceMeter / re.FinishTime!.Value);
 
             var totalRaces = horseEntries.Count;
             var totalWins = horseEntries.Count(re => re.FinishPosition == 1);
-            var winRate = (decimal)totalWins / totalRaces;
+            // Smoothed win rate: TotalWins / (TotalRaces + 5)
+            var winRate = (decimal)totalWins / (totalRaces + 5);
 
-            horseObj.AverageTime = Math.Round(avgTime, 2);
-            horseObj.RecentAverageTime = Math.Round(recentAvgTime, 2);
+            horseObj.AverageTime = Math.Round(avgSpeed, 2);
+            horseObj.RecentAverageTime = Math.Round(recentAvgSpeed, 2);
             horseObj.WinRate = Math.Round(winRate, 2);
         }
     }

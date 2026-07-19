@@ -71,3 +71,7 @@ packages/
 *.bak
 *.db
 **/appsettings.Development.json
+
+# Workspace Specific Ignores
+frontend/
+.agents/

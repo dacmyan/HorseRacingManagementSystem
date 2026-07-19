@@ -608,29 +608,48 @@ public class DemoDataSeeder
                 _context.RaceEntries.AddRange(t2Entries);
                 await _context.SaveChangesAsync();
 
-                // Calculate Odds using bookmaker algorithm
-                var t2Scores = new List<(RaceEntry entry, decimal score)>();
+                // Calculate Odds using new normalized weight formula
+                var t2Scores = new List<(RaceEntry entry, decimal speed, decimal jockey, decimal winRate)>();
                 foreach (var entry in t2Entries)
                 {
                     var horse = customHorses.First(h => h.HorseId == _context.Registrations.First(r => r.RegistrationId == entry.RegistrationId).HorseId);
-                    var avg = horse.AverageTime ?? 70m;
-                    var rec = horse.RecentAverageTime ?? avg;
-                    var win = horse.WinRate ?? 0.05m;
-                    if (win > 1) win /= 100m;
+                    
+                    var avgSpeed = horse.AverageTime ?? 15.0m;
+                    if (avgSpeed <= 0) avgSpeed = 15.0m;
 
-                    var avgScore = Math.Max(1m, 100m - (avg - 60m) * 5m);
-                    var recScore = Math.Max(1m, 100m - (rec - 60m) * 5m);
-                    var winScore = win * 100m;
+                    var recentAvgSpeed = horse.RecentAverageTime ?? avgSpeed;
+                    if (recentAvgSpeed <= 0) recentAvgSpeed = avgSpeed;
 
-                    var score = avgScore * 0.4m + recScore * 0.4m + winScore * 0.2m;
-                    t2Scores.Add((entry, score));
+                    var combinedSpeed = 0.5m * avgSpeed + 0.5m * recentAvgSpeed;
+
+                    var jockeyProfile = await _context.JockeyProfiles.FirstOrDefaultAsync(jp => jp.JockeyId == entry.JockeyId);
+                    var jockeyRank = jockeyProfile != null ? jockeyProfile.RankingPoint : 100;
+                    if (jockeyRank <= 0) jockeyRank = 100;
+
+                    var winRate = horse.WinRate ?? 0.05m;
+                    if (winRate <= 0) winRate = 0.05m;
+                    if (winRate > 1) winRate /= 100m;
+
+                    t2Scores.Add((entry, combinedSpeed, (decimal)jockeyRank, winRate));
                 }
-                var t2TotalScore = t2Scores.Sum(x => x.score);
+
+                var t2TotalSpeed = t2Scores.Sum(x => x.speed);
+                var t2TotalJockey = t2Scores.Sum(x => x.jockey);
+                var t2TotalWin = t2Scores.Sum(x => x.winRate);
+
                 foreach (var item in t2Scores)
                 {
-                    var prob = item.score / t2TotalScore;
-                    item.entry.WinningProbability = Math.Round(prob * 100m, 2);
-                    item.entry.CurrentOdds = Math.Round(Math.Max((1m / prob) * 0.9m, 1.05m), 2);
+                    var relSpeed = t2TotalSpeed > 0 ? item.speed / t2TotalSpeed : 1.0m / t2Scores.Count;
+                    var relJockey = t2TotalJockey > 0 ? item.jockey / t2TotalJockey : 1.0m / t2Scores.Count;
+                    var relWin = t2TotalWin > 0 ? item.winRate / t2TotalWin : 1.0m / t2Scores.Count;
+
+                    var winProb = 0.5m * relSpeed + 0.3m * relJockey + 0.2m * relWin;
+                    var winPct = winProb * 100m;
+                    var odds = winProb > 0 ? 1.0m / winProb : 1.0m / (1.0m / t2Scores.Count);
+                    var finalOdds = Math.Max(odds * 0.9m, 1.05m);
+
+                    item.entry.WinningProbability = Math.Round(winPct, 2);
+                    item.entry.CurrentOdds = Math.Round(finalOdds, 2);
                 }
                 await _context.SaveChangesAsync();
 
@@ -938,17 +957,18 @@ public class DemoDataSeeder
                 
                 if (entries.Any())
                 {
-                    var avg = entries.Average(re => re.FinishTime!.Value);
-                    var recent = entries
+                    var avgSpeed = entries.Average(re => (decimal)re.Race!.DistanceMeter / re.FinishTime!.Value);
+                    var recentAvgSpeed = entries
                         .OrderByDescending(re => re.Race!.RaceDate)
                         .Take(3)
-                        .Average(re => re.FinishTime!.Value);
+                        .Average(re => (decimal)re.Race!.DistanceMeter / re.FinishTime!.Value);
+
                     var total = entries.Count;
                     var wins = entries.Count(re => re.FinishPosition == 1);
-                    var winRate = (decimal)wins / total;
+                    var winRate = (decimal)wins / (total + 5);
 
-                    h.AverageTime = Math.Round(avg, 2);
-                    h.RecentAverageTime = Math.Round(recent, 2);
+                    h.AverageTime = Math.Round(avgSpeed, 2);
+                    h.RecentAverageTime = Math.Round(recentAvgSpeed, 2);
                     h.WinRate = Math.Round(winRate, 2);
                 }
             }
@@ -961,31 +981,52 @@ public class DemoDataSeeder
                 var rObj = await _context.Races.Include(r => r.Round).FirstOrDefaultAsync(r => r.Name == rName);
                 if (rObj != null)
                 {
-                    var entries = await _context.RaceEntries.Include(re => re.Registration).ThenInclude(reg => reg.Horse).Where(re => re.RaceId == rObj.RaceId).ToListAsync();
+                    var entries = await _context.RaceEntries
+                        .Include(re => re.Registration).ThenInclude(reg => reg.Horse)
+                        .Include(re => re.JockeyProfile)
+                        .Where(re => re.RaceId == rObj.RaceId)
+                        .ToListAsync();
                     if (entries.Any())
                     {
-                        var scores = new List<(RaceEntry entry, decimal score)>();
+                        var scores = new List<(RaceEntry entry, decimal speed, decimal jockey, decimal winRate)>();
                         foreach (var entry in entries)
                         {
                             var horse = entry.Registration?.Horse;
-                            var avg = horse?.AverageTime ?? 70m;
-                            var rec = horse?.RecentAverageTime ?? avg;
-                            var win = horse?.WinRate ?? 0.05m;
-                            if (win > 1) win /= 100m;
+                            var avgSpeed = horse?.AverageTime ?? 15.0m;
+                            if (avgSpeed <= 0) avgSpeed = 15.0m;
 
-                            var avgScore = Math.Max(1m, 100m - (avg - 60m) * 5m);
-                            var recScore = Math.Max(1m, 100m - (rec - 60m) * 5m);
-                            var winScore = win * 100m;
+                            var recentAvgSpeed = horse?.RecentAverageTime ?? avgSpeed;
+                            if (recentAvgSpeed <= 0) recentAvgSpeed = avgSpeed;
 
-                            var score = avgScore * 0.4m + recScore * 0.4m + winScore * 0.2m;
-                            scores.Add((entry, score));
+                            var combinedSpeed = 0.5m * avgSpeed + 0.5m * recentAvgSpeed;
+
+                            var jockeyRank = entry.JockeyProfile != null ? entry.JockeyProfile.RankingPoint : 100;
+                            if (jockeyRank <= 0) jockeyRank = 100;
+
+                            var winRate = horse?.WinRate ?? 0.05m;
+                            if (winRate <= 0) winRate = 0.05m;
+                            if (winRate > 1) winRate /= 100m;
+
+                            scores.Add((entry, combinedSpeed, (decimal)jockeyRank, winRate));
                         }
-                        var totScore = scores.Sum(x => x.score);
+
+                        var totSpeed = scores.Sum(x => x.speed);
+                        var totJockey = scores.Sum(x => x.jockey);
+                        var totWin = scores.Sum(x => x.winRate);
+
                         foreach (var item in scores)
                         {
-                            var prob = item.score / totScore;
-                            item.entry.WinningProbability = Math.Round(prob * 100m, 2);
-                            item.entry.CurrentOdds = Math.Round(Math.Max((1m / prob) * 0.9m, 1.05m), 2);
+                            var relSpeed = totSpeed > 0 ? item.speed / totSpeed : 1.0m / scores.Count;
+                            var relJockey = totJockey > 0 ? item.jockey / totJockey : 1.0m / scores.Count;
+                            var relWin = totWin > 0 ? item.winRate / totWin : 1.0m / scores.Count;
+
+                            var winProb = 0.5m * relSpeed + 0.3m * relJockey + 0.2m * relWin;
+                            var winPct = winProb * 100m;
+                            var odds = winProb > 0 ? 1.0m / winProb : 1.0m / (1.0m / scores.Count);
+                            var finalOdds = Math.Max(odds * 0.9m, 1.05m);
+
+                            item.entry.WinningProbability = Math.Round(winPct, 2);
+                            item.entry.CurrentOdds = Math.Round(finalOdds, 2);
                         }
                         await _context.SaveChangesAsync();
                     }
