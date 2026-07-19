@@ -66,8 +66,8 @@ public class TournamentServiceTests
         {
             Name = "Summer Cup",
             Description = "This is a great tournament.",
-            StartDate = DateTime.UtcNow.AddDays(1),
-            EndDate = DateTime.UtcNow.AddDays(3),
+            StartDate = DateTime.UtcNow.AddDays(3),
+            EndDate = DateTime.UtcNow.AddDays(5),
             RegistrationStartDate = DateTime.UtcNow,
             RegistrationEndDate = DateTime.UtcNow.AddHours(12)
         };
@@ -268,16 +268,26 @@ public class TournamentServiceTests
     public async Task CreateTournamentAsync_ShouldThrowArgumentException_WhenOverlappingTournamentExists()
     {
         // Arrange
-        _tournamentRepoMock.Setup(r => r.HasOverlappingTournamentAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<long?>()))
-            .ReturnsAsync(true);
+        _tournamentRepoMock.Setup(r => r.GetAllAsync())
+            .ReturnsAsync(new List<Tournament>
+            {
+                new Tournament
+                {
+                    TournamentId = 10,
+                    Name = "Overlapping Tournament",
+                    StartDate = DateTime.UtcNow.AddDays(3),
+                    EndDate = DateTime.UtcNow.AddDays(5),
+                    Status = "Active"
+                }
+            });
 
         var request = new CreateTournamentRequest
         {
             Name = "Overlapping Cup",
             RegistrationStartDate = DateTime.UtcNow,
             RegistrationEndDate = DateTime.UtcNow.AddHours(12),
-            StartDate = DateTime.UtcNow.AddDays(1),
-            EndDate = DateTime.UtcNow.AddDays(3)
+            StartDate = DateTime.UtcNow.AddDays(3),
+            EndDate = DateTime.UtcNow.AddDays(5)
         };
 
         // Act
@@ -285,7 +295,7 @@ public class TournamentServiceTests
 
         // Assert
         await act.Should().ThrowAsync<ArgumentException>()
-            .WithMessage("The tournament duration overlaps with another existing tournament.");
+            .WithMessage("*must be at least 1 day apart*");
     }
 
     [Fact]
@@ -295,16 +305,26 @@ public class TournamentServiceTests
         var tournament = BuildTournament();
         _tournamentRepoMock.Setup(r => r.GetByIdWithRoundsAsync(tournament.TournamentId))
             .ReturnsAsync(tournament);
-        _tournamentRepoMock.Setup(r => r.HasOverlappingTournamentAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<long?>()))
-            .ReturnsAsync(true);
+        _tournamentRepoMock.Setup(r => r.GetAllAsync())
+            .ReturnsAsync(new List<Tournament>
+            {
+                new Tournament
+                {
+                    TournamentId = 10,
+                    Name = "Overlapping Tournament",
+                    StartDate = DateTime.UtcNow.AddDays(3),
+                    EndDate = DateTime.UtcNow.AddDays(5),
+                    Status = "Active"
+                }
+            });
 
         var request = new UpdateTournamentRequest
         {
             Name = "Summer Cup Updated",
             RegistrationStartDate = tournament.RegistrationStartDate ?? DateTime.UtcNow,
             RegistrationEndDate = tournament.RegistrationEndDate ?? DateTime.UtcNow.AddHours(12),
-            StartDate = DateTime.UtcNow.AddDays(1),
-            EndDate = DateTime.UtcNow.AddDays(3)
+            StartDate = DateTime.UtcNow.AddDays(3),
+            EndDate = DateTime.UtcNow.AddDays(5)
         };
 
         // Act
@@ -312,7 +332,7 @@ public class TournamentServiceTests
 
         // Assert
         await act.Should().ThrowAsync<ArgumentException>()
-            .WithMessage("The tournament duration overlaps with another ongoing tournament.");
+            .WithMessage("*must be at least 1 day apart*");
     }
 
     private static Tournament BuildTournament()
