@@ -171,6 +171,29 @@ public class DataSeeder
                 var horseName = $"Owner3-Horse{i}";
                 if (!await _context.Horses.AnyAsync(h => h.Name == horseName))
                 {
+                    decimal avgSpeed = 14.50m;
+                    decimal recentSpeed = 14.50m;
+                    decimal winRate = 0.20m;
+
+                    if (i == 1) // Very strong horse
+                    {
+                        avgSpeed = 17.50m;
+                        recentSpeed = 18.00m;
+                        winRate = 0.80m;
+                    }
+                    else if (i == 2) // Very slow horse
+                    {
+                        avgSpeed = 11.50m;
+                        recentSpeed = 11.00m;
+                        winRate = 0.05m;
+                    }
+                    else if (i == 3) // Above average
+                    {
+                        avgSpeed = 15.80m;
+                        recentSpeed = 16.00m;
+                        winRate = 0.40m;
+                    }
+
                     var horse = new Horse
                     {
                         Name = horseName,
@@ -179,9 +202,9 @@ public class DataSeeder
                         Breed = "Thoroughbred",
                         HealthStatus = "Healthy",
                         OwnerId = owner3User.UserId,
-                        AverageTime = 68.00m,
-                        RecentAverageTime = 68.00m,
-                        WinRate = 0.50m
+                        AverageTime = avgSpeed,
+                        RecentAverageTime = recentSpeed,
+                        WinRate = winRate
                     };
                     _context.Horses.Add(horse);
                     await _context.SaveChangesAsync();
@@ -197,7 +220,7 @@ public class DataSeeder
                         UpdatedAt = DateTime.UtcNow
                     });
                     await _context.SaveChangesAsync();
-                    _logger.LogInformation($"Test Horse '{horseName}' seeded successfully.");
+                    _logger.LogInformation($"Test Horse '{horseName}' (Speed: {avgSpeed} m/s) seeded successfully.");
                 }
             }
 
@@ -890,18 +913,62 @@ public class DataSeeder
                                 RegistrationId = reg.RegistrationId,
                                 JockeyId = jockeyId,
                                 LaneNo = lane++,
-                                Status = "Confirmed",
-                                WinningProbability = 0.5m,
-                                CurrentOdds = 2.0m
+                                Status = "Confirmed"
                             });
                         }
                         _context.RaceEntries.AddRange(entries);
+                        await _context.SaveChangesAsync();
+
+                        // Now calculate the odds for finalRace entries using the new formula
+                        var scores = new List<(RaceEntry entry, decimal speed, decimal jockey, decimal winRate)>();
+                        foreach (var entry in entries)
+                        {
+                            var reg = approvedRegistrations.First(r => r.RegistrationId == entry.RegistrationId);
+                            var horse = await _context.Horses.FindAsync(reg.HorseId);
+                            
+                            var avgSpeed = horse?.AverageTime ?? 15.0m;
+                            if (avgSpeed <= 0) avgSpeed = 15.0m;
+
+                            var recentAvgSpeed = horse?.RecentAverageTime ?? avgSpeed;
+                            if (recentAvgSpeed <= 0) recentAvgSpeed = avgSpeed;
+
+                            var combinedSpeed = 0.5m * avgSpeed + 0.5m * recentAvgSpeed;
+
+                            var jockeyProfile = entry.JockeyId.HasValue ? await _context.JockeyProfiles.FirstOrDefaultAsync(jp => jp.JockeyId == entry.JockeyId.Value) : null;
+                            var jockeyRank = jockeyProfile != null ? jockeyProfile.RankingPoint : 100;
+                            if (jockeyRank <= 0) jockeyRank = 100;
+
+                            var winRate = horse?.WinRate ?? 0.05m;
+                            if (winRate <= 0) winRate = 0.05m;
+                            if (winRate > 1) winRate /= 100m;
+
+                            scores.Add((entry, combinedSpeed, (decimal)jockeyRank, winRate));
+                        }
+
+                        var totSpeed = scores.Sum(x => x.speed);
+                        var totJockey = scores.Sum(x => x.jockey);
+                        var totWin = scores.Sum(x => x.winRate);
+
+                        foreach (var item in scores)
+                        {
+                            var relSpeed = totSpeed > 0 ? item.speed / totSpeed : 1.0m / scores.Count;
+                            var relJockey = totJockey > 0 ? item.jockey / totJockey : 1.0m / scores.Count;
+                            var relWin = totWin > 0 ? item.winRate / totWin : 1.0m / scores.Count;
+
+                            var winProb = 0.5m * relSpeed + 0.3m * relJockey + 0.2m * relWin;
+                            var winPct = winProb * 100m;
+                            var odds = winProb > 0 ? 1.0m / winProb : 1.0m / (1.0m / scores.Count);
+                            var finalOdds = Math.Max(odds * 0.9m, 1.05m);
+
+                            item.entry.WinningProbability = Math.Round(winPct, 2);
+                            item.entry.CurrentOdds = Math.Round(finalOdds, 2);
+                        }
                         
                         t.Status = "Active";
                         _context.Tournaments.Update(t);
                         
                         await _context.SaveChangesAsync();
-                        _logger.LogInformation($"Auto-generated rounds, races, and entries for '{t.Name}' successfully.");
+                        _logger.LogInformation($"Auto-generated rounds, races, and entries (with calculated odds) for '{t.Name}' successfully.");
                     }
                 }
             }

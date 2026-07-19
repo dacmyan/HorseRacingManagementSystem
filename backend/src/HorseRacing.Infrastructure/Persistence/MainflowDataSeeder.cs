@@ -54,6 +54,9 @@ public class MainflowDataSeeder
                 _logger.LogInformation($"Tournament '{dacTour3Name}' seeded successfully in MainflowDataSeeder.");
             }
 
+            var vetUser = await _context.Users.FirstOrDefaultAsync(u => u.Username == "vet");
+            var vetUserId = vetUser?.UserId ?? 1;
+
             for (int i = 1; i <= 12; i++)
             {
                 var horseName = $"Owner3-Horse{i}";
@@ -104,6 +107,27 @@ public class MainflowDataSeeder
                         _context.Registrations.Add(registration);
                         await _context.SaveChangesAsync();
                         _logger.LogInformation($"Registration for horse '{horseName}' in '{dacTour3Name}' seeded successfully.");
+                    }
+
+                    // 4. Seed MedicalCheckRecord for the registration if not exists
+                    var medicalCheck = await _context.MedicalCheckRecords.FirstOrDefaultAsync(mc => mc.RegistrationId == registration.RegistrationId);
+                    if (medicalCheck == null)
+                    {
+                        medicalCheck = new MedicalCheckRecord
+                        {
+                            RegistrationId = registration.RegistrationId,
+                            UserId = vetUserId,
+                            CheckType = "Initial",
+                            Weight = 450.0m,
+                            Temperature = 37.5m,
+                            HeartRate = 35,
+                            DopingResult = "Negative",
+                            MedicalResult = "Pass",
+                            CheckedAt = DateTime.UtcNow
+                        };
+                        _context.MedicalCheckRecords.Add(medicalCheck);
+                        await _context.SaveChangesAsync();
+                        _logger.LogInformation($"MedicalCheckRecord (Pass) for horse '{horseName}' seeded successfully.");
                     }
                 }
             }

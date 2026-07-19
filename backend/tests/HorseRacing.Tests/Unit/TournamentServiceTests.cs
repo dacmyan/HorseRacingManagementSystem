@@ -39,6 +39,12 @@ public class TournamentServiceTests
                 }).ToList()
             );
 
+        _tournamentRepoMock.Setup(r => r.GetAllAsync())
+            .ReturnsAsync(new List<Tournament>());
+
+        _tournamentRepoMock.Setup(r => r.GetRacesByRoundIdAsync(It.IsAny<long>()))
+            .ReturnsAsync(new List<Race>());
+
         _service = new TournamentService(_tournamentRepoMock.Object, _notificationMock.Object, _bettingServiceMock.Object);
     }
 
