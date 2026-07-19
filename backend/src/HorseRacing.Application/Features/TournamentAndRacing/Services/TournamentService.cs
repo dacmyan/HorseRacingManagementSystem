@@ -40,35 +40,11 @@ public class TournamentService : ITournamentService
             throw new ArgumentException("Tournament name cannot be empty.", nameof(request.Name));
         }
 
-        var comparisonTime = request.RegistrationStartDate.Kind == DateTimeKind.Utc
-            ? DateTime.UtcNow
-            : TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
-        if (request.RegistrationStartDate < comparisonTime.AddMinutes(-5))
-        {
-            throw new ArgumentException("Thời gian bắt đầu đăng ký không thể ở quá khứ.");
-        }
-
-        if (request.RegistrationEndDate <= request.RegistrationStartDate)
-        {
-            throw new ArgumentException("Registration end date must be after registration start date.");
-        }
-
-        if (request.StartDate < request.RegistrationEndDate)
-        {
-            throw new ArgumentException("Tournament start date must be on or after registration end date.");
-        }
-
-        if (request.EndDate <= request.StartDate)
-        {
-            throw new ArgumentException("End date must be after start date.", nameof(request.EndDate));
-        }
-
-        if (await _tournamentRepository.HasOverlappingTournamentAsync(request.StartDate, request.EndDate))
-        {
-            throw new ArgumentException("The tournament duration overlaps with another existing tournament.");
-        }
-
-        await ValidateRegistrationGapAsync(request.RegistrationStartDate, request.EndDate);
+        await ValidateTournamentDatesAsync(
+            request.RegistrationStartDate, 
+            request.RegistrationEndDate, 
+            request.StartDate, 
+            request.EndDate);
 
         var tournament = new Tournament
         {
@@ -152,35 +128,13 @@ public class TournamentService : ITournamentService
             throw new ArgumentException("Tournament name cannot be empty.", nameof(request.Name));
         }
 
-        var comparisonTime = request.RegistrationStartDate.Kind == DateTimeKind.Utc
-            ? DateTime.UtcNow
-            : TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
-        if (request.RegistrationStartDate != tournament.RegistrationStartDate && request.RegistrationStartDate < comparisonTime.AddMinutes(-5))
-        {
-            throw new ArgumentException("Thời gian bắt đầu đăng ký không thể ở quá khứ.");
-        }
-
-        if (request.RegistrationEndDate <= request.RegistrationStartDate)
-        {
-            throw new ArgumentException("Registration end date must be after registration start date.");
-        }
-
-        if (request.StartDate < request.RegistrationEndDate)
-        {
-            throw new ArgumentException("Tournament start date must be on or after registration end date.");
-        }
-
-        if (request.EndDate <= request.StartDate)
-        {
-            throw new ArgumentException("End date must be after start date.", nameof(request.EndDate));
-        }
-
-        if (await _tournamentRepository.HasOverlappingTournamentAsync(request.StartDate, request.EndDate, id))
-        {
-            throw new ArgumentException("The tournament duration overlaps with another ongoing tournament.");
-        }
-
-        await ValidateRegistrationGapAsync(request.RegistrationStartDate, request.EndDate, id);
+        await ValidateTournamentDatesAsync(
+            request.RegistrationStartDate, 
+            request.RegistrationEndDate, 
+            request.StartDate, 
+            request.EndDate, 
+            id, 
+            tournament);
 
         tournament.Name = request.Name;
         tournament.Description = request.Description ?? string.Empty;
@@ -1012,12 +966,69 @@ public class TournamentService : ITournamentService
         };
     }
 
-    private async Task ValidateRegistrationGapAsync(DateTime registrationStartDate, DateTime endDate, long? excludeTournamentId = null)
+    private async Task ValidateTournamentDatesAsync(
+        DateTime registrationStartDate, 
+        DateTime registrationEndDate, 
+        DateTime startDate, 
+        DateTime endDate, 
+        long? excludeTournamentId = null,
+        Tournament? existingTournament = null)
     {
+        var comparisonTime = registrationStartDate.Kind == DateTimeKind.Utc
+            ? DateTime.UtcNow
+            : TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
+
+        // Allow 5 minutes buffer for network clock skew, and only check if dates are newly modified/created
+        if (existingTournament == null || registrationStartDate != existingTournament.RegistrationStartDate)
+        {
+            if (registrationStartDate < comparisonTime.AddMinutes(-5))
+            {
+                throw new ArgumentException("Registration start date cannot be in the past.");
+            }
+        }
+        if (existingTournament == null || registrationEndDate != existingTournament.RegistrationEndDate)
+        {
+            if (registrationEndDate < comparisonTime.AddMinutes(-5))
+            {
+                throw new ArgumentException("Registration end date cannot be in the past.");
+            }
+        }
+        if (existingTournament == null || startDate != existingTournament.StartDate)
+        {
+            if (startDate < comparisonTime.AddMinutes(-5))
+            {
+                throw new ArgumentException("Tournament start date cannot be in the past.");
+            }
+        }
+        if (existingTournament == null || endDate != existingTournament.EndDate)
+        {
+            if (endDate < comparisonTime.AddMinutes(-5))
+            {
+                throw new ArgumentException("Tournament end date cannot be in the past.");
+            }
+        }
+
+        if (registrationEndDate <= registrationStartDate)
+        {
+            throw new ArgumentException("Registration end date must be after registration start date.");
+        }
+
+        // Ngày bắt đầu giải đấu phải cách ngày đóng đăng ký ít nhất 48 giờ
+        if (startDate < registrationEndDate.AddHours(48))
+        {
+            throw new ArgumentException("Tournament start date must be at least 48 hours after registration end date to allow for scheduling and referee assignment.");
+        }
+
+        if (endDate <= startDate)
+        {
+            throw new ArgumentException("Tournament end date must be after tournament start date.");
+        }
+
+        // Kiểm tra khoảng cách tối thiểu 1 ngày trống giữa các giải đấu (không tính giải đã hoàn thành/hủy)
         var tournaments = await _tournamentRepository.GetAllAsync();
         foreach (var t in tournaments)
         {
-            if (t.Status == "Completed" || !t.StartDate.HasValue || !t.EndDate.HasValue || !t.RegistrationStartDate.HasValue)
+            if (t.Status == "Completed" || t.Status == "Cancelled" || !t.StartDate.HasValue || !t.EndDate.HasValue)
             {
                 continue;
             }
@@ -1027,22 +1038,22 @@ public class TournamentService : ITournamentService
                 continue;
             }
 
-            // Case 1: New tournament B is after existing tournament T
-            if (registrationStartDate.Date >= t.StartDate.Value.Date)
+            // Giải mới B nằm sau giải hiện tại A
+            if (startDate.Date >= t.StartDate.Value.Date)
             {
-                var minAllowedDate = t.EndDate.Value.Date.AddDays(2);
-                if (registrationStartDate.Date < minAllowedDate)
+                var minStartDate = t.EndDate.Value.Date.AddDays(2); // Cách ít nhất 1 ngày trống
+                if (startDate.Date < minStartDate)
                 {
-                    throw new ArgumentException($"Thời gian mở đăng ký ({registrationStartDate:dd/MM/yyyy}) phải cách ngày kết thúc của giải đấu '{t.Name}' ({t.EndDate.Value:dd/MM/yyyy}) ít nhất 1 ngày trống (chỉ có thể mở đăng ký từ ngày {minAllowedDate:dd/MM/yyyy}).");
+                    throw new ArgumentException($"The racing period of the new tournament must be at least 1 day apart from the end date of tournament '{t.Name}' ({t.EndDate.Value:dd/MM/yyyy}) (can only start from {minStartDate:dd/MM/yyyy}).");
                 }
             }
-            // Case 2: New tournament B is before existing tournament T
+            // Giải mới B nằm trước giải hiện tại A
             else
             {
-                var minAllowedExistingDate = endDate.Date.AddDays(2);
-                if (t.RegistrationStartDate.Value.Date < minAllowedExistingDate)
+                var maxEndDate = t.StartDate.Value.Date.AddDays(-2); // Cách ít nhất 1 ngày trống
+                if (endDate.Date > maxEndDate)
                 {
-                    throw new ArgumentException($"Giải đấu mới kết thúc vào ngày {endDate:dd/MM/yyyy}, trong khi giải đấu '{t.Name}' đã cấu hình mở đăng ký vào ngày {t.RegistrationStartDate.Value:dd/MM/yyyy}. Khoảng cách mở đăng ký của giải '{t.Name}' phải cách ngày kết thúc giải mới ít nhất 1 ngày trống (chỉ có thể mở từ ngày {minAllowedExistingDate:dd/MM/yyyy}).");
+                    throw new ArgumentException($"The racing period of the new tournament must be at least 1 day apart from the start date of tournament '{t.Name}' ({t.StartDate.Value:dd/MM/yyyy}) (must end on or before {maxEndDate:dd/MM/yyyy}).");
                 }
             }
         }

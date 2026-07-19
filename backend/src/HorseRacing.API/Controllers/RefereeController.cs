@@ -288,6 +288,7 @@ public class RefereeController : ControllerBase
 
             var assignments = await context.RaceRefereeAssignments
                 .Include(a => a.Race)
+                    .ThenInclude(r => r.Round)
                 .Where(a => a.RefereeId == referee.RefereeId)
                 .ToListAsync();
 
@@ -309,7 +310,8 @@ public class RefereeController : ControllerBase
                 RaceId = a.RaceId,
                 RaceName = a.Race?.Name ?? "",
                 RaceDate = a.Race?.RaceDate,
-                Status = a.Race?.Status ?? "Scheduled"
+                Status = a.Race?.Status ?? "Scheduled",
+                TournamentId = a.Race?.Round?.TournamentId
             }).ToList();
 
             var result = new {
