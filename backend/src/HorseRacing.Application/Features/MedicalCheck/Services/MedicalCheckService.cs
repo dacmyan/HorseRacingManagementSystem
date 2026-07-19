@@ -471,4 +471,80 @@ public class MedicalCheckService : IMedicalCheckService
             };
         });
     }
+
+    public async Task<IEnumerable<UnhealthyHorseResponse>> GetUnhealthyHorsesAsync()
+    {
+        var horses = await _repository.GetUnhealthyHorsesAsync();
+        return horses.Select(h => new UnhealthyHorseResponse
+        {
+            HorseId = h.HorseId,
+            Name = h.Name,
+            Age = h.Age,
+            Gender = h.Gender,
+            Breed = h.Breed,
+            HealthStatus = h.HealthStatus,
+            OwnerId = h.OwnerId,
+            OwnerName = h.Owner != null ? (h.Owner.FullName ?? h.Owner.Username) : string.Empty
+        });
+    }
+
+    public async Task<bool> RecoverHorseAsync(long horseId)
+    {
+        var horse = await _repository.GetHorseByIdAsync(horseId);
+        if (horse == null)
+        {
+            throw new KeyNotFoundException($"Horse with ID {horseId} not found.");
+        }
+
+        if (horse.HealthStatus == "Healthy" || horse.HealthStatus == "Good")
+        {
+            return false;
+        }
+
+        horse.HealthStatus = "Healthy";
+        _repository.UpdateHorse(horse);
+        await _repository.SaveChangesAsync();
+
+        // Send notification to Owner
+        var title = "Ngựa đã hồi phục sức khỏe";
+        var content = $"Ngựa {horse.Name} của bạn đã được bác sĩ thú y xác nhận hồi phục (trạng thái: Healthy). Bạn đã có thể đăng ký giải đấu mới cho ngựa.";
+        await _notificationService.SendNotificationToUserAsync(
+            horse.OwnerId, title, content, "MedicalCheck", null, null, "/owner/horses");
+
+        return true;
+    }
+
+    public async Task<bool> RequestRecoveryCheckAsync(int ownerUserId, long horseId)
+    {
+        var horse = await _repository.GetHorseByIdAsync(horseId);
+        if (horse == null)
+        {
+            throw new KeyNotFoundException($"Horse with ID {horseId} not found.");
+        }
+
+        if (horse.OwnerId != ownerUserId)
+        {
+            throw new InvalidOperationException("Access denied. You do not own this horse.");
+        }
+
+        if (horse.HealthStatus == "Healthy" || horse.HealthStatus == "Good")
+        {
+            throw new InvalidOperationException("Horse is already healthy.");
+        }
+
+        // Get all Vet user IDs to notify
+        var vetIds = await _repository.GetVeterinarianUserIdsAsync();
+        if (vetIds.Any())
+        {
+            var title = "Yêu cầu khám phục hồi sức khỏe";
+            var content = $"Chủ ngựa {horse.Owner?.FullName ?? horse.Owner?.Username ?? "Owner"} đã gửi yêu cầu khám phục hồi sức khỏe cho ngựa {horse.Name} (Trạng thái hiện tại: {horse.HealthStatus}).";
+            foreach (var vetId in vetIds)
+            {
+                await _notificationService.SendNotificationToUserAsync(
+                    vetId, title, content, "MedicalCheck", null, null, "/vet/medical-check");
+            }
+        }
+
+        return true;
+    }
 }
