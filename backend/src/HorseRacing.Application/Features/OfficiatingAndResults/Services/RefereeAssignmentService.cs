@@ -5,16 +5,21 @@ using System.Threading.Tasks;
 using HorseRacing.Application.Features.OfficiatingAndResults.DTOs;
 using HorseRacing.Application.Features.OfficiatingAndResults.Interfaces;
 using HorseRacing.Domain.Entities.Tournaments;
+using HorseRacing.Application.Features.Notifications.Interfaces;
 
 namespace HorseRacing.Application.Features.OfficiatingAndResults.Services;
 
 public class RefereeAssignmentService : IRefereeAssignmentService
 {
     private readonly IRefereeAssignmentRepository _repository;
+    private readonly INotificationService _notificationService;
 
-    public RefereeAssignmentService(IRefereeAssignmentRepository repository)
+    public RefereeAssignmentService(
+        IRefereeAssignmentRepository repository,
+        INotificationService notificationService)
     {
         _repository = repository;
+        _notificationService = notificationService;
     }
 
     public async Task<RaceRefereeResponse> AssignRefereeAsync(long raceId, AssignRefereeRequest request)
@@ -59,6 +64,23 @@ public class RefereeAssignmentService : IRefereeAssignmentService
 
         // Load details for response (including user name)
         var refereeName = refereeProfile.User?.FullName ?? "Unknown Referee";
+
+        // Send notification to referee
+        try
+        {
+            await _notificationService.SendNotificationToUserAsync(
+                refereeProfile.UserId,
+                "New Officiating Assignment",
+                $"You have been assigned to officiate race '{race.Name}' scheduled on {race.RaceDate:dd/MM/yyyy HH:mm}.",
+                "System",
+                referenceId: (int)raceId,
+                actionUrl: "/referee/schedule"
+            );
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[NOTIFICATION ERROR] Failed to send referee assignment notification: {ex.Message}");
+        }
 
         return new RaceRefereeResponse
         {

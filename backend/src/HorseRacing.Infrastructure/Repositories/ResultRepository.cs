@@ -119,4 +119,21 @@ public class ResultRepository : IResultRepository
             .Where(r => r.RoundId == roundId)
             .ToListAsync();
     }
+
+    public async Task<List<int>> GetAdminUserIdsAsync()
+    {
+        return await _context.Users.AsNoTracking()
+            .Where(u => u.RoleId == 1)
+            .Select(u => u.UserId)
+            .ToListAsync();
+    }
+
+    public async Task<List<RaceRefereeAssignment>> GetAssignmentsForRaceAsync(long raceId)
+    {
+        return await _context.RaceRefereeAssignments
+            .Include(a => a.RefereeProfile)
+                .ThenInclude(p => p!.User)
+            .Where(a => a.RaceId == raceId)
+            .ToListAsync();
+    }
 }

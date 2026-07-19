@@ -17,4 +17,6 @@ public interface IResultRepository
     Task<IEnumerable<RaceEntry>> GetRaceEntriesAsync(long raceId);
     Task UpdateHorseStatsAsync(long horseId);
     Task<List<Race>> GetRacesByRoundIdAsync(long roundId);
+    Task<List<int>> GetAdminUserIdsAsync();
+    Task<List<RaceRefereeAssignment>> GetAssignmentsForRaceAsync(long raceId);
 }

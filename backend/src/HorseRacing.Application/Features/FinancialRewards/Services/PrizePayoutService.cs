@@ -150,7 +150,31 @@ public class PrizePayoutService : IPrizePayoutService
             foreach (var entry in finalEntries)
             {
                 int rank = entry.FinishPosition!.Value;
-                if (rank < 1 || rank > 3) continue;
+                if (rank > 3)
+                {
+                    var nonTopHorse = entry.Registration?.Horse;
+                    if (nonTopHorse != null)
+                    {
+                        try
+                        {
+                            await _notificationService.SendNotificationToUserAsync(
+                                nonTopHorse.OwnerId,
+                                "Tournament Standing Result",
+                                $"Your horse '{nonTopHorse.Name}' finished Rank {rank} in tournament '{tournament.Name}'. This rank does not receive a prize reward. Better luck next time!",
+                                "Tournament",
+                                referenceId: (int)tournament.TournamentId,
+                                actionUrl: "/owner/results"
+                            );
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[NOTIFICATION ERROR] Failed to send ranking notification to owner {nonTopHorse.OwnerId}: {ex.Message}");
+                        }
+                    }
+                    continue;
+                }
+
+                if (rank < 1) continue;
 
                 var prize = await _prizeRepository.GetByTournamentAndRankAsync(request.TournamentId, rank);
                 if (prize == null) continue;

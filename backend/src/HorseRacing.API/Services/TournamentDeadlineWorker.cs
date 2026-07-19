@@ -49,12 +49,12 @@ namespace HorseRacing.API.Services
                                 try
                                 {
                                     await notificationService.BroadcastNotificationAsync(
-                                        "New Tournament Open for Registration",
-                                        $"Tournament '{tournament.Name}' starting on {tournament.StartDate:dd/MM/yyyy} is now open for registration.",
-                                        "Tournament",
-                                        referenceId: (int)tournament.TournamentId,
-                                        actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
-                                    );
+                                         "Tournament Registration Open",
+                                         $"Registration for tournament '{tournament.Name}' is now open. Register your horses now!",
+                                         "Tournament",
+                                         referenceId: (int)tournament.TournamentId,
+                                         actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
+                                     );
                                 }
                                 catch (Exception ex)
                                 {
@@ -79,6 +79,35 @@ namespace HorseRacing.API.Services
                                 tournament.Status = "PendingScheduling";
                                 await context.SaveChangesAsync(stoppingToken);
                                 Console.WriteLine($"[SYSTEM AUTOMATION]: Tournament {tournament.TournamentId} ({tournament.Name}) has {registeredCount} registered horses. Status updated to PendingScheduling.");
+
+                                // Notify all registered horse owners
+                                if (notificationService != null)
+                                {
+                                    try
+                                    {
+                                        var registeredOwners = await context.Registrations
+                                            .Where(r => r.TournamentId == tournament.TournamentId && r.Horse != null)
+                                            .Select(r => r.Horse.OwnerId)
+                                            .Distinct()
+                                            .ToListAsync(stoppingToken);
+
+                                        foreach (var ownerId in registeredOwners)
+                                        {
+                                            await notificationService.SendNotificationToUserAsync(
+                                                ownerId,
+                                                "Tournament Registration Closed",
+                                                $"Registration for tournament '{tournament.Name}' has closed. The scheduling phase will begin shortly.",
+                                                "Tournament",
+                                                referenceId: (int)tournament.TournamentId,
+                                                actionUrl: "/owner/registrations"
+                                            );
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Console.WriteLine($"[NOTIFICATION ERROR] Failed to send registration close notifications: {ex.Message}");
+                                    }
+                                }
 
                                 // Auto-cancel registrations without accepted jockey
                                 var tournamentRepo = scope.ServiceProvider.GetRequiredService<ITournamentRepository>();

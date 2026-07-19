@@ -55,6 +55,16 @@ public class AdminController : ControllerBase
         _registrationService = registrationService;
     }
 
+    private int GetCurrentUserId()
+    {
+        var nameIdentifier = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(nameIdentifier))
+        {
+            nameIdentifier = User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
+        }
+        return int.Parse(nameIdentifier ?? "0");
+    }
+
     [HttpGet("test")]
     public IActionResult TestAdminAuthorization()
     {
@@ -217,6 +227,38 @@ public class AdminController : ControllerBase
         catch (Exception ex)
         {
             return StatusCode(500, new { message = "An error occurred retrieving payouts", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("wallet/balance")]
+    public async Task<IActionResult> GetWalletBalance([FromServices] IWalletService walletService)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var response = await walletService.GetBalanceAsync(userId);
+            return Ok(new { message = "Admin wallet balance retrieved successfully", result = response });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WALLET BALANCE ERROR]: {ex}");
+            return StatusCode(500, new { message = "An error occurred retrieving admin wallet balance", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("wallet/history")]
+    public async Task<IActionResult> GetWalletHistory([FromServices] IWalletService walletService)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var response = await walletService.GetTransactionHistoryAsync(userId);
+            return Ok(new { message = "Admin wallet history retrieved successfully", result = response });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WALLET HISTORY ERROR]: {ex}");
+            return StatusCode(500, new { message = "An error occurred retrieving admin wallet history", detail = ex.Message });
         }
     }
 
