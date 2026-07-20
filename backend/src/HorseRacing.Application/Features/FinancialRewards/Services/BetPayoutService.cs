@@ -155,6 +155,36 @@ public class BetPayoutService : IBetPayoutService
             }
         }
 
+        // Calculate net betting profit for this race and credit to Admin Treasury Cash Balance
+        decimal totalRaceBets = betList.Sum(b => b.Amount);
+        decimal totalRacePayouts = betList.Where(b => b.Status == "Won").Sum(b => Math.Round(b.Amount * b.Odds, 2));
+        decimal raceHouseProfit = totalRaceBets - totalRacePayouts;
+
+        if (raceHouseProfit > 0)
+        {
+            var adminUserIds = await _notificationService.GetActiveUserIdsByRoleAsync("Admin");
+            int adminUserId = adminUserIds.FirstOrDefault();
+            if (adminUserId > 0)
+            {
+                var adminWallet = await _walletRepository.GetByUserIdAsync(adminUserId);
+                if (adminWallet == null)
+                {
+                    adminWallet = new Wallet { UserId = adminUserId, Balance = 0 };
+                    await _walletRepository.AddAsync(adminWallet);
+                }
+                adminWallet.Balance += raceHouseProfit;
+                var adminTx = new WalletTransaction
+                {
+                    WalletId = adminWallet.WalletId,
+                    Amount = raceHouseProfit,
+                    Type = "Betting_Profit",
+                    Description = $"Lợi nhuận cá cược ròng thu về từ cuộc đua '{race.Name}'",
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _transactionRepository.AddAsync(adminTx);
+            }
+        }
+
         await _betRepository.SaveChangesAsync();
     }
 }
