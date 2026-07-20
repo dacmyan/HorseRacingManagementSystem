@@ -15,4 +15,5 @@ public interface INotificationRepository
     Task<bool> IsUserActiveAsync(int userId);
     Task<List<int>> GetActiveUserIdsByRoleAsync(string roleName);
     Task<List<int>> GetActiveUserIdsAsync();
+    Task<List<int>> GetActiveUserIdsByRoleAsync(string roleName);
 }
