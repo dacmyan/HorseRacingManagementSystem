@@ -629,7 +629,12 @@ public class AdminController : ControllerBase
                         .Where(jc => jc.TournamentId == r.TournamentId && jc.HorseId == r.HorseId)
                         .OrderByDescending(jc => jc.CreatedAt)
                         .Select(jc => jc.Status)
-                        .FirstOrDefault() ?? "NoContract"
+                        .FirstOrDefault() ?? "NoContract",
+                    JockeyName = context.JockeyContracts
+                        .Where(jc => jc.TournamentId == r.TournamentId && jc.HorseId == r.HorseId)
+                        .OrderByDescending(jc => jc.CreatedAt)
+                        .Select(jc => jc.Jockey != null ? jc.Jockey.FullName : null)
+                        .FirstOrDefault()
                 })
                 .ToListAsync();
             return Ok(new { message = "Registrations retrieved successfully", result = registrations });
