@@ -120,8 +120,7 @@ using (var scope = app.Services.CreateScope())
     }
     catch (Exception ex)
     {
-        logger.LogError(ex, "An error occurred during database migration or seeding.");
-        throw;
+        logger.LogError(ex, "An error occurred during database migration or seeding. Continuing startup...");
     }
 }
 

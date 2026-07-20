@@ -1026,8 +1026,8 @@ public class DataSeeder
                     _logger.LogInformation($"Tournament '{tName}' seeded successfully.");
                 }
 
-                var vet = await _context.Users.FirstOrDefaultAsync(u => u.Username == "vet");
-                int vetId = vet?.UserId ?? 1;
+                var tNameVet = await _context.Users.FirstOrDefaultAsync(u => u.Username == "vet");
+                int tNameVetId = tNameVet?.UserId ?? 1;
 
                 int limit = tName == "WC 2026" ? 13 : 12;
                 for (int i = 1; i <= limit; i++)
@@ -1098,7 +1098,7 @@ public class DataSeeder
                             var medicalCheck = new MedicalCheckRecord
                             {
                                 RegistrationId = registration.RegistrationId,
-                                UserId = vetId,
+                                UserId = tNameVetId,
                                 Weight = 450.0m,
                                 Temperature = 38.2m,
                                 HeartRate = 40,

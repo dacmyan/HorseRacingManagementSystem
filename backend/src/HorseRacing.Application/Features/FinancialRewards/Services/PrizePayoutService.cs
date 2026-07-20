@@ -216,11 +216,11 @@ public class PrizePayoutService : IPrizePayoutService
                 if (adminUserId > 0)
                 {
                     var adminWallet = await GetOrCreateWalletAsync(adminUserId);
-                    adminWallet.Balance -= ownerAmount;
+                    adminWallet.Balance -= totalPrizeAmount;
                     var adminTransaction = new WalletTransaction
                     {
                         WalletId = adminWallet.WalletId,
-                        Amount = -ownerAmount,
+                        Amount = -totalPrizeAmount,
                         Type = "Prize_Payout",
                         Description = $"Trực tiếp trao thưởng Top {rank} giải đấu '{tournament.Name}' cho ngựa '{horse.Name}'",
                         CreatedAt = DateTime.UtcNow

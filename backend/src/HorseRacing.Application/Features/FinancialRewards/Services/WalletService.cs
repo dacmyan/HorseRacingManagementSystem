@@ -146,10 +146,10 @@ public class WalletService : IWalletService
         {
             Id = t.TransactionId,
             WalletId = t.WalletId,
-            Amount = t.Amount,
+            Amount = t.PaymentMethod == "VNPay" ? t.Amount / 250m : t.Amount,
             Type = t.Type,
             Description = t.Description,
-            CreatedAt = t.CreatedAt
+            CreatedAt = DateTime.SpecifyKind(t.CreatedAt, DateTimeKind.Utc)
         });
     }
 }
