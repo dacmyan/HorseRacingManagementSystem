@@ -231,7 +231,7 @@ public class PrizePayoutService : IPrizePayoutService
                         WalletId = adminWallet.WalletId,
                         Amount = -totalPrizeAmount,
                         Type = "Prize_Payout",
-                        Description = $"Trực tiếp trao thưởng Top {rank} giải đấu '{tournament.Name}' cho ngựa '{horse.Name}'",
+                        Description = $"Awarded Top {rank} prize for tournament '{tournament.Name}' to horse '{horse.Name}'",
                         CreatedAt = DateTime.UtcNow
                     };
                     await _transactionRepository.AddAsync(adminTransaction);
@@ -239,7 +239,7 @@ public class PrizePayoutService : IPrizePayoutService
 
 
 
-                var ownerDescription = $"Nhận thưởng Top {rank} giải đấu '{tournament.Name}' từ ngựa '{horse.Name}'";
+                var ownerDescription = $"Received Top {rank} prize for tournament '{tournament.Name}' from horse '{horse.Name}'";
                 var ownerTransaction = new WalletTransaction
                 {
                     WalletId = ownerWallet.WalletId,
@@ -263,8 +263,8 @@ public class PrizePayoutService : IPrizePayoutService
                 // Send notification to Owner with horse name, rank, and prize amount
                 await _notificationService.SendNotificationToUserAsync(
                     horse.OwnerId,
-                    "Trao thưởng Giải đấu",
-                    $"Chúc mừng! Ngựa '{horse.Name}' của bạn đã xuất sắc đạt xếp hạng Top {rank} trong giải đấu '{tournament.Name}' và bạn đã nhận được số tiền thưởng là {totalPrizeAmount:N2}$ vào ví. Số dư ví hiện tại: {ownerWallet.Balance:N2}$.",
+                    "Tournament Prize Payout",
+                    $"Congratulations! Your horse '{horse.Name}' successfully achieved Top {rank} in the tournament '{tournament.Name}'. You have received a prize of {totalPrizeAmount:N2}$ in your wallet. Current wallet balance: {ownerWallet.Balance:N2}$.",
                     "Wallet",
                     referenceId: (int)tournament.TournamentId,
                     actionUrl: "/owner/wallet"
@@ -282,8 +282,8 @@ public class PrizePayoutService : IPrizePayoutService
                     // Only send achievement notification to Jockey whose horse placed in Top 3
                     await _notificationService.SendNotificationToUserAsync(
                         jockeyUserId,
-                        "Kết quả nài ngựa xuất sắc",
-                        $"Chúc mừng! Ngựa '{horse.Name}' mà bạn nài đã xuất sắc đạt xếp hạng Top {rank} trong giải đấu '{tournament.Name}' với tổng số tiền thưởng giải đấu đạt {totalPrizeAmount:N2}$.",
+                        "Outstanding Jockey Performance",
+                        $"Congratulations! The horse '{horse.Name}' you rode achieved Top {rank} in the tournament '{tournament.Name}' with a total tournament prize of {totalPrizeAmount:N2}$.",
                         "Tournament",
                         referenceId: (int)tournament.TournamentId,
                         actionUrl: "/jockey/schedule"
@@ -325,15 +325,15 @@ public class PrizePayoutService : IPrizePayoutService
                     topHorsesHtml += $"<li><strong>Top {rank}:</strong> {horseName} - Prize: {totalPrize:N2}$</li>";
                 }
 
-                string emailSubject = $"Kết quả giải đấu {tournament.Name} đã chính thức công bố!";
+                string emailSubject = $"Tournament results for {tournament.Name} officially published!";
                 string emailBody = $@"
-                    <h2>Giải đấu {tournament.Name} đã kết thúc!</h2>
-                    <p>Xin chào,</p>
-                    <p>Giải đấu <strong>{tournament.Name}</strong> đã chính thức khép lại. Dưới đây là những chú ngựa xuất sắc nhất đã giành chiến thắng:</p>
+                    <h2>Tournament {tournament.Name} has concluded!</h2>
+                    <p>Hello,</p>
+                    <p>Tournament <strong>{tournament.Name}</strong> has officially ended. Here are the winning horses that placed in the top ranks:</p>
                     <ul>
                         {topHorsesHtml}
                     </ul>
-                    <p>Cảm ơn bạn đã luôn đồng hành cùng Horse Racing Management System.</p>
+                    <p>Thank you for choosing Horse Racing Management System.</p>
                 ";
 
                 var emailTasks = targetUsers.Select(u => _emailService.SendEmailAsync(u.Email, emailSubject, emailBody));
