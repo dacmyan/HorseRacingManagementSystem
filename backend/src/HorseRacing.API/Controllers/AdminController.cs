@@ -262,6 +262,50 @@ public class AdminController : ControllerBase
         }
     }
 
+    [HttpPost("wallet/deposit")]
+    public async Task<IActionResult> DepositWallet([FromBody] DepositRequest request, [FromServices] IWalletService walletService)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var response = await walletService.DepositAsync(userId, request);
+            return Ok(new { message = "Treasury deposit successful", result = response });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WALLET DEPOSIT ERROR]: {ex}");
+            return StatusCode(500, new { message = "An error occurred during treasury deposit", detail = ex.Message });
+        }
+    }
+
+    [HttpPost("wallet/withdraw")]
+    public async Task<IActionResult> WithdrawWallet([FromBody] WithdrawRequest request, [FromServices] IWalletService walletService)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var response = await walletService.WithdrawAsync(userId, request);
+            return Ok(new { message = "Treasury withdrawal successful", result = response });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WALLET WITHDRAW ERROR]: {ex}");
+            return StatusCode(500, new { message = "An error occurred during treasury withdrawal", detail = ex.Message });
+        }
+    }
+
     [HttpPost("payouts/trigger/{raceId}")]
     public async Task<IActionResult> TriggerBetPayout(long raceId)
     {
