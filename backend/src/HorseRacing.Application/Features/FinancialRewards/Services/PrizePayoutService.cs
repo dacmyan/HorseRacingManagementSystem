@@ -56,7 +56,25 @@ public class PrizePayoutService : IPrizePayoutService
             throw new ArgumentException($"Tournament with ID {request.TournamentId} not found.");
         }
 
-        // 1. Configure and save First, Second, Third place prizes
+        // 1. Check system treasury balance before configuring prizes
+        decimal totalConfiguredPrizePool = (request.FirstPlacePrize > 0 ? request.FirstPlacePrize : 10000m)
+                                         + (request.SecondPlacePrize > 0 ? request.SecondPlacePrize : 5000m)
+                                         + (request.ThirdPlacePrize > 0 ? request.ThirdPlacePrize : 2500m);
+
+        var adminUserIds = await _notificationService.GetActiveUserIdsByRoleAsync("Admin");
+        int adminUserId = adminUserIds.FirstOrDefault();
+        if (adminUserId > 0)
+        {
+            var adminWallet = await GetOrCreateWalletAsync(adminUserId);
+            if (adminWallet.Balance < totalConfiguredPrizePool)
+            {
+                throw new InvalidOperationException(
+                    $"Insufficient system treasury balance to configure prizes. Required prize pool: ${totalConfiguredPrizePool:N2}, Current Treasury Balance: ${adminWallet.Balance:N2}. Please deposit funds into the treasury first."
+                );
+            }
+        }
+
+        // 2. Configure and save First, Second, Third place prizes
         var firstPrize = await _prizeRepository.GetByTournamentAndRankAsync(request.TournamentId, 1);
         if (firstPrize == null)
         {
@@ -193,6 +211,22 @@ public class PrizePayoutService : IPrizePayoutService
                 // --- 100% Prize Payout goes to Horse Owner's Wallet ---
                 var ownerWallet = await GetOrCreateWalletAsync(horse.OwnerId);
                 ownerWallet.Balance += totalPrizeAmount;
+
+                // --- Deduct from Admin Treasury Wallet ---
+                if (adminUserId > 0)
+                {
+                    var adminWallet = await GetOrCreateWalletAsync(adminUserId);
+                    adminWallet.Balance -= ownerAmount;
+                    var adminTransaction = new WalletTransaction
+                    {
+                        WalletId = adminWallet.WalletId,
+                        Amount = -ownerAmount,
+                        Type = "Prize_Payout",
+                        Description = $"Trực tiếp trao thưởng Top {rank} giải đấu '{tournament.Name}' cho ngựa '{horse.Name}'",
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    await _transactionRepository.AddAsync(adminTransaction);
+                }
 
                 var ownerDescription = $"Nhận thưởng Top {rank} giải đấu '{tournament.Name}' từ ngựa '{horse.Name}'";
                 var ownerTransaction = new WalletTransaction

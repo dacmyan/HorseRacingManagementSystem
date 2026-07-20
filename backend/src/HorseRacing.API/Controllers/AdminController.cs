@@ -262,6 +262,50 @@ public class AdminController : ControllerBase
         }
     }
 
+    [HttpPost("wallet/deposit")]
+    public async Task<IActionResult> DepositWallet([FromBody] DepositRequest request, [FromServices] IWalletService walletService)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var response = await walletService.DepositAsync(userId, request);
+            return Ok(new { message = "Treasury deposit successful", result = response });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WALLET DEPOSIT ERROR]: {ex}");
+            return StatusCode(500, new { message = "An error occurred during treasury deposit", detail = ex.Message });
+        }
+    }
+
+    [HttpPost("wallet/withdraw")]
+    public async Task<IActionResult> WithdrawWallet([FromBody] WithdrawRequest request, [FromServices] IWalletService walletService)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var response = await walletService.WithdrawAsync(userId, request);
+            return Ok(new { message = "Treasury withdrawal successful", result = response });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WALLET WITHDRAW ERROR]: {ex}");
+            return StatusCode(500, new { message = "An error occurred during treasury withdrawal", detail = ex.Message });
+        }
+    }
+
     [HttpPost("payouts/trigger/{raceId}")]
     public async Task<IActionResult> TriggerBetPayout(long raceId)
     {
@@ -1049,7 +1093,12 @@ public class AdminController : ControllerBase
             var alreadyFinalStatuses = new[] { "Withdrawn", "Scratch", "DNF", "Disqualified", "Finished", "Completed" };
             if (alreadyFinalStatuses.Any(s => string.Equals(entry.Status, s, StringComparison.OrdinalIgnoreCase)))
             {
-                return BadRequest(new { message = $"Race entry is already in a final status '{entry.Status}'." });
+                var horseName = entry.Registration?.Horse?.Name ?? "This horse";
+                if (string.Equals(entry.Status, "Withdrawn", StringComparison.OrdinalIgnoreCase))
+                {
+                    return BadRequest(new { message = $"Horse '{horseName}' has medical/health issues and has been automatically withdrawn from the race." });
+                }
+                return BadRequest(new { message = $"Race entry for horse '{horseName}' is already in final status '{entry.Status}'." });
             }
 
             if (string.Equals(race.Status, "Finished", StringComparison.OrdinalIgnoreCase) ||
