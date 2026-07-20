@@ -14,4 +14,5 @@ public interface INotificationService
     Task BroadcastNotificationAsync(string title, string content, string type, int? referenceId = null, string? thumbnail = null, string? actionUrl = null);
     Task DeleteNotificationAsync(int id, int userId);
     Task MarkAllAsReadAsync(int userId);
+    Task<List<int>> GetActiveUserIdsByRoleAsync(string roleName);
 }

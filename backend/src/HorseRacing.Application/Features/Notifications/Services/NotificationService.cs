@@ -169,6 +169,11 @@ public class NotificationService : INotificationService
         await _notificationRepository.SaveChangesAsync();
     }
 
+    public async Task<List<int>> GetActiveUserIdsByRoleAsync(string roleName)
+    {
+        return await _notificationRepository.GetActiveUserIdsByRoleAsync(roleName);
+    }
+
     private static NotificationResponse MapToResponse(Notification n)
     {
         var content = string.IsNullOrEmpty(n.Content) ? (n.Message ?? string.Empty) : n.Content;

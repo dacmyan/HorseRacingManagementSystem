@@ -79,4 +79,13 @@ public class NotificationRepository : INotificationRepository
             .Select(u => u.UserId)
             .ToListAsync();
     }
+
+    public async Task<List<int>> GetActiveUserIdsByRoleAsync(string roleName)
+    {
+        return await _context.Users
+            .Include(u => u.Role)
+            .Where(u => u.Status == "Active" && (u.Role != null && u.Role.Name == roleName || (roleName == "Admin" && u.RoleId == 1)))
+            .Select(u => u.UserId)
+            .ToListAsync();
+    }
 }
