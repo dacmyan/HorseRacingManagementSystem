@@ -195,17 +195,18 @@ public class RaceResultService : IRaceResultService
         {
             // 1. Notify assigned referees
             var assignments = await _repository.GetAssignmentsForRaceAsync(race.RaceId);
+            var tournamentName = race.Round?.Tournament?.Name ?? "Giải đấu";
             foreach (var assignment in assignments)
             {
                 if (assignment.RefereeProfile != null)
                 {
                     await _notificationService.SendNotificationToUserAsync(
                         assignment.RefereeProfile.UserId,
-                        "Race Completed - Action Required",
-                        $"Race '{race.Name}' has completed. Please submit violations and final results.",
+                        "Giải đấu được phân công đã kết thúc",
+                        $"Giải đấu '{tournamentName}' mà bạn được phân công đã kết thúc, hãy gửi vi phạm và kết quả cho admin.",
                         "System",
                         referenceId: (int)race.RaceId,
-                        actionUrl: "/referee/violations"
+                        actionUrl: "/referee/schedule"
                     );
                 }
             }
