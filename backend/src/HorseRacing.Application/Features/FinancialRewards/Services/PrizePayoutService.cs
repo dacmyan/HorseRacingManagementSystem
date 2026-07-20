@@ -7,6 +7,9 @@ using HorseRacing.Application.Features.Notifications.Interfaces;
 using HorseRacing.Domain.Entities;
 using HorseRacing.Domain.Entities.Tournaments;
 using HorseRacing.Domain.Entities.Financials;
+using HorseRacing.Application.Features.UserManagement.Interfaces;
+using HorseRacing.Application.Common.Interfaces;
+using System.Linq;
 
 namespace HorseRacing.Application.Features.FinancialRewards.Services;
 
@@ -17,19 +20,25 @@ public class PrizePayoutService : IPrizePayoutService
     private readonly IWalletTransactionRepository _transactionRepository;
     private readonly IPrizeRepository _prizeRepository;
     private readonly INotificationService _notificationService;
+    private readonly IUserRepository _userRepository;
+    private readonly IEmailService _emailService;
 
     public PrizePayoutService(
         IBetRepository betRepository,
         IWalletRepository walletRepository,
         IWalletTransactionRepository transactionRepository,
         IPrizeRepository prizeRepository,
-        INotificationService notificationService)
+        INotificationService notificationService,
+        IUserRepository userRepository,
+        IEmailService emailService)
     {
         _betRepository = betRepository;
         _walletRepository = walletRepository;
         _transactionRepository = transactionRepository;
         _prizeRepository = prizeRepository;
         _notificationService = notificationService;
+        _userRepository = userRepository;
+        _emailService = emailService;
     }
 
     private async Task<Wallet> GetOrCreateWalletAsync(int userId)
@@ -228,53 +237,7 @@ public class PrizePayoutService : IPrizePayoutService
                     await _transactionRepository.AddAsync(adminTransaction);
                 }
 
-                // --- Deduct from Admin Treasury Wallet ---
-                if (adminUserId > 0)
-                {
-                    var adminWallet = await GetOrCreateWalletAsync(adminUserId);
-                    adminWallet.Balance -= ownerAmount;
-                    var adminTransaction = new WalletTransaction
-                    {
-                        WalletId = adminWallet.WalletId,
-                        Amount = -ownerAmount,
-                        Type = "Prize_Payout",
-                        Description = $"Trực tiếp trao thưởng Top {rank} giải đấu '{tournament.Name}' cho ngựa '{horse.Name}'",
-                        CreatedAt = DateTime.UtcNow
-                    };
-                    await _transactionRepository.AddAsync(adminTransaction);
-                }
 
-                // --- Deduct from Admin Treasury Wallet ---
-                if (adminUserId > 0)
-                {
-                    var adminWallet = await GetOrCreateWalletAsync(adminUserId);
-                    adminWallet.Balance -= ownerAmount;
-                    var adminTransaction = new WalletTransaction
-                    {
-                        WalletId = adminWallet.WalletId,
-                        Amount = -ownerAmount,
-                        Type = "Prize_Payout",
-                        Description = $"Trực tiếp trao thưởng Top {rank} giải đấu '{tournament.Name}' cho ngựa '{horse.Name}'",
-                        CreatedAt = DateTime.UtcNow
-                    };
-                    await _transactionRepository.AddAsync(adminTransaction);
-                }
-
-                // --- Deduct from Admin Treasury Wallet ---
-                if (adminUserId > 0)
-                {
-                    var adminWallet = await GetOrCreateWalletAsync(adminUserId);
-                    adminWallet.Balance -= ownerAmount;
-                    var adminTransaction = new WalletTransaction
-                    {
-                        WalletId = adminWallet.WalletId,
-                        Amount = -ownerAmount,
-                        Type = "Prize_Payout",
-                        Description = $"Trực tiếp trao thưởng Top {rank} giải đấu '{tournament.Name}' cho ngựa '{horse.Name}'",
-                        CreatedAt = DateTime.UtcNow
-                    };
-                    await _transactionRepository.AddAsync(adminTransaction);
-                }
 
                 var ownerDescription = $"Nhận thưởng Top {rank} giải đấu '{tournament.Name}' từ ngựa '{horse.Name}'";
                 var ownerTransaction = new WalletTransaction
@@ -334,6 +297,52 @@ public class PrizePayoutService : IPrizePayoutService
 
             // Commit the DB transaction — all wallet updates are persisted atomically
             await dbTransaction.CommitAsync();
+
+            // Broadcast email to users
+            try
+            {
+                var allUsers = await _userRepository.GetAllUsersAsync();
+                var targetUsers = allUsers.Where(u => u.Role?.Name != "Admin" && u.Role?.Name != "Veterinarian" && !string.IsNullOrEmpty(u.Email)).ToList();
+
+                string topHorsesHtml = "";
+                foreach (var entry in finalEntries)
+                {
+                    int rank = entry.FinishPosition!.Value;
+                    if (rank < 1 || rank > 3) continue;
+
+                    var prize = await _prizeRepository.GetByTournamentAndRankAsync(request.TournamentId, rank);
+                    if (prize == null) continue;
+
+                    var horseName = entry.Registration?.Horse?.Name ?? "Unknown";
+                    
+                    decimal bonusAmount = 0m;
+                    if (rank == 1) bonusAmount = bonusPool * 0.50m;
+                    else if (rank == 2) bonusAmount = bonusPool * 0.30m;
+                    else if (rank == 3) bonusAmount = bonusPool * 0.20m;
+                    
+                    decimal totalPrize = prize.Amount + bonusAmount;
+
+                    topHorsesHtml += $"<li><strong>Top {rank}:</strong> {horseName} - Prize: {totalPrize:N2}$</li>";
+                }
+
+                string emailSubject = $"Kết quả giải đấu {tournament.Name} đã chính thức công bố!";
+                string emailBody = $@"
+                    <h2>Giải đấu {tournament.Name} đã kết thúc!</h2>
+                    <p>Xin chào,</p>
+                    <p>Giải đấu <strong>{tournament.Name}</strong> đã chính thức khép lại. Dưới đây là những chú ngựa xuất sắc nhất đã giành chiến thắng:</p>
+                    <ul>
+                        {topHorsesHtml}
+                    </ul>
+                    <p>Cảm ơn bạn đã luôn đồng hành cùng Horse Racing Management System.</p>
+                ";
+
+                var emailTasks = targetUsers.Select(u => _emailService.SendEmailAsync(u.Email, emailSubject, emailBody));
+                await Task.WhenAll(emailTasks);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Email Broadcast Error] Failed to broadcast tournament results: {ex.Message}");
+            }
         }
         catch
         {

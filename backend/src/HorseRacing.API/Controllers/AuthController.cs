@@ -69,14 +69,14 @@ public class AuthController : ControllerBase
     }
 
     [HttpGet("verify-email")]
-    public async Task<IActionResult> VerifyEmail([FromQuery] string token)
+    public async Task<IActionResult> VerifyEmail([FromQuery] string email, [FromQuery] string token)
     {
-        var result = await _authService.VerifyEmailAsync(token);
+        var result = await _authService.VerifyEmailAsync(email, token);
         if (!result)
         {
             return BadRequest(new { message = "Mã xác thực không hợp lệ, sai hoặc đã hết hạn." });
         }
 
-        return Ok(new { message = "Kích hoạt tài khoản thành công. Bạn đã có thể đăng nhập." });
+        return Ok(new { message = "Email confirmed successfully. You can now login." });
     }
 }
