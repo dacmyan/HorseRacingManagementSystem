@@ -108,7 +108,7 @@ public class AuthService : IAuthService
 
         try
         {
-            var verificationLink = $"http://localhost:3000/verify-email?token={verificationToken}";
+            var verificationLink = $"https://localhost:55445/api/auth/verify-email?email={Uri.EscapeDataString(newUser.Email)}&token={Uri.EscapeDataString(verificationToken)}";
             var htmlBody = $@"
 <div style=""font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;"">
     <h2 style=""color: #333; text-align: center;"">Xác Thực Tài Khoản Đăng Ký</h2>
@@ -219,15 +219,20 @@ public class AuthService : IAuthService
         };
     }
 
-    public async Task<bool> VerifyEmailAsync(string token)
+    public async Task<bool> VerifyEmailAsync(string email, string token)
     {
-        if (string.IsNullOrWhiteSpace(token))
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(token))
         {
             return false;
         }
 
-        var user = await _userRepository.GetByVerificationTokenAsync(token);
+        var user = await _userRepository.GetByEmailAsync(email);
         if (user == null)
+        {
+            return false;
+        }
+
+        if (user.VerificationToken != token)
         {
             return false;
         }
