@@ -96,7 +96,7 @@ public class TournamentService : ITournamentService
         {
             await _notificationService.BroadcastNotificationAsync(
                 "New Tournament Scheduled",
-                $"Tournament '{tournament.Name}' starting on {tournament.StartDate:dd/MM/yyyy} has been scheduled. Registration will open on {tournament.RegistrationStartDate:dd/MM/yyyy HH:mm} (Vietnam Time).",
+                $"Tournament '{tournament.Name}' has been scheduled. Registration starts on {tournament.RegistrationStartDate:dd/MM/yyyy HH:mm}.",
                 "Tournament",
                 referenceId: (int)tournament.TournamentId,
                 actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
@@ -221,6 +221,20 @@ public class TournamentService : ITournamentService
                 else
                 {
                     t.Status = "Active";
+                    try
+                    {
+                        await _notificationService.BroadcastNotificationAsync(
+                            "Tournament Started",
+                            $"Tournament '{t.Name}' has officially started. Let the races begin!",
+                            "Tournament",
+                            referenceId: (int)t.TournamentId,
+                            actionUrl: $"/spectator/tournaments/{t.TournamentId}"
+                        );
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[NOTIFICATION ERROR] Failed to broadcast tournament start: {ex.Message}");
+                    }
                 }
                 anyChanged = true;
             }
@@ -330,6 +344,20 @@ public class TournamentService : ITournamentService
             else
             {
                 tournament.Status = "Active";
+                try
+                {
+                    await _notificationService.BroadcastNotificationAsync(
+                        "Tournament Started",
+                        $"Tournament '{tournament.Name}' has officially started. Let the races begin!",
+                        "Tournament",
+                        referenceId: (int)tournament.TournamentId,
+                        actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
+                    );
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[NOTIFICATION ERROR] Failed to broadcast tournament start: {ex.Message}");
+                }
             }
             changed = true;
         }
@@ -614,6 +642,39 @@ public class TournamentService : ITournamentService
         tournament.Status = "Upcoming";
         _tournamentRepository.Update(tournament);
         await _tournamentRepository.SaveChangesAsync();
+
+        // Send notifications for scheduled races
+        try
+        {
+            var approvedOwners = qualifiedRegistrations
+                .Select(r => r.Horse.OwnerId)
+                .Distinct()
+                .ToList();
+
+            foreach (var ownerId in approvedOwners)
+            {
+                await _notificationService.SendNotificationToUserAsync(
+                    ownerId,
+                    "Races Scheduled",
+                    $"Races for tournament '{tournament.Name}' have been scheduled. The tournament starts on {tournament.StartDate:dd/MM/yyyy}.",
+                    "Tournament",
+                    referenceId: (int)tournament.TournamentId,
+                    actionUrl: "/owner/registrations"
+                );
+            }
+
+            await _notificationService.BroadcastNotificationAsync(
+                "Races Scheduled",
+                $"Tournament '{tournament.Name}' races have been scheduled. Place your bets now to win exciting rewards!",
+                "Tournament",
+                referenceId: (int)tournament.TournamentId,
+                actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
+            );
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[NOTIFICATION ERROR] Failed to send race scheduling notifications: {ex.Message}");
+        }
 
         return resultRaces;
     }
@@ -953,6 +1014,39 @@ public class TournamentService : ITournamentService
 
         // 6. Recalculate odds for the Final Race
         await _bettingService.RecalculateRaceOddsAsync(finalRace.RaceId);
+
+        // Send notifications for final race scheduling
+        try
+        {
+            var approvedOwners = top12Finalists
+                .Select(f => f.Registration!.Horse.OwnerId)
+                .Distinct()
+                .ToList();
+
+            foreach (var ownerId in approvedOwners)
+            {
+                await _notificationService.SendNotificationToUserAsync(
+                    ownerId,
+                    "Races Scheduled",
+                    $"The Final Race for tournament '{tournament.Name}' has been scheduled. Good luck!",
+                    "Tournament",
+                    referenceId: (int)tournament.TournamentId,
+                    actionUrl: "/owner/registrations"
+                );
+            }
+
+            await _notificationService.BroadcastNotificationAsync(
+                "Races Scheduled",
+                $"The Final Race for tournament '{tournament.Name}' has been scheduled. Place your bets now to win exciting rewards!",
+                "Tournament",
+                referenceId: (int)tournament.TournamentId,
+                actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
+            );
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[NOTIFICATION ERROR] Failed to send final race notifications: {ex.Message}");
+        }
 
         return new RaceScheduleResponse
         {

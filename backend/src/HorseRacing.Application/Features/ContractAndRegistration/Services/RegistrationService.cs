@@ -7,6 +7,7 @@ using HorseRacing.Application.Features.ContractAndRegistration.Interfaces;
 using HorseRacing.Application.Features.HorseManagement.Interfaces;
 using HorseRacing.Application.Features.BettingEngine.Interfaces;
 using HorseRacing.Domain.Entities;
+using HorseRacing.Application.Features.Notifications.Interfaces;
 
 namespace HorseRacing.Application.Features.ContractAndRegistration.Services;
 
@@ -18,17 +19,20 @@ public class RegistrationService : IRegistrationService
     private readonly IHorseRepository _horseRepository;
     private readonly IBetRepository _betRepository;
     private readonly IJockeyContractRepository _contractRepository;
+    private readonly INotificationService _notificationService;
 
     public RegistrationService(
         IRegistrationRepository registrationRepository,
         IHorseRepository horseRepository,
         IBetRepository betRepository,
-        IJockeyContractRepository contractRepository)
+        IJockeyContractRepository contractRepository,
+        INotificationService notificationService)
     {
         _registrationRepository = registrationRepository;
         _horseRepository = horseRepository;
         _betRepository = betRepository;
         _contractRepository = contractRepository;
+        _notificationService = notificationService;
     }
 
     private RegistrationResponse MapToResponse(Registration reg, JockeyContract? contract = null)
@@ -156,7 +160,54 @@ public class RegistrationService : IRegistrationService
         registration.Status = request.Status;
         await _registrationRepository.SaveChangesAsync();
 
+        // Load fully populated registration for owner notifications
         var populated = await _registrationRepository.GetByIdAsync(id);
-        return MapToResponse(populated ?? registration);
+        var notifyReg = populated ?? registration;
+
+        if (notifyReg.Horse != null)
+        {
+            var horseName = notifyReg.Horse.Name;
+            var tournamentName = notifyReg.Tournament?.Name ?? "the tournament";
+            var ownerId = notifyReg.Horse.OwnerId;
+
+            if (request.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    await _notificationService.SendNotificationToUserAsync(
+                        ownerId,
+                        "Horse Registration Approved",
+                        $"Your horse '{horseName}' has been approved for tournament '{tournamentName}'.",
+                        "Tournament",
+                        referenceId: (int)notifyReg.TournamentId,
+                        actionUrl: "/owner/registrations"
+                    );
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[NOTIFICATION ERROR] Failed to send approval notification to owner {ownerId}: {ex.Message}");
+                }
+            }
+            else if (request.Status.Equals("Rejected", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    await _notificationService.SendNotificationToUserAsync(
+                        ownerId,
+                        "Horse Registration Rejected",
+                        $"Your horse '{horseName}' has been rejected for tournament '{tournamentName}'. Please check horse details and re-register if registration period is still open.",
+                        "Tournament",
+                        referenceId: (int)notifyReg.TournamentId,
+                        actionUrl: "/owner/registrations"
+                    );
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[NOTIFICATION ERROR] Failed to send rejection notification to owner {ownerId}: {ex.Message}");
+                }
+            }
+        }
+
+        return MapToResponse(notifyReg);
     }
 }
