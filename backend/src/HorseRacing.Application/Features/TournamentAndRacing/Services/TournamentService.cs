@@ -206,8 +206,8 @@ public class TournamentService : ITournamentService
                         {
                             await _notificationService.SendNotificationToUserAsync(
                                 adminId,
-                                "Giải đấu cần phân công trọng tài",
-                                $"Giải đấu '{t.Name}' chưa được phân công trọng tài đầy đủ cho tất cả cuộc đua. Vui lòng phân công để giải đấu có thể bắt đầu.",
+                                "Referees Assignment Required",
+                                $"Tournament '{t.Name}' does not have full referees assigned for all races. Please assign referees so the tournament can start.",
                                 "System",
                                 (int)t.TournamentId
                             );
@@ -329,8 +329,8 @@ public class TournamentService : ITournamentService
                     {
                         await _notificationService.SendNotificationToUserAsync(
                             adminId,
-                            "Giải đấu cần phân công trọng tài",
-                            $"Giải đấu '{tournament.Name}' chưa được phân công trọng tài đầy đủ cho tất cả cuộc đua. Vui lòng phân công để giải đấu có thể bắt đầu.",
+                            "Referees Assignment Required",
+                            $"Tournament '{tournament.Name}' does not have full referees assigned for all races. Please assign referees so the tournament can start.",
                             "System",
                             (int)tournament.TournamentId
                         );
