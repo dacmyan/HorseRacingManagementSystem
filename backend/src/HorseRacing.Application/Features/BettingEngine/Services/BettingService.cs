@@ -203,72 +203,57 @@ public class BettingService : IBettingService
 
         if (entries.Count == 0) return;
 
-        var scores = new List<(RaceEntry entry, decimal score)>();
+        var rawScores = new List<(RaceEntry entry, decimal speed, decimal jockey, decimal winRate)>();
 
         foreach (var entry in entries)
         {
             var horse = entry.Registration?.Horse;
             if (horse == null) continue;
 
-            var averageTime = horse.AverageTime;
-            if (averageTime == null || averageTime <= 0)
-            {
-                averageTime = 70;
-            }
+            // 1. Speed (stored in AverageTime / RecentAverageTime columns, representing AverageSpeed / RecentAverageSpeed)
+            var avgSpeed = horse.AverageTime ?? 15.0m;
+            if (avgSpeed <= 0) avgSpeed = 15.0m;
 
-            var recentAverageTime = horse.RecentAverageTime;
-            if (recentAverageTime == null || recentAverageTime <= 0)
-            {
-                recentAverageTime = averageTime;
-            }
+            var recentAvgSpeed = horse.RecentAverageTime ?? avgSpeed;
+            if (recentAvgSpeed <= 0) recentAvgSpeed = avgSpeed;
 
-            var winRate = horse.WinRate;
-            if (winRate == null)
-            {
-                winRate = 0.05m;
-            }
+            var combinedSpeed = 0.5m * avgSpeed + 0.5m * recentAvgSpeed;
 
-            if (winRate > 1)
-            {
-                winRate = winRate / 100m;
-            }
+            // 2. Jockey Ranking (RankingPoint in JockeyProfile)
+            var jockeyRank = entry.JockeyProfile != null ? entry.JockeyProfile.RankingPoint : 100;
+            if (jockeyRank <= 0) jockeyRank = 100;
 
-            var averageTimeScore = Math.Max(1m, 100m - (averageTime.Value - 60m) * 5m);
-            var recentTimeScore = Math.Max(1m, 100m - (recentAverageTime.Value - 60m) * 5m);
-            var winRateScore = winRate.Value * 100m;
+            // 3. Win Rate (stored in WinRate, already smoothed by UpdateHorseStatsAsync or default)
+            var winRate = horse.WinRate ?? 0.05m;
+            if (winRate <= 0) winRate = 0.05m;
+            if (winRate > 1) winRate = winRate / 100m;
 
-            var horseScore =
-                averageTimeScore * 0.4m
-                + recentTimeScore * 0.4m
-                + winRateScore * 0.2m;
-
-            scores.Add((entry, horseScore));
+            rawScores.Add((entry, combinedSpeed, (decimal)jockeyRank, winRate));
         }
 
-        var totalScore = scores.Sum(x => x.score);
+        if (rawScores.Count == 0) return;
 
-        if (totalScore <= 0)
+        var totalSpeed = rawScores.Sum(x => x.speed);
+        var totalJockey = rawScores.Sum(x => x.jockey);
+        var totalWinRate = rawScores.Sum(x => x.winRate);
+
+        foreach (var item in rawScores)
         {
-            var equalProbability = 1m / entries.Count;
+            // Normalize each factor to a percentage scale (relative share of the total)
+            var relSpeed = totalSpeed > 0 ? item.speed / totalSpeed : 1.0m / rawScores.Count;
+            var relJockey = totalJockey > 0 ? item.jockey / totalJockey : 1.0m / rawScores.Count;
+            var relWinRate = totalWinRate > 0 ? item.winRate / totalWinRate : 1.0m / rawScores.Count;
 
-            foreach (var entry in entries)
-            {
-                entry.WinningProbability = Math.Round(equalProbability * 100m, 2);
-                entry.CurrentOdds = Math.Round((1m / equalProbability) * 0.9m, 2);
-            }
-        }
-        else
-        {
-            foreach (var item in scores)
-            {
-                var winProbability = item.score / totalScore;
-                var winPercentage = winProbability * 100m;
-                var odds = 1m / winProbability;
-                var finalOdds = Math.Max(odds * 0.9m, 1.05m);
+            // Weighted probability: 50% Speed + 30% Jockey + 20% WinRate
+            var winProbability = 0.5m * relSpeed + 0.3m * relJockey + 0.2m * relWinRate;
+            var winPercentage = winProbability * 100m;
 
-                item.entry.WinningProbability = Math.Round(winPercentage, 2);
-                item.entry.CurrentOdds = Math.Round(finalOdds, 2);
-            }
+            // Odds = (1 / winProbability) * 0.9 (deducting 10% fee)
+            var odds = winProbability > 0 ? 1.0m / winProbability : 1.0m / (1.0m / rawScores.Count);
+            var finalOdds = Math.Max(odds * 0.9m, 1.05m);
+
+            item.entry.WinningProbability = Math.Round(winPercentage, 2);
+            item.entry.CurrentOdds = Math.Round(finalOdds, 2);
         }
 
         await _betRepository.SaveChangesAsync();

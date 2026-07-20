@@ -55,6 +55,16 @@ public class AdminController : ControllerBase
         _registrationService = registrationService;
     }
 
+    private int GetCurrentUserId()
+    {
+        var nameIdentifier = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(nameIdentifier))
+        {
+            nameIdentifier = User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
+        }
+        return int.Parse(nameIdentifier ?? "0");
+    }
+
     [HttpGet("test")]
     public IActionResult TestAdminAuthorization()
     {
@@ -217,6 +227,82 @@ public class AdminController : ControllerBase
         catch (Exception ex)
         {
             return StatusCode(500, new { message = "An error occurred retrieving payouts", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("wallet/balance")]
+    public async Task<IActionResult> GetWalletBalance([FromServices] IWalletService walletService)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var response = await walletService.GetBalanceAsync(userId);
+            return Ok(new { message = "Admin wallet balance retrieved successfully", result = response });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WALLET BALANCE ERROR]: {ex}");
+            return StatusCode(500, new { message = "An error occurred retrieving admin wallet balance", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("wallet/history")]
+    public async Task<IActionResult> GetWalletHistory([FromServices] IWalletService walletService)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var response = await walletService.GetTransactionHistoryAsync(userId);
+            return Ok(new { message = "Admin wallet history retrieved successfully", result = response });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WALLET HISTORY ERROR]: {ex}");
+            return StatusCode(500, new { message = "An error occurred retrieving admin wallet history", detail = ex.Message });
+        }
+    }
+
+    [HttpPost("wallet/deposit")]
+    public async Task<IActionResult> DepositWallet([FromBody] DepositRequest request, [FromServices] IWalletService walletService)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var response = await walletService.DepositAsync(userId, request);
+            return Ok(new { message = "Treasury deposit successful", result = response });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WALLET DEPOSIT ERROR]: {ex}");
+            return StatusCode(500, new { message = "An error occurred during treasury deposit", detail = ex.Message });
+        }
+    }
+
+    [HttpPost("wallet/withdraw")]
+    public async Task<IActionResult> WithdrawWallet([FromBody] WithdrawRequest request, [FromServices] IWalletService walletService)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var response = await walletService.WithdrawAsync(userId, request);
+            return Ok(new { message = "Treasury withdrawal successful", result = response });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WALLET WITHDRAW ERROR]: {ex}");
+            return StatusCode(500, new { message = "An error occurred during treasury withdrawal", detail = ex.Message });
         }
     }
 
@@ -1007,7 +1093,12 @@ public class AdminController : ControllerBase
             var alreadyFinalStatuses = new[] { "Withdrawn", "Scratch", "DNF", "Disqualified", "Finished", "Completed" };
             if (alreadyFinalStatuses.Any(s => string.Equals(entry.Status, s, StringComparison.OrdinalIgnoreCase)))
             {
-                return BadRequest(new { message = $"Race entry is already in a final status '{entry.Status}'." });
+                var horseName = entry.Registration?.Horse?.Name ?? "This horse";
+                if (string.Equals(entry.Status, "Withdrawn", StringComparison.OrdinalIgnoreCase))
+                {
+                    return BadRequest(new { message = $"Horse '{horseName}' has medical/health issues and has been automatically withdrawn from the race." });
+                }
+                return BadRequest(new { message = $"Race entry for horse '{horseName}' is already in final status '{entry.Status}'." });
             }
 
             if (string.Equals(race.Status, "Finished", StringComparison.OrdinalIgnoreCase) ||
@@ -1063,6 +1154,142 @@ public class AdminController : ControllerBase
         catch (Exception ex)
         {
             return StatusCode(500, new { message = "An error occurred during race entry withdrawal", detail = ex.Message });
+        }
+    }
+
+    [HttpPost("tournaments/{tournamentId}/complete-racing")]
+    public async Task<IActionResult> CompleteRacing(long tournamentId, [FromServices] AppDbContext context, [FromServices] INotificationService notificationService)
+    {
+        try
+        {
+            var tournament = await context.Tournaments
+                .Include(t => t.Rounds)
+                    .ThenInclude(r => r.Races)
+                .FirstOrDefaultAsync(t => t.TournamentId == tournamentId);
+
+            if (tournament == null)
+            {
+                return NotFound(new { message = $"Tournament with ID {tournamentId} not found." });
+            }
+
+            if (tournament.Status != "Active")
+            {
+                return BadRequest(new { message = $"Tournament is not in Active status. Current status: {tournament.Status}." });
+            }
+
+            // 1. Update tournament status
+            tournament.Status = "AwaitingResults";
+            await context.SaveChangesAsync();
+
+            // 2. Notify all active users
+            await notificationService.BroadcastNotificationAsync(
+                "Giải đấu kết thúc thi đấu",
+                $"Giải đấu '{tournament.Name}' đã kết thúc thi đấu. Ban tổ chức đang tổng hợp kết quả chính thức.",
+                "Tournament",
+                referenceId: (int)tournament.TournamentId,
+                actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
+            );
+
+            // 3. Notify final race referee(s)
+            var finalRound = tournament.Rounds.FirstOrDefault(r => r.RoundNumber == 2);
+            if (finalRound != null)
+            {
+                var finalRace = finalRound.Races.FirstOrDefault();
+                if (finalRace != null)
+                {
+                    var referees = await context.RaceRefereeAssignments
+                        .Include(a => a.RefereeProfile)
+                        .Where(a => a.RaceId == finalRace.RaceId)
+                        .ToListAsync();
+
+                    foreach (var assignment in referees)
+                    {
+                        if (assignment.RefereeProfile != null)
+                        {
+                            await notificationService.SendNotificationToUserAsync(
+                                assignment.RefereeProfile.UserId,
+                                "Yêu cầu nộp kết quả giải đấu",
+                                $"Giải đấu '{tournament.Name}' đã kết thúc. Vui lòng gửi kết quả vi phạm và ghi kết quả xếp hạng ngựa gửi đến admin.",
+                                "System",
+                                referenceId: (int)tournament.TournamentId,
+                                actionUrl: $"/referee/races/{finalRace.RaceId}"
+                            );
+                        }
+                    }
+                }
+            }
+
+            return Ok(new { message = "Tournament racing phase completed successfully, notifications sent." });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred completing tournament racing phase", detail = ex.Message });
+        }
+    }
+
+    [HttpPost("tournaments/{tournamentId}/complete")]
+    public async Task<IActionResult> CompleteTournament(long tournamentId, [FromServices] AppDbContext context, [FromServices] INotificationService notificationService)
+    {
+        try
+        {
+            var tournament = await context.Tournaments
+                .Include(t => t.Rounds)
+                    .ThenInclude(r => r.Races)
+                .FirstOrDefaultAsync(t => t.TournamentId == tournamentId);
+
+            if (tournament == null)
+            {
+                return NotFound(new { message = $"Tournament with ID {tournamentId} not found." });
+            }
+
+            if (tournament.Status != "AwaitingResults" && tournament.Status != "Active")
+            {
+                return BadRequest(new { message = $"Tournament is in status '{tournament.Status}' and cannot be completed." });
+            }
+
+            // Verify final race is Finished
+            var finalRound = tournament.Rounds.FirstOrDefault(r => r.RoundNumber == 2);
+            if (finalRound == null)
+            {
+                return BadRequest(new { message = "Final round not found for this tournament." });
+            }
+
+            var finalRace = finalRound.Races.FirstOrDefault();
+            if (finalRace == null)
+            {
+                return BadRequest(new { message = "Final race not found for this tournament." });
+            }
+
+            if (!string.Equals(finalRace.Status, "Finished", StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest(new { message = $"Final race results must be published before completing the tournament. Current final race status: {finalRace.Status}." });
+            }
+
+            // Trigger prize payout
+            var request = new PrizePayoutRequest
+            {
+                TournamentId = (int)tournamentId,
+                FirstPlacePrize = 0m,
+                SecondPlacePrize = 0m,
+                ThirdPlacePrize = 0m
+            };
+
+            await _prizePayoutService.ProcessPrizePayoutAsync(request);
+
+            // Broadcast to all active users
+            await notificationService.BroadcastNotificationAsync(
+                "Giải đấu kết thúc & trao giải",
+                $"Giải đấu '{tournament.Name}' đã kết thúc thành công! Tiền thưởng đã được trao cho các chủ ngựa đạt giải.",
+                "Tournament",
+                referenceId: (int)tournament.TournamentId,
+                actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
+            );
+
+            return Ok(new { message = "Tournament completed and prizes distributed successfully." });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred during tournament completion", detail = ex.Message });
         }
     }
 }

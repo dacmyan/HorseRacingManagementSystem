@@ -190,6 +190,55 @@ public class RaceResultService : IRaceResultService
         await _repository.AddResultAsync(result);
         await _repository.SaveChangesAsync();
 
+        // Dispatch notifications
+        try
+        {
+            // 1. Notify assigned referees
+            var assignments = await _repository.GetAssignmentsForRaceAsync(race.RaceId);
+            var tournamentName = race.Round?.Tournament?.Name ?? "Giải đấu";
+            foreach (var assignment in assignments)
+            {
+                if (assignment.RefereeProfile != null)
+                {
+                    await _notificationService.SendNotificationToUserAsync(
+                        assignment.RefereeProfile.UserId,
+                        "Giải đấu được phân công đã kết thúc",
+                        $"Giải đấu '{tournamentName}' mà bạn được phân công đã kết thúc, hãy gửi vi phạm và kết quả cho admin.",
+                        "System",
+                        referenceId: (int)race.RaceId,
+                        actionUrl: "/referee/schedule"
+                    );
+                }
+            }
+
+            // 2. Notify admins
+            var adminIds = await _repository.GetAdminUserIdsAsync();
+            foreach (var adminId in adminIds)
+            {
+                await _notificationService.SendNotificationToUserAsync(
+                    adminId,
+                    "Race Results Submitted",
+                    $"The results for race '{race.Name}' have been submitted and are pending review.",
+                    "Race",
+                    referenceId: (int)race.RaceId,
+                    actionUrl: "/admin/results"
+                );
+            }
+
+            // 3. Broadcast to all users
+            await _notificationService.BroadcastNotificationAsync(
+                "Race Completed",
+                $"Race '{race.Name}' has completed. Results are pending review.",
+                "Race",
+                referenceId: (int)race.RaceId,
+                actionUrl: "/spectator/live"
+            );
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[NOTIFICATION ERROR] Failed to dispatch notifications on race completion: {ex.Message}");
+        }
+
         // Auto-trigger Final Race generation if all Pre-round races are completed
         await TryAutoGenerateFinalRaceAsync(race);
 
