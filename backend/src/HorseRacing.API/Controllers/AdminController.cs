@@ -1049,7 +1049,12 @@ public class AdminController : ControllerBase
             var alreadyFinalStatuses = new[] { "Withdrawn", "Scratch", "DNF", "Disqualified", "Finished", "Completed" };
             if (alreadyFinalStatuses.Any(s => string.Equals(entry.Status, s, StringComparison.OrdinalIgnoreCase)))
             {
-                return BadRequest(new { message = $"Race entry is already in a final status '{entry.Status}'." });
+                var horseName = entry.Registration?.Horse?.Name ?? "Con ngựa này";
+                if (string.Equals(entry.Status, "Withdrawn", StringComparison.OrdinalIgnoreCase))
+                {
+                    return BadRequest(new { message = $"Ngựa '{horseName}' gặp vấn đề về sức khỏe (không đủ điều kiện thi đấu) nên đã được rút khỏi lượt đua." });
+                }
+                return BadRequest(new { message = $"Ngựa '{horseName}' đã ở trạng thái kết thúc '{entry.Status}'." });
             }
 
             if (string.Equals(race.Status, "Finished", StringComparison.OrdinalIgnoreCase) ||
