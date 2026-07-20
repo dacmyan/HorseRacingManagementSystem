@@ -100,6 +100,37 @@ public class DataSeeder
                 _logger.LogInformation("Default Veterinarian user ('vet@gmail.com' / '123456') seeded successfully.");
             }
 
+            // 3b. Seed Default Referee User
+            var defaultRefereeEmail = "referee@gmail.com";
+            var defaultRefereeUsername = "referee";
+
+            if (!await _context.Users.AnyAsync(u => u.Email == defaultRefereeEmail || u.Username == defaultRefereeUsername))
+            {
+                var refereeUser = new AppUser
+                {
+                    Username = defaultRefereeUsername,
+                    Email = defaultRefereeEmail,
+                    FullName = "System Referee",
+                    RoleId = 4, // Referee Role
+                    Status = "Active",
+                    IsEmailConfirmed = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+                refereeUser.PasswordHash = hasher.HashPassword(refereeUser, "123456");
+
+                _context.Users.Add(refereeUser);
+                await _context.SaveChangesAsync();
+
+                _context.RefereeProfiles.Add(new RefereeProfile
+                {
+                    UserId = refereeUser.UserId,
+                    LicenseNumber = "REF-12345",
+                    Status = "Active"
+                });
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("Default Referee user ('referee@gmail.com' / '123456') seeded successfully.");
+            }
+
             // 4. Seed 25 Test Jockey Users
             for (int i = 1; i <= 25; i++)
             {
@@ -198,6 +229,302 @@ public class DataSeeder
                     });
                     await _context.SaveChangesAsync();
                     _logger.LogInformation($"Test Horse '{horseName}' seeded successfully.");
+                }
+            }
+
+            // 6. Seed Tournaments "Block10" & "WC 2026"
+            var targetTournamentsList = new[] { "Block10", "WC 2026" };
+            foreach (var tName in targetTournamentsList)
+            {
+                var tBlock = await _context.Tournaments.FirstOrDefaultAsync(t => t.Name == tName);
+                if (tBlock == null)
+                {
+                    tBlock = new Tournament
+                    {
+                        Name = tName,
+                        Description = $"{tName} Tournament Description",
+                        RegistrationStartDate = DateTime.UtcNow.AddDays(-5),
+                        RegistrationEndDate = DateTime.UtcNow.AddDays(5),
+                        StartDate = DateTime.UtcNow.AddDays(6),
+                        EndDate = DateTime.UtcNow.AddDays(15),
+                        Status = "Registration Open"
+                    };
+                    _context.Tournaments.Add(tBlock);
+                    await _context.SaveChangesAsync();
+                    _logger.LogInformation($"Tournament '{tName}' seeded successfully.");
+                }
+
+                var vet = await _context.Users.FirstOrDefaultAsync(u => u.Username == "vet");
+                int vetId = vet?.UserId ?? 1;
+
+                int limit = tName == "WC 2026" ? 13 : 12;
+                for (int i = 1; i <= limit; i++)
+                {
+                    var horseName = $"Owner3-Horse{i}";
+                    var jockeyUsername = $"jockeytest{i}";
+
+                    var horse = await _context.Horses.FirstOrDefaultAsync(h => h.Name == horseName);
+                    var jockey = await _context.Users.FirstOrDefaultAsync(u => u.Username == jockeyUsername);
+
+                    if (horse != null && jockey != null)
+                    {
+                        // Ensure horse is Healthy so that entering race results won't fail due to previous tests
+                        if (horse.HealthStatus != "Healthy")
+                        {
+                            horse.HealthStatus = "Healthy";
+                            _context.Horses.Update(horse);
+                            await _context.SaveChangesAsync();
+                            _logger.LogInformation($"Horse '{horseName}' health status set to Healthy.");
+                        }
+
+                        // 6a. Seed JockeyContract invitation
+                        var hasContract = await _context.JockeyContracts.AnyAsync(jc => jc.TournamentId == tBlock.TournamentId && jc.HorseId == horse.HorseId && jc.JockeyId == jockey.UserId);
+                        if (!hasContract)
+                        {
+                            var contract = new JockeyContract
+                            {
+                                TournamentId = tBlock.TournamentId,
+                                HorseId = horse.HorseId,
+                                JockeyId = jockey.UserId,
+                                StartDate = tBlock.StartDate ?? DateTime.UtcNow.AddDays(6),
+                                EndDate = tBlock.EndDate ?? DateTime.UtcNow.AddDays(15),
+                                Status = "Accepted",
+                                InvitationExpiredAt = DateTime.UtcNow.AddDays(2),
+                                CreatedAt = DateTime.UtcNow
+                            };
+                            _context.JockeyContracts.Add(contract);
+                            await _context.SaveChangesAsync();
+                            _logger.LogInformation($"JockeyContract invitation from Owner-3 to '{jockeyUsername}' for horse '{horseName}' in '{tName}' seeded successfully.");
+                        }
+
+                        // 6b. Seed Tournament Registration
+                        var registration = await _context.Registrations.FirstOrDefaultAsync(r => r.TournamentId == tBlock.TournamentId && r.HorseId == horse.HorseId);
+                        if (registration == null)
+                        {
+                            registration = new Registration
+                            {
+                                TournamentId = tBlock.TournamentId,
+                                HorseId = horse.HorseId,
+                                Status = "Approved",
+                                RegisteredAt = DateTime.UtcNow
+                            };
+                            _context.Registrations.Add(registration);
+                            await _context.SaveChangesAsync();
+                            _logger.LogInformation($"Registration for horse '{horseName}' in '{tName}' seeded successfully.");
+                        }
+                        else if (registration.Status != "Approved")
+                        {
+                            registration.Status = "Approved";
+                            _context.Registrations.Update(registration);
+                            await _context.SaveChangesAsync();
+                        }
+
+                        // 6c. Seed passing MedicalCheckRecord
+                        var hasMedicalCheck = await _context.MedicalCheckRecords.AnyAsync(mc => mc.RegistrationId == registration.RegistrationId);
+                        if (!hasMedicalCheck)
+                        {
+                            var medicalCheck = new MedicalCheckRecord
+                            {
+                                RegistrationId = registration.RegistrationId,
+                                UserId = vetId,
+                                Weight = 450.0m,
+                                Temperature = 38.2m,
+                                HeartRate = 40,
+                                DopingResult = "Negative",
+                                MedicalResult = "Pass",
+                                Notes = $"Auto-seeded passing check for {tName}",
+                                CheckedAt = DateTime.UtcNow
+                            };
+                            _context.MedicalCheckRecords.Add(medicalCheck);
+                            await _context.SaveChangesAsync();
+                            _logger.LogInformation($"MedicalCheckRecord for Registration {registration.RegistrationId} in '{tName}' seeded successfully.");
+                        }
+                    }
+                }
+
+                // 6d. Automatically generate Rounds, Races, and Assignments for Spectator Betting flow
+                var rounds = await _context.Rounds.Where(r => r.TournamentId == tBlock.TournamentId).ToListAsync();
+                if (!rounds.Any())
+                {
+                    if (limit == 12)
+                    {
+                        // Final Round
+                        var finalRound = new Round
+                        {
+                            TournamentId = tBlock.TournamentId,
+                            Name = "Final",
+                            RoundNumber = 2,
+                            StartDate = tBlock.StartDate,
+                            EndDate = tBlock.EndDate,
+                            Status = "Scheduled"
+                        };
+                        _context.Rounds.Add(finalRound);
+                        await _context.SaveChangesAsync();
+
+                        var finalRace = new Race
+                        {
+                            RoundId = finalRound.RoundId,
+                            Name = "Final Race",
+                            RaceDate = tBlock.EndDate ?? DateTime.UtcNow.AddDays(10),
+                            DistanceMeter = 1600,
+                            MaxLanes = 12,
+                            Status = "Scheduled"
+                        };
+                        _context.Races.Add(finalRace);
+                        await _context.SaveChangesAsync();
+
+                        // Referee assignment
+                        var defaultRef = await _context.Users.FirstOrDefaultAsync(u => u.Username == "referee");
+                        if (defaultRef != null)
+                        {
+                            _context.RaceRefereeAssignments.Add(new RaceRefereeAssignment
+                            {
+                                RaceId = finalRace.RaceId,
+                                RefereeId = defaultRef.UserId,
+                                AssignedAt = DateTime.UtcNow,
+                                Status = "Active"
+                            });
+                            await _context.SaveChangesAsync();
+                        }
+
+                        // Race Entries
+                        int lane = 1;
+                        for (int i = 1; i <= limit; i++)
+                        {
+                            var horseName = $"Owner3-Horse{i}";
+                            var horse = await _context.Horses.FirstOrDefaultAsync(h => h.Name == horseName);
+                            var jockeyUsername = $"jockeytest{i}";
+                            var jockey = await _context.Users.FirstOrDefaultAsync(u => u.Username == jockeyUsername);
+                            var registration = await _context.Registrations.FirstOrDefaultAsync(r => r.TournamentId == tBlock.TournamentId && r.HorseId == horse.HorseId);
+                            if (registration != null)
+                            {
+                                _context.RaceEntries.Add(new RaceEntry
+                                {
+                                    RaceId = finalRace.RaceId,
+                                    RegistrationId = registration.RegistrationId,
+                                    JockeyId = jockey?.UserId,
+                                    LaneNo = lane++,
+                                    Status = "Confirmed",
+                                    WinningProbability = 0.5m,
+                                    CurrentOdds = 2.0m
+                                });
+                            }
+                        }
+                        await _context.SaveChangesAsync();
+                        _logger.LogInformation($"Round and Race seeded successfully for Final round tournament {tName}.");
+                    }
+                    else
+                    {
+                        // Pre Round
+                        var preRound = new Round
+                        {
+                            TournamentId = tBlock.TournamentId,
+                            Name = "Pre",
+                            RoundNumber = 1,
+                            StartDate = tBlock.StartDate,
+                            EndDate = tBlock.EndDate,
+                            Status = "Scheduled"
+                        };
+                        _context.Rounds.Add(preRound);
+                        await _context.SaveChangesAsync();
+
+                        // Race 1 (7 horses)
+                        var preRace1 = new Race
+                        {
+                            RoundId = preRound.RoundId,
+                            Name = "Pre Round Race 1",
+                            RaceDate = tBlock.StartDate ?? DateTime.UtcNow.AddDays(7),
+                            DistanceMeter = 1600,
+                            MaxLanes = 12,
+                            Status = "Scheduled"
+                        };
+                        _context.Races.Add(preRace1);
+                        await _context.SaveChangesAsync();
+
+                        // Race 2 (6 horses)
+                        var preRace2 = new Race
+                        {
+                            RoundId = preRound.RoundId,
+                            Name = "Pre Round Race 2",
+                            RaceDate = tBlock.StartDate ?? DateTime.UtcNow.AddDays(7),
+                            DistanceMeter = 1600,
+                            MaxLanes = 12,
+                            Status = "Scheduled"
+                        };
+                        _context.Races.Add(preRace2);
+                        await _context.SaveChangesAsync();
+
+                        // Referee assignments
+                        var defaultRef = await _context.Users.FirstOrDefaultAsync(u => u.Username == "referee");
+                        if (defaultRef != null)
+                        {
+                            _context.RaceRefereeAssignments.Add(new RaceRefereeAssignment
+                            {
+                                RaceId = preRace1.RaceId,
+                                RefereeId = defaultRef.UserId,
+                                AssignedAt = DateTime.UtcNow,
+                                Status = "Active"
+                            });
+                            _context.RaceRefereeAssignments.Add(new RaceRefereeAssignment
+                            {
+                                RaceId = preRace2.RaceId,
+                                RefereeId = defaultRef.UserId,
+                                AssignedAt = DateTime.UtcNow,
+                                Status = "Active"
+                            });
+                            await _context.SaveChangesAsync();
+                        }
+
+                        // Race 1 entries (1 to 7)
+                        int lane = 1;
+                        for (int i = 1; i <= 7; i++)
+                        {
+                            var horseName = $"Owner3-Horse{i}";
+                            var horse = await _context.Horses.FirstOrDefaultAsync(h => h.Name == horseName);
+                            var jockeyUsername = $"jockeytest{i}";
+                            var jockey = await _context.Users.FirstOrDefaultAsync(u => u.Username == jockeyUsername);
+                            var registration = await _context.Registrations.FirstOrDefaultAsync(r => r.TournamentId == tBlock.TournamentId && r.HorseId == horse.HorseId);
+                            if (registration != null)
+                            {
+                                _context.RaceEntries.Add(new RaceEntry
+                                {
+                                    RaceId = preRace1.RaceId,
+                                    RegistrationId = registration.RegistrationId,
+                                    JockeyId = jockey?.UserId,
+                                    LaneNo = lane++,
+                                    Status = "Confirmed",
+                                    WinningProbability = 0.5m,
+                                    CurrentOdds = 2.0m
+                                });
+                            }
+                        }
+
+                        // Race 2 entries (8 to 13)
+                        lane = 1;
+                        for (int i = 8; i <= 13; i++)
+                        {
+                            var horseName = $"Owner3-Horse{i}";
+                            var horse = await _context.Horses.FirstOrDefaultAsync(h => h.Name == horseName);
+                            var jockeyUsername = $"jockeytest{i}";
+                            var jockey = await _context.Users.FirstOrDefaultAsync(u => u.Username == jockeyUsername);
+                            var registration = await _context.Registrations.FirstOrDefaultAsync(r => r.TournamentId == tBlock.TournamentId && r.HorseId == horse.HorseId);
+                            if (registration != null)
+                            {
+                                _context.RaceEntries.Add(new RaceEntry
+                                {
+                                    RaceId = preRace2.RaceId,
+                                    RegistrationId = registration.RegistrationId,
+                                    JockeyId = jockey?.UserId,
+                                    LaneNo = lane++,
+                                    Status = "Confirmed",
+                                    WinningProbability = 0.5m,
+                                    CurrentOdds = 2.0m
+                                });
+                            }
+                        }
+                        await _context.SaveChangesAsync();
+                        _logger.LogInformation($"Pre round races seeded successfully for tournament {tName}.");
+                    }
                 }
             }
 
