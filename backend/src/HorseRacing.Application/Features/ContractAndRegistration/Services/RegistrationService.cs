@@ -118,6 +118,28 @@ public class RegistrationService : IRegistrationService
         await _registrationRepository.SaveChangesAsync();
 
         var populated = await _registrationRepository.GetByIdAsync(registration.RegistrationId);
+
+        if (populated != null)
+        {
+            try
+            {
+                var horseName = populated.Horse?.Name ?? "Ngựa";
+                var tournamentName = populated.Tournament?.Name ?? "Giải đấu";
+                await _notificationService.SendNotificationToRoleAsync(
+                    "Veterinarian",
+                    "Yêu cầu khám sức khỏe mới",
+                    $"Ngựa '{horseName}' đã đăng ký tham gia giải đấu '{tournamentName}' và đang chờ khám sức khỏe.",
+                    "MedicalCheck",
+                    referenceId: (int)populated.TournamentId,
+                    actionUrl: "/vet/inspections"
+                );
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[NOTIFICATION ERROR] Failed to send notification to Veterinarian: {ex.Message}");
+            }
+        }
+
         return MapToResponse(populated ?? registration);
     }
 

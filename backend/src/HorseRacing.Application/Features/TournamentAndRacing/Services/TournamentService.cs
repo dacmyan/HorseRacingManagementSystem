@@ -98,7 +98,6 @@ public class TournamentService : ITournamentService
             await _notificationService.SendNotificationToRoleAsync("HorseOwner", "Giải đấu mới được tạo", msg, "Tournament", (int)tournament.TournamentId, actionUrl: "/owner/tournaments");
             await _notificationService.SendNotificationToRoleAsync("Jockey", "Giải đấu mới được tạo", msg, "Tournament", (int)tournament.TournamentId, actionUrl: "/jockey/schedule");
             await _notificationService.SendNotificationToRoleAsync("Referee", "Giải đấu mới được tạo", msg, "Tournament", (int)tournament.TournamentId, actionUrl: "/referee/schedule");
-            await _notificationService.SendNotificationToRoleAsync("Veterinarian", "Giải đấu mới được tạo", msg, "Tournament", (int)tournament.TournamentId, actionUrl: "/vet/inspections");
             await _notificationService.SendNotificationToRoleAsync("Spectator", "Giải đấu mới được tạo", msg, "Tournament", (int)tournament.TournamentId, actionUrl: $"/spectator/tournaments/{tournament.TournamentId}");
         }
         catch (Exception ex)
@@ -156,7 +155,6 @@ public class TournamentService : ITournamentService
                 var cancelMsg = $"Giải đấu '{tournament.Name}' đã bị hủy.";
                 await _notificationService.SendNotificationToRoleAsync("HorseOwner", "Giải đấu bị hủy", cancelMsg, "Tournament", (int)tournament.TournamentId);
                 await _notificationService.SendNotificationToRoleAsync("Jockey", "Giải đấu bị hủy", cancelMsg, "Tournament", (int)tournament.TournamentId);
-                await _notificationService.SendNotificationToRoleAsync("Veterinarian", "Giải đấu bị hủy", cancelMsg, "Tournament", (int)tournament.TournamentId);
                 await _notificationService.SendNotificationToRoleAsync("Spectator", "Giải đấu bị hủy", cancelMsg, "Tournament", (int)tournament.TournamentId);
             }
             else
@@ -656,16 +654,6 @@ public class TournamentService : ITournamentService
         // Send notifications for scheduled races
         try
         {
-            // 1. Notify Veterinarians
-            await _notificationService.SendNotificationToRoleAsync(
-                "Veterinarian",
-                "Yêu cầu tái khám y tế",
-                $"Admin đã xếp lịch giải đấu '{tournament.Name}', hãy khám lại lần nữa và gửi kết quả lại cho admin.",
-                "Tournament",
-                referenceId: (int)tournament.TournamentId,
-                actionUrl: "/vet/inspections"
-            );
-
             // 2. Notify Spectators
             await _notificationService.SendNotificationToRoleAsync(
                 "Spectator",
