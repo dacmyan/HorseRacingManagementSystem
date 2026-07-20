@@ -15,11 +15,13 @@ graph TD
     D --> E[Owner: Đăng ký ngựa vào giải đấu]
     E --> F{Kiểm tra giải đấu?}
     F -->|Chưa mở hoặc đã đóng đăng ký| G[Hệ thống: Báo lỗi và từ chối]
-    F -->|Đang mở đăng ký| H[Gửi đơn đăng ký thành công - Registration: Pending]
+    F -->|Đang mở đăng ký| H[Gửi đơn đăng ký thành công - Registration: PendingVet]
     
-    H --> I{Kiểm tra hợp đồng Jockey?}
-    I -->|Chưa có hợp đồng Accepted| J[Hệ thống: Admin không được phép duyệt đơn]
-    I -->|Đã có hợp đồng Accepted| K[Hệ thống: Admin phê duyệt đơn đăng ký - Registration: Approved]
+    H --> I[Vet: Khám sức khỏe ban đầu - Initial Check]
+    I -->|Khám đạt: Pass & Doping Negative| J[Registration: Pending -> Owner có thể tuyển Jockey]
+    I -->|Khám hỏng: Fail hoặc Doping Positive| K[Registration: Rejected -> Horse: Sick/Injured]
+    
+    J --> L[Admin: Phê duyệt đơn đăng ký - Registration: Approved]
 ```
 
 ---
@@ -44,8 +46,9 @@ graph TD
 * Yêu cầu đăng ký giải đấu (`CreateRegistrationRequest`) chỉ được chấp nhận nếu thời gian thực tế nằm trong khoảng:
   `Tournament.RegistrationStartDate` <= Hiện tại <= `Tournament.RegistrationEndDate`.
 
-### 4. ĐIỀU KIỆN PHÊ DUYỆT ĐĂNG KÝ (RÀNG BUỘC CỨNG CỦA ADMIN)
-* Admin duyệt đăng ký qua API: `PUT /api/registrations/{id}/status`.
-* Hệ thống sẽ **từ chối phê duyệt** và báo lỗi nếu:
-  * Không tìm thấy hợp đồng Jockey (`JockeyContract`) tương ứng với con ngựa này tại giải đấu này.
-  * Hợp đồng Jockey tồn tại nhưng trạng thái **chưa được đồng ý** (Status khác `Accepted`).
+### 4. ĐIỀU KIỆN PHÊ DUYỆT ĐĂNG KÝ (ADMIN REVIEW)
+* Admin duyệt đăng ký qua các API: 
+  * Duyệt: `PUT /api/admin/registrations/{id}/approve`
+  * Từ chối: `PUT /api/admin/registrations/{id}/reject`
+* Hệ thống chỉ cho phép Admin duyệt hoặc từ chối các đơn đăng ký đang có trạng thái là **`Pending`** (tức là đã qua khám sức khỏe đạt).
+* Mặc dù Admin có thể phê duyệt khi ngựa chưa có Jockey, nhưng khi cổng đăng ký đóng lại, hệ thống sẽ tự động hủy (`Cancelled`) các đơn đăng ký ở trạng thái `Pending` hoặc `PendingVet` mà chưa có nài ngựa chấp nhận hợp đồng.

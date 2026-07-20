@@ -1114,45 +1114,45 @@ public class TournamentService : ITournamentService
         {
             if (registrationStartDate < comparisonTime.AddMinutes(-5))
             {
-                throw new ArgumentException("Thời gian bắt đầu đăng ký không thể ở quá khứ.");
+                throw new ArgumentException("Registration start date cannot be in the past.");
             }
         }
         if (existingTournament == null || registrationEndDate != existingTournament.RegistrationEndDate)
         {
             if (registrationEndDate < comparisonTime.AddMinutes(-5))
             {
-                throw new ArgumentException("Thời gian kết thúc đăng ký không thể ở quá khứ.");
+                throw new ArgumentException("Registration end date cannot be in the past.");
             }
         }
         if (existingTournament == null || startDate != existingTournament.StartDate)
         {
             if (startDate < comparisonTime.AddMinutes(-5))
             {
-                throw new ArgumentException("Thời gian bắt đầu giải đấu không thể ở quá khứ.");
+                throw new ArgumentException("Tournament start date cannot be in the past.");
             }
         }
         if (existingTournament == null || endDate != existingTournament.EndDate)
         {
             if (endDate < comparisonTime.AddMinutes(-5))
             {
-                throw new ArgumentException("Thời gian kết thúc giải đấu không thể ở quá khứ.");
+                throw new ArgumentException("Tournament end date cannot be in the past.");
             }
         }
 
         if (registrationEndDate <= registrationStartDate)
         {
-            throw new ArgumentException("Thời gian đóng đăng ký phải sau thời gian mở đăng ký.");
+            throw new ArgumentException("Registration end date must be after registration start date.");
         }
 
         // Ngày bắt đầu giải đấu phải cách ngày đóng đăng ký ít nhất 48 giờ
         if (startDate < registrationEndDate.AddHours(48))
         {
-            throw new ArgumentException("Ngày bắt đầu giải đấu phải cách thời điểm đóng đăng ký ít nhất 48 giờ để thực hiện xếp ngựa và gán trọng tài.");
+            throw new ArgumentException("Tournament start date must be at least 48 hours after registration end date to allow for scheduling and referee assignment.");
         }
 
         if (endDate <= startDate)
         {
-            throw new ArgumentException("Thời gian kết thúc giải đấu phải sau thời gian bắt đầu.");
+            throw new ArgumentException("Tournament end date must be after tournament start date.");
         }
 
         // Kiểm tra khoảng cách tối thiểu 1 ngày trống giữa các giải đấu (không tính giải đã hoàn thành/hủy)
@@ -1175,7 +1175,7 @@ public class TournamentService : ITournamentService
                 var minStartDate = t.EndDate.Value.Date.AddDays(2); // Cách ít nhất 1 ngày trống
                 if (startDate.Date < minStartDate)
                 {
-                    throw new ArgumentException($"Thời gian thi đấu của giải mới phải cách ngày kết thúc của giải '{t.Name}' ({t.EndDate.Value:dd/MM/yyyy}) ít nhất 1 ngày trống (chỉ có thể bắt đầu từ ngày {minStartDate:dd/MM/yyyy}).");
+                    throw new ArgumentException($"The racing period of the new tournament must be at least 1 day apart from the end date of tournament '{t.Name}' ({t.EndDate.Value:dd/MM/yyyy}) (can only start from {minStartDate:dd/MM/yyyy}).");
                 }
             }
             // Giải mới B nằm trước giải hiện tại A
@@ -1184,7 +1184,7 @@ public class TournamentService : ITournamentService
                 var maxEndDate = t.StartDate.Value.Date.AddDays(-2); // Cách ít nhất 1 ngày trống
                 if (endDate.Date > maxEndDate)
                 {
-                    throw new ArgumentException($"Thời gian thi đấu của giải mới phải cách ngày bắt đầu của giải '{t.Name}' ({t.StartDate.Value:dd/MM/yyyy}) ít nhất 1 ngày trống (phải kết thúc trước hoặc bằng ngày {maxEndDate:dd/MM/yyyy}).");
+                    throw new ArgumentException($"The racing period of the new tournament must be at least 1 day apart from the start date of tournament '{t.Name}' ({t.StartDate.Value:dd/MM/yyyy}) (must end on or before {maxEndDate:dd/MM/yyyy}).");
                 }
             }
         }

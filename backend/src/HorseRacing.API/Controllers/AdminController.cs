@@ -1107,6 +1107,142 @@ public class AdminController : ControllerBase
             return StatusCode(500, new { message = "An error occurred during race entry withdrawal", detail = ex.Message });
         }
     }
+
+    [HttpPost("tournaments/{tournamentId}/complete-racing")]
+    public async Task<IActionResult> CompleteRacing(long tournamentId, [FromServices] AppDbContext context, [FromServices] INotificationService notificationService)
+    {
+        try
+        {
+            var tournament = await context.Tournaments
+                .Include(t => t.Rounds)
+                    .ThenInclude(r => r.Races)
+                .FirstOrDefaultAsync(t => t.TournamentId == tournamentId);
+
+            if (tournament == null)
+            {
+                return NotFound(new { message = $"Tournament with ID {tournamentId} not found." });
+            }
+
+            if (tournament.Status != "Active")
+            {
+                return BadRequest(new { message = $"Tournament is not in Active status. Current status: {tournament.Status}." });
+            }
+
+            // 1. Update tournament status
+            tournament.Status = "AwaitingResults";
+            await context.SaveChangesAsync();
+
+            // 2. Notify all active users
+            await notificationService.BroadcastNotificationAsync(
+                "Giải đấu kết thúc thi đấu",
+                $"Giải đấu '{tournament.Name}' đã kết thúc thi đấu. Ban tổ chức đang tổng hợp kết quả chính thức.",
+                "Tournament",
+                referenceId: (int)tournament.TournamentId,
+                actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
+            );
+
+            // 3. Notify final race referee(s)
+            var finalRound = tournament.Rounds.FirstOrDefault(r => r.RoundNumber == 2);
+            if (finalRound != null)
+            {
+                var finalRace = finalRound.Races.FirstOrDefault();
+                if (finalRace != null)
+                {
+                    var referees = await context.RaceRefereeAssignments
+                        .Include(a => a.RefereeProfile)
+                        .Where(a => a.RaceId == finalRace.RaceId)
+                        .ToListAsync();
+
+                    foreach (var assignment in referees)
+                    {
+                        if (assignment.RefereeProfile != null)
+                        {
+                            await notificationService.SendNotificationToUserAsync(
+                                assignment.RefereeProfile.UserId,
+                                "Yêu cầu nộp kết quả giải đấu",
+                                $"Giải đấu '{tournament.Name}' đã kết thúc. Vui lòng gửi kết quả vi phạm và ghi kết quả xếp hạng ngựa gửi đến admin.",
+                                "System",
+                                referenceId: (int)tournament.TournamentId,
+                                actionUrl: $"/referee/races/{finalRace.RaceId}"
+                            );
+                        }
+                    }
+                }
+            }
+
+            return Ok(new { message = "Tournament racing phase completed successfully, notifications sent." });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred completing tournament racing phase", detail = ex.Message });
+        }
+    }
+
+    [HttpPost("tournaments/{tournamentId}/complete")]
+    public async Task<IActionResult> CompleteTournament(long tournamentId, [FromServices] AppDbContext context, [FromServices] INotificationService notificationService)
+    {
+        try
+        {
+            var tournament = await context.Tournaments
+                .Include(t => t.Rounds)
+                    .ThenInclude(r => r.Races)
+                .FirstOrDefaultAsync(t => t.TournamentId == tournamentId);
+
+            if (tournament == null)
+            {
+                return NotFound(new { message = $"Tournament with ID {tournamentId} not found." });
+            }
+
+            if (tournament.Status != "AwaitingResults" && tournament.Status != "Active")
+            {
+                return BadRequest(new { message = $"Tournament is in status '{tournament.Status}' and cannot be completed." });
+            }
+
+            // Verify final race is Finished
+            var finalRound = tournament.Rounds.FirstOrDefault(r => r.RoundNumber == 2);
+            if (finalRound == null)
+            {
+                return BadRequest(new { message = "Final round not found for this tournament." });
+            }
+
+            var finalRace = finalRound.Races.FirstOrDefault();
+            if (finalRace == null)
+            {
+                return BadRequest(new { message = "Final race not found for this tournament." });
+            }
+
+            if (!string.Equals(finalRace.Status, "Finished", StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest(new { message = $"Final race results must be published before completing the tournament. Current final race status: {finalRace.Status}." });
+            }
+
+            // Trigger prize payout
+            var request = new PrizePayoutRequest
+            {
+                TournamentId = (int)tournamentId,
+                FirstPlacePrize = 0m,
+                SecondPlacePrize = 0m,
+                ThirdPlacePrize = 0m
+            };
+
+            await _prizePayoutService.ProcessPrizePayoutAsync(request);
+
+            // Broadcast to all active users
+            await notificationService.BroadcastNotificationAsync(
+                "Giải đấu kết thúc & trao giải",
+                $"Giải đấu '{tournament.Name}' đã kết thúc thành công! Tiền thưởng đã được trao cho các chủ ngựa đạt giải.",
+                "Tournament",
+                referenceId: (int)tournament.TournamentId,
+                actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
+            );
+
+            return Ok(new { message = "Tournament completed and prizes distributed successfully." });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred during tournament completion", detail = ex.Message });
+        }
+    }
 }
 
 public class UpdateViolationStatusRequest
