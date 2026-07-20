@@ -188,19 +188,17 @@ public class PrizePayoutService : IPrizePayoutService
                 else if (rank == 2) bonusAmount = bonusPool * 0.30m;
                 else if (rank == 3) bonusAmount = bonusPool * 0.20m;
 
-                decimal totalPrizeAmount = prize.Amount + bonusAmount;
-                decimal ownerAmount = Math.Round(totalPrizeAmount * (prize.OwnerPercentage / 100m), 2);
-                decimal jockeyAmount = Math.Round(totalPrizeAmount * (prize.JockeyPercentage / 100m), 2);
+                decimal totalPrizeAmount = Math.Round(prize.Amount + bonusAmount, 2);
 
-                // --- Pay Owner ---
+                // --- 100% Prize Payout goes to Horse Owner's Wallet ---
                 var ownerWallet = await GetOrCreateWalletAsync(horse.OwnerId);
-                ownerWallet.Balance += ownerAmount;
+                ownerWallet.Balance += totalPrizeAmount;
 
                 var ownerDescription = $"Nhận thưởng Top {rank} giải đấu '{tournament.Name}' từ ngựa '{horse.Name}'";
                 var ownerTransaction = new WalletTransaction
                 {
                     WalletId = ownerWallet.WalletId,
-                    Amount = ownerAmount,
+                    Amount = totalPrizeAmount,
                     Type = "Prize_Reward",
                     Description = ownerDescription,
                     CreatedAt = DateTime.UtcNow
@@ -211,22 +209,23 @@ public class PrizePayoutService : IPrizePayoutService
                 {
                     TournamentId = request.TournamentId,
                     UserId = horse.OwnerId,
-                    Amount = ownerAmount,
+                    Amount = totalPrizeAmount,
                     Role = "HorseOwner",
                     CreatedAt = DateTime.UtcNow
                 };
                 await _prizeRepository.AddTournamentPrizePayoutAsync(ownerPayoutRecord);
 
+                // Send notification to Owner with horse name, rank, and prize amount
                 await _notificationService.SendNotificationToUserAsync(
                     horse.OwnerId,
-                    "Tournament Prize Awarded",
-                    $"Congratulations! Your horse '{horse.Name}' won Rank {rank} in tournament '{tournament.Name}'. You received the Owner prize of {ownerAmount:N2}$ (including bonus of {bonusAmount * (prize.OwnerPercentage / 100m):N2}$). New balance: {ownerWallet.Balance:N2}$.",
+                    "Trao thưởng Giải đấu",
+                    $"Chúc mừng! Ngựa '{horse.Name}' của bạn đã xuất sắc đạt xếp hạng Top {rank} trong giải đấu '{tournament.Name}' và bạn đã nhận được số tiền thưởng là {totalPrizeAmount:N2}$ vào ví. Số dư ví hiện tại: {ownerWallet.Balance:N2}$.",
                     "Wallet",
                     referenceId: (int)tournament.TournamentId,
                     actionUrl: "/owner/wallet"
                 );
 
-                // --- Pay Jockey ---
+                // --- Jockey Notification (No money transferred to Jockey wallet) ---
                 int jockeyUserId = 0;
                 if (entry.JockeyId.HasValue && entry.JockeyProfile != null)
                 {
@@ -235,37 +234,14 @@ public class PrizePayoutService : IPrizePayoutService
 
                 if (jockeyUserId > 0)
                 {
-                    var jockeyWallet = await GetOrCreateWalletAsync(jockeyUserId);
-                    jockeyWallet.Balance += jockeyAmount;
-
-                    var jockeyDescription = $"Nhận thưởng Top {rank} giải đấu '{tournament.Name}' với tư cách Jockey của ngựa '{horse.Name}'";
-                    var jockeyTransaction = new WalletTransaction
-                    {
-                        WalletId = jockeyWallet.WalletId,
-                        Amount = jockeyAmount,
-                        Type = "Prize_Reward",
-                        Description = jockeyDescription,
-                        CreatedAt = DateTime.UtcNow
-                    };
-                    await _transactionRepository.AddAsync(jockeyTransaction);
-
-                    var jockeyPayoutRecord = new TournamentPrizePayout
-                    {
-                        TournamentId = request.TournamentId,
-                        UserId = jockeyUserId,
-                        Amount = jockeyAmount,
-                        Role = "Jockey",
-                        CreatedAt = DateTime.UtcNow
-                    };
-                    await _prizeRepository.AddTournamentPrizePayoutAsync(jockeyPayoutRecord);
-
+                    // Only send achievement notification to Jockey whose horse placed in Top 3
                     await _notificationService.SendNotificationToUserAsync(
                         jockeyUserId,
-                        "Tournament Prize Awarded",
-                        $"Congratulations! You won Rank {rank} in tournament '{tournament.Name}' as jockey of '{horse.Name}'. You received the Jockey prize of {jockeyAmount:N2}$ (including bonus of {bonusAmount * (prize.JockeyPercentage / 100m):N2}$). New balance: {jockeyWallet.Balance:N2}$.",
-                        "Wallet",
+                        "Kết quả nài ngựa xuất sắc",
+                        $"Chúc mừng! Ngựa '{horse.Name}' mà bạn nài đã xuất sắc đạt xếp hạng Top {rank} trong giải đấu '{tournament.Name}' với tổng số tiền thưởng giải đấu đạt {totalPrizeAmount:N2}$.",
+                        "Tournament",
                         referenceId: (int)tournament.TournamentId,
-                        actionUrl: "/spectator/wallet"
+                        actionUrl: "/jockey/schedule"
                     );
                 }
             }
