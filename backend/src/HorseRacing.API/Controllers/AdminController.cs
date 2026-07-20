@@ -792,6 +792,71 @@ public class AdminController : ControllerBase
         }
     }
 
+    [HttpGet("bets/stats")]
+    public async Task<IActionResult> GetBetStats([FromServices] AppDbContext context)
+    {
+        try
+        {
+            var bets = await context.Bets.ToListAsync();
+            var totalBets = bets.Count;
+            var totalAmount = bets.Sum(b => b.Amount);
+            var wonBets = bets.Count(b => b.Status == "Won" || b.Status == "PaidOut");
+            var pendingBets = bets.Count(b => b.Status == "Pending");
+            var lostBets = bets.Count(b => b.Status == "Lost");
+
+            var payouts = await context.Payouts.ToListAsync();
+            var totalPayoutsPaid = payouts.Sum(p => p.Amount);
+            var houseProfit = totalAmount - totalPayoutsPaid;
+
+            var stats = new {
+                TotalBets = totalBets,
+                TotalAmount = totalAmount,
+                WonBets = wonBets,
+                PendingBets = pendingBets,
+                LostBets = lostBets,
+                TotalPayoutsPaid = totalPayoutsPaid,
+                HouseProfit = houseProfit
+            };
+
+            return Ok(new { message = "Bet stats retrieved successfully", result = stats });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving bet stats", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("bets")]
+    public async Task<IActionResult> GetBets([FromServices] AppDbContext context)
+    {
+        try
+        {
+            var bets = await context.Bets
+                .Include(b => b.User)
+                .Include(b => b.Race)
+                .Include(b => b.Horse)
+                .OrderByDescending(b => b.CreatedAt)
+                .Select(b => new {
+                    BetId = b.Id,
+                    SpectatorName = b.User != null ? b.User.FullName : "Unknown",
+                    RaceName = b.Race != null ? b.Race.Name : "Unknown Race",
+                    HorseName = b.Horse != null ? b.Horse.Name : "Unknown Horse",
+                    Amount = b.Amount,
+                    Odds = b.Odds,
+                    PotentialPayout = b.Amount * b.Odds,
+                    Status = b.Status,
+                    CreatedAt = b.CreatedAt
+                })
+                .ToListAsync();
+
+            return Ok(new { message = "Bets retrieved successfully", result = bets });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving bets", detail = ex.Message });
+        }
+    }
+
     [HttpPut("registrations/{id}/approve")]
     public async Task<IActionResult> ApproveRegistration([FromRoute] long id)
     {
