@@ -244,6 +244,22 @@ public class PrizePayoutService : IPrizePayoutService
                     await _transactionRepository.AddAsync(adminTransaction);
                 }
 
+                // --- Deduct from Admin Treasury Wallet ---
+                if (adminUserId > 0)
+                {
+                    var adminWallet = await GetOrCreateWalletAsync(adminUserId);
+                    adminWallet.Balance -= ownerAmount;
+                    var adminTransaction = new WalletTransaction
+                    {
+                        WalletId = adminWallet.WalletId,
+                        Amount = -ownerAmount,
+                        Type = "Prize_Payout",
+                        Description = $"Trực tiếp trao thưởng Top {rank} giải đấu '{tournament.Name}' cho ngựa '{horse.Name}'",
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    await _transactionRepository.AddAsync(adminTransaction);
+                }
+
                 var ownerDescription = $"Nhận thưởng Top {rank} giải đấu '{tournament.Name}' từ ngựa '{horse.Name}'";
                 var ownerTransaction = new WalletTransaction
                 {
