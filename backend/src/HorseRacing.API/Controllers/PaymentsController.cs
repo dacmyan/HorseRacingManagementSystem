@@ -95,7 +95,13 @@ public class PaymentsController : ControllerBase
 
         // Build VNPay Payment URL
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
-        string paymentUrl = _vnPayService.CreatePaymentUrl(txnRef, request.Amount, transaction.Description, ipAddress);
+
+        // Construct dynamic backend return URL based on current request
+        var requestScheme = Request.Scheme;
+        var requestHost = Request.Host;
+        string dynamicReturnUrl = $"{requestScheme}://{requestHost}/api/payments/vnpay/return";
+
+        string paymentUrl = _vnPayService.CreatePaymentUrl(txnRef, request.Amount, transaction.Description, ipAddress, dynamicReturnUrl);
 
         return Ok(new
         {
@@ -116,7 +122,12 @@ public class PaymentsController : ControllerBase
         }
 
         // Read Return URL configured in frontend env settings
-        var frontendReturnUrl = _configuration["VNPAY_RETURN_URL"] ?? "http://localhost:5173/payment/vnpay/return";
+        string defaultFrontendUrl = "http://localhost:5173/payment/vnpay/return";
+        if (Request.Host.Host.Contains("azurewebsites.net"))
+        {
+            defaultFrontendUrl = "https://horse-tournament-management.vercel.app/payment/vnpay/return";
+        }
+        var frontendReturnUrl = _configuration["VNPAY_RETURN_URL"] ?? defaultFrontendUrl;
 
         // Validate hash signature
         bool isValidSignature = _vnPayService.ValidateCallback(parameters);

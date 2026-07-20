@@ -19,13 +19,13 @@ public class VnPayService : IVnPayService
         _configuration = configuration;
     }
 
-    public string CreatePaymentUrl(string transactionReference, decimal amount, string orderInfo, string ipAddress)
+    public string CreatePaymentUrl(string transactionReference, decimal amount, string orderInfo, string ipAddress, string? customReturnUrl = null)
     {
         var vnpayConfig = _configuration.GetSection("VNPay");
         var tmnCode = vnpayConfig["TmnCode"] ?? _configuration["VNPAY_TMN_CODE"] ?? string.Empty;
         var hashSecret = vnpayConfig["HashSecret"] ?? _configuration["VNPAY_HASH_SECRET"] ?? string.Empty;
         var paymentUrl = vnpayConfig["PaymentUrl"] ?? _configuration["VNPAY_PAYMENT_URL"] ?? "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
-        var returnUrl = vnpayConfig["ReturnUrl"] ?? _configuration["VNPAY_RETURN_URL"] ?? string.Empty;
+        var returnUrl = customReturnUrl ?? vnpayConfig["ReturnUrl"] ?? _configuration["VNPAY_RETURN_URL"] ?? string.Empty;
 
         if (string.IsNullOrEmpty(tmnCode) || string.IsNullOrEmpty(hashSecret))
         {
