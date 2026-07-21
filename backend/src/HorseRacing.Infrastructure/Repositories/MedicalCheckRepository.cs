@@ -59,17 +59,11 @@ public class MedicalCheckRepository : IMedicalCheckRepository
 
     public async Task<IEnumerable<Registration>> GetPendingRegistrationsForChecksAsync()
     {
-        // Get IDs of registrations that already have an Initial check
-        var initialCheckedRegIds = await _context.MedicalCheckRecords
-            .Where(m => m.CheckType == "Initial")
-            .Select(m => m.RegistrationId)
-            .ToListAsync();
-
         return await _context.Registrations
             .Include(r => r.Horse)
                 .ThenInclude(h => h!.Owner)
             .Include(r => r.Tournament)
-            .Where(r => r.Status == "PendingVet" && !initialCheckedRegIds.Contains(r.RegistrationId))
+            .Where(r => r.Status == "PendingVet")
             .OrderByDescending(r => r.RegisteredAt)
             .ToListAsync();
     }
@@ -168,6 +162,36 @@ public class MedicalCheckRepository : IMedicalCheckRepository
                 .ThenInclude(j => j!.User)
             .Where(re => !excludedStatuses.Contains(re.Status))
             .OrderBy(re => re.Race!.RaceDate)
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<Horse>> GetUnhealthyHorsesAsync()
+    {
+        return await _context.Horses
+            .Include(h => h.Owner)
+            .Where(h => h.HealthStatus == "Sick" || h.HealthStatus == "Injured")
+            .OrderBy(h => h.Name)
+            .ToListAsync();
+    }
+
+    public async Task<Horse?> GetHorseByIdAsync(long horseId)
+    {
+        return await _context.Horses
+            .Include(h => h.Owner)
+            .FirstOrDefaultAsync(h => h.HorseId == horseId);
+    }
+
+    public void UpdateHorse(Horse horse)
+    {
+        _context.Horses.Update(horse);
+    }
+
+    public async Task<List<int>> GetVeterinarianUserIdsAsync()
+    {
+        return await _context.Users
+            .AsNoTracking()
+            .Where(u => u.Role != null && u.Role.Name == "Veterinarian")
+            .Select(u => u.UserId)
             .ToListAsync();
     }
 }

@@ -92,8 +92,8 @@ public class RegistrationService : IRegistrationService
         {
             if (existing.Status.Equals("Rejected", StringComparison.OrdinalIgnoreCase))
             {
-                // Re-register: Update existing registration status back to Pending and update timestamp
-                existing.Status = "Pending";
+                // Re-register: Update existing registration status back to PendingVet and update timestamp
+                existing.Status = "PendingVet";
                 existing.RegisteredAt = DateTime.UtcNow;
                 
                 await _registrationRepository.SaveChangesAsync();

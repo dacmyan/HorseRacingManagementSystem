@@ -28,4 +28,8 @@ public interface IMedicalCheckRepository
     Task<List<int>> GetBettorUserIdsByRaceIdAsync(long raceId);
     Task<List<RaceEntry>> GetAssignedRaceEntriesAsync();
     Task<MedicalCheckRecord?> GetLatestByRegistrationIdAsync(long registrationId);
+    Task<IEnumerable<Horse>> GetUnhealthyHorsesAsync();
+    Task<Horse?> GetHorseByIdAsync(long horseId);
+    void UpdateHorse(Horse horse);
+    Task<List<int>> GetVeterinarianUserIdsAsync();
 }

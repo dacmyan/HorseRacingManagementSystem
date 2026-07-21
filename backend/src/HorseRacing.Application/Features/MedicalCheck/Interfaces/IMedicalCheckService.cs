@@ -15,4 +15,7 @@ public interface IMedicalCheckService
     Task<IEnumerable<PendingRegistrationResponse>> GetPendingRegistrationsAsync();
     Task<RecheckResultResponse> PerformRecheckAsync(int vetUserId, RecheckMedicalRequest request);
     Task<IEnumerable<AssignedRaceEntryResponse>> GetAssignedRaceEntriesAsync();
+    Task<IEnumerable<UnhealthyHorseResponse>> GetUnhealthyHorsesAsync();
+    Task<bool> RecoverHorseAsync(long horseId);
+    Task<bool> RequestRecoveryCheckAsync(int ownerUserId, long horseId);
 }
