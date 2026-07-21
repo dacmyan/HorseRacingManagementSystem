@@ -612,13 +612,17 @@ public class MedicalCheckService : IMedicalCheckService
     public async Task<IEnumerable<AssignedRaceEntryResponse>> GetAssignedRaceEntriesAsync()
     {
         var entries = await _repository.GetAssignedRaceEntriesAsync();
-        return entries.Select(re =>
-        {
-            var latestCheck = re.Registration?.MedicalCheckRecords?
-                .OrderByDescending(m => m.CheckedAt)
-                .FirstOrDefault();
+        var resultList = new List<AssignedRaceEntryResponse>();
 
-            return new AssignedRaceEntryResponse
+        foreach (var re in entries)
+        {
+            MedicalCheckRecord? latestCheck = null;
+            if (re.Registration != null)
+            {
+                latestCheck = await _repository.GetLatestByHorseIdAsync(re.Registration.HorseId);
+            }
+
+            resultList.Add(new AssignedRaceEntryResponse
             {
                 RaceEntryId       = re.RaceEntryId,
                 RaceId            = re.RaceId,
@@ -636,11 +640,13 @@ public class MedicalCheckService : IMedicalCheckService
                                       ? (re.JockeyProfile.User.FullName ?? re.JockeyProfile.User.Username)
                                       : null,
                 TournamentName    = re.Registration?.Tournament?.Name,
-                LastMedicalResult = latestCheck?.MedicalResult,
+                LastMedicalResult = latestCheck?.MedicalResult ?? (re.Registration?.Horse?.HealthStatus == "Sick" || re.Registration?.Horse?.HealthStatus == "Injured" ? "Fail" : null),
                 LastCheckType     = latestCheck?.CheckType,
                 LastCheckedAt     = latestCheck?.CheckedAt,
-            };
-        });
+            });
+        }
+
+        return resultList;
     }
 
     public async Task<IEnumerable<UnhealthyHorseResponse>> GetUnhealthyHorsesAsync()

@@ -215,4 +215,12 @@ public class MedicalCheckRepository : IMedicalCheckRepository
         var tx = await _context.Database.BeginTransactionAsync();
         return new EfDbTransaction(tx);
     }
+
+    public async Task<MedicalCheckRecord?> GetLatestByHorseIdAsync(long horseId)
+    {
+        return await WithIncludes()
+            .Where(m => m.Registration != null && m.Registration.HorseId == horseId)
+            .OrderByDescending(m => m.CheckedAt)
+            .FirstOrDefaultAsync();
+    }
 }
