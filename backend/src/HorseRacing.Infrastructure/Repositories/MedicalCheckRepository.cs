@@ -193,4 +193,20 @@ public class MedicalCheckRepository : IMedicalCheckRepository
             .Select(u => u.UserId)
             .ToListAsync();
     }
+
+    public async Task<IEnumerable<MedicalCheckRecord>> GetPendingGeneralChecksAsync()
+    {
+        return await _context.MedicalCheckRecords
+            .Include(m => m.Horse)
+                .ThenInclude(h => h.Owner)
+            .Where(m => m.RegistrationId == null && m.MedicalResult == "Pending")
+            .ToListAsync();
+    }
+
+    public async Task<MedicalCheckRecord?> GetPendingGeneralCheckByHorseIdAsync(long horseId)
+    {
+        return await _context.MedicalCheckRecords
+            .Where(m => m.RegistrationId == null && m.HorseId == horseId && m.MedicalResult == "Pending")
+            .FirstOrDefaultAsync();
+    }
 }
