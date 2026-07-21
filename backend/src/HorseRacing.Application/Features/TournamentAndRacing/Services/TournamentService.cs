@@ -424,23 +424,15 @@ public class TournamentService : ITournamentService
             throw new InvalidOperationException("Registration period has not ended yet.");
         }
 
-        // Validation 2: Tournament must not have already generated races
-        if (string.Equals(tournament.Status, "Upcoming", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(tournament.Status, "Active", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(tournament.Status, "PendingAdminAttention", StringComparison.OrdinalIgnoreCase) ||
+        // Validation 2: Prevent generating races if the tournament status is Ongoing, Finished, or Completed
+        if (string.Equals(tournament.Status, "Ongoing", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(tournament.Status, "Finished", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(tournament.Status, "Completed", StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException("Races have already been generated for this tournament.");
+            throw new InvalidOperationException("Giải đấu đã hoặc đang diễn ra hoặc đã kết thúc. Không được phép gán lại làn đua!");
         }
 
-        // Validation 2b: Prevent generating races if the tournament status is Ongoing, Finished, or Completed
-        if (string.Equals(tournament.Status, "Ongoing", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(tournament.Status, "Finished", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException("Giải đấu đã hoặc đang diễn ra. Không được phép gán lại làn đua!");
-        }
-
-        // Validation 2c: Prevent generating races if lanes are already assigned or any race is Live/InProgress/Finished/Completed
+        // Validation 2b: Prevent generating races if any race is Live/InProgress/Finished/Completed
         var existingRounds = tournament.Rounds.ToList();
         foreach (var round in existingRounds)
         {
@@ -453,12 +445,6 @@ public class TournamentService : ITournamentService
                     string.Equals(race.Status, "Completed", StringComparison.OrdinalIgnoreCase))
                 {
                     throw new InvalidOperationException("Lượt đua này đã hoặc đang bắt đầu diễn ra. Không được phép gán lại làn đua!");
-                }
-
-                var entries = await _tournamentRepository.GetRaceEntriesByRaceIdAsync(race.RaceId);
-                if (entries.Any(re => re.LaneNo > 0))
-                {
-                    throw new InvalidOperationException("Lượt đua này đã được xếp làn. Không được phép gán lại làn đua!");
                 }
             }
         }
@@ -787,11 +773,26 @@ public class TournamentService : ITournamentService
         List<HorseRacing.Domain.Entities.Registration> registrations,
         int maxHorsePerRace)
     {
-        return registrations
-            .Select((reg, index) => new { reg, index })
-            .GroupBy(x => x.index / maxHorsePerRace)
-            .Select(g => g.Select(x => x.reg).ToList())
-            .ToList();
+        if (registrations == null || registrations.Count == 0)
+            return new List<List<HorseRacing.Domain.Entities.Registration>>();
+
+        int total = registrations.Count;
+        int numGroups = (total + maxHorsePerRace - 1) / maxHorsePerRace;
+        int baseSize = total / numGroups;
+        int remainder = total % numGroups;
+
+        var groups = new List<List<HorseRacing.Domain.Entities.Registration>>();
+        int currentIndex = 0;
+
+        for (int i = 0; i < numGroups; i++)
+        {
+            int currentGroupSize = baseSize + (i < remainder ? 1 : 0);
+            var group = registrations.GetRange(currentIndex, currentGroupSize);
+            groups.Add(group);
+            currentIndex += currentGroupSize;
+        }
+
+        return groups;
     }
 
     private static List<HorseRacing.Domain.Entities.RaceEntry> CreateRaceEntriesForRegistrations(
