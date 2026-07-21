@@ -178,14 +178,14 @@ public class MedicalCheckService : IMedicalCheckService
                 var failTitle = "Khám sức khỏe định kỳ không đạt";
                 var failContent = $"Ngựa {horseName} của bạn không đạt yêu cầu khám lại sức khỏe định kỳ vì lý do: {request.FailReason}.";
                 await _notificationService.SendNotificationToUserAsync(
-                    ownerId, failTitle, failContent, "MedicalCheck", (int?)horse.HorseId, null, "/owner/horses");
+                    ownerId, failTitle, failContent, "Medical", (int?)horse.HorseId, null, "/owner/horses");
             }
             else
             {
                 var passTitle = "Khám sức khỏe đạt (Healthy)";
                 var passContent = $"Ngựa {horseName} của bạn đã đạt yêu cầu khám sức khỏe định kỳ và đã hồi phục (Healthy).";
                 await _notificationService.SendNotificationToUserAsync(
-                    ownerId, passTitle, passContent, "MedicalCheck", (int?)horse.HorseId, null, "/owner/horses");
+                    ownerId, passTitle, passContent, "Medical", (int?)horse.HorseId, null, "/owner/horses");
             }
 
             var populatedRecord = await _repository.GetByIdAsync(record.Id);
@@ -680,7 +680,7 @@ public class MedicalCheckService : IMedicalCheckService
         var title = "Ngựa đã hồi phục sức khỏe";
         var content = $"Ngựa {horse.Name} của bạn đã được bác sĩ thú y xác nhận hồi phục (trạng thái: Healthy). Bạn đã có thể đăng ký giải đấu mới cho ngựa.";
         await _notificationService.SendNotificationToUserAsync(
-            horse.OwnerId, title, content, "MedicalCheck", null, null, "/owner/horses");
+            horse.OwnerId, title, content, "Medical", null, null, "/owner/horses");
 
         return true;
     }
@@ -730,7 +730,7 @@ public class MedicalCheckService : IMedicalCheckService
             foreach (var vetId in vetIds)
             {
                 await _notificationService.SendNotificationToUserAsync(
-                    vetId, title, content, "MedicalCheck", null, null, "/vet/medical-check");
+                    vetId, title, content, "Medical", null, null, "/vet/medical-check");
             }
         }
 
