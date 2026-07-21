@@ -150,5 +150,20 @@ public class RefereeAssignmentService : IRefereeAssignmentService
 
         _repository.RemoveAssignment(assignment);
         await _repository.SaveChangesAsync();
+
+        try
+        {
+            await _notificationService.SendNotificationToUserAsync(
+                referee.UserId,
+                "Officiating assignment removed",
+                $"Your assignment for race '{race.Name}' scheduled on {race.RaceDate:dd/MM/yyyy HH:mm} has been removed.",
+                "Race",
+                referenceId: (int)raceId,
+                actionUrl: "/referee/schedule");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[NOTIFICATION ERROR] Failed to send referee removal notification: {ex.Message}");
+        }
     }
 }

@@ -984,6 +984,46 @@ public class AdminController : ControllerBase
         }
     }
 
+    [HttpGet("referee-reports")]
+    public async Task<IActionResult> GetRefereeReports([FromServices] AppDbContext context)
+    {
+        try
+        {
+            var reports = await context.RefereeReports
+                .AsNoTracking()
+                .OrderByDescending(report => report.CreatedAt)
+                .Select(report => new
+                {
+                    reportId = report.ReportId,
+                    assignmentId = report.AssignmentId,
+                    raceId = report.Assignment != null ? report.Assignment.RaceId : 0,
+                    raceName = report.Assignment != null && report.Assignment.Race != null
+                        ? report.Assignment.Race.Name : string.Empty,
+                    tournamentId = report.Assignment != null && report.Assignment.Race != null && report.Assignment.Race.Round != null
+                        ? report.Assignment.Race.Round.TournamentId : 0,
+                    tournamentName = report.Assignment != null && report.Assignment.Race != null && report.Assignment.Race.Round != null && report.Assignment.Race.Round.Tournament != null
+                        ? report.Assignment.Race.Round.Tournament.Name : string.Empty,
+                    refereeId = report.Assignment != null ? report.Assignment.RefereeId : 0,
+                    refereeName = report.Assignment != null && report.Assignment.RefereeProfile != null && report.Assignment.RefereeProfile.User != null
+                        ? report.Assignment.RefereeProfile.User.FullName : "Unknown Referee",
+                    report.Content,
+                    report.ViolationNote,
+                    report.ReportedUserId,
+                    reportedUserName = report.ReportedUser != null ? report.ReportedUser.FullName : null,
+                    report.ReportedHorseId,
+                    reportedHorseName = report.ReportedHorse != null ? report.ReportedHorse.Name : null,
+                    report.CreatedAt
+                })
+                .ToListAsync();
+
+            return Ok(new { message = "Referee reports retrieved successfully", result = reports });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving referee reports", detail = ex.Message });
+        }
+    }
+
     [HttpGet("users/options")]
     public async Task<IActionResult> GetUserOptions([FromServices] AppDbContext context)
     {
@@ -1316,7 +1356,7 @@ public class AdminController : ControllerBase
                                 $"Giải đấu '{tournament.Name}' đã kết thúc. Vui lòng gửi kết quả vi phạm và ghi kết quả xếp hạng ngựa gửi đến admin.",
                                 "System",
                                 referenceId: (int)tournament.TournamentId,
-                                actionUrl: $"/referee/races/{finalRace.RaceId}"
+                                actionUrl: "/referee/confirm-results"
                             );
                         }
                     }

@@ -57,12 +57,21 @@ public class RefereeService : IRefereeService
         {
             throw new InvalidOperationException("The referee is not assigned to this race.");
         }
+        if (!string.Equals(assignment.Status, "Active", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("The referee assignment is no longer active.");
 
         // 4. Validate description presence
         if (string.IsNullOrWhiteSpace(request.Description))
         {
             throw new ArgumentException("Violation description cannot be empty.", nameof(request.Description));
         }
+        request.Description = request.Description.Trim();
+        request.Penalty = request.Penalty?.Trim() ?? string.Empty;
+        if (request.Description.Length > 1000)
+            throw new ArgumentException("Violation description cannot exceed 1000 characters.", nameof(request.Description));
+        var allowedPenalties = new[] { "None", "Time Penalty", "Disqualified" };
+        if (!allowedPenalties.Contains(request.Penalty, StringComparer.OrdinalIgnoreCase))
+            throw new ArgumentException($"Penalty must be one of: {string.Join(", ", allowedPenalties)}.", nameof(request.Penalty));
 
         // 5. Create violation
         var violation = new RaceViolation
@@ -140,6 +149,8 @@ public class RefereeService : IRefereeService
         {
             throw new InvalidOperationException("Cannot submit a report for a race that has not started yet.");
         }
+        if (!string.Equals(assignment.Status, "Active", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Cannot submit a report because the referee assignment is no longer active.");
 
         // 2. Validate referee user role
         if (assignment.RefereeProfile == null)
@@ -157,6 +168,12 @@ public class RefereeService : IRefereeService
         {
             throw new ArgumentException("Report content cannot be empty.", nameof(request.Content));
         }
+        request.Content = request.Content.Trim();
+        request.ViolationNote = request.ViolationNote?.Trim();
+        if (request.Content.Length > 2000)
+            throw new ArgumentException("Report content cannot exceed 2000 characters.", nameof(request.Content));
+        if (request.ViolationNote?.Length > 1000)
+            throw new ArgumentException("Violation note cannot exceed 1000 characters.", nameof(request.ViolationNote));
 
         // 4. Validate ReportedUserId if provided
         if (request.ReportedUserId.HasValue)
