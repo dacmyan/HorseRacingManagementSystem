@@ -10,6 +10,7 @@ using HorseRacing.Application.Features.HorseManagement.Interfaces;
 using HorseRacing.Application.Features.UserManagement.Interfaces;
 using HorseRacing.Application.Features.Notifications.Interfaces;
 using HorseRacing.Application.Features.TournamentAndRacing.Interfaces;
+using HorseRacing.Application.Common.Interfaces;
 using HorseRacing.Domain.Entities;
 using HorseRacing.Domain.Entities.Tournaments;
 using Moq;
@@ -25,6 +26,7 @@ public class JockeyContractServiceTests
     private readonly Mock<INotificationService> _notificationMock;
     private readonly Mock<ITournamentRepository> _tournamentRepoMock;
     private readonly Mock<IRegistrationRepository> _registrationRepoMock;
+    private readonly Mock<IEmailService> _emailMock;
     private readonly JockeyContractService _service;
 
     public JockeyContractServiceTests()
@@ -35,6 +37,7 @@ public class JockeyContractServiceTests
         _notificationMock = new Mock<INotificationService>();
         _tournamentRepoMock = new Mock<ITournamentRepository>();
         _registrationRepoMock = new Mock<IRegistrationRepository>();
+        _emailMock = new Mock<IEmailService>();
 
         _service = new JockeyContractService(
             _contractRepoMock.Object,
@@ -42,7 +45,8 @@ public class JockeyContractServiceTests
             _userRepoMock.Object,
             _notificationMock.Object,
             _tournamentRepoMock.Object,
-            _registrationRepoMock.Object
+            _registrationRepoMock.Object,
+            _emailMock.Object
         );
     }
 

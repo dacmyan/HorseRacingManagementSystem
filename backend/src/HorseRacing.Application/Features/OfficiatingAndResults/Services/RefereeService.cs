@@ -34,6 +34,11 @@ public class RefereeService : IRefereeService
             throw new KeyNotFoundException($"Race with ID {request.RaceId} was not found.");
         }
 
+        if (string.Equals(race.Status, "Scheduled", StringComparison.OrdinalIgnoreCase) && race.RaceDate > DateTime.UtcNow)
+        {
+            throw new InvalidOperationException("Cannot record violations for a race that has not started yet.");
+        }
+
         // 2. Validate referee profile existence and role
         var refereeProfile = await _repository.GetRefereeProfileByIdAsync(request.RefereeId);
         if (refereeProfile == null)
@@ -129,6 +134,11 @@ public class RefereeService : IRefereeService
         else
         {
             throw new ArgumentException("Either AssignmentId or both RaceId and RefereeId must be provided.");
+        }
+
+        if (assignment.Race != null && string.Equals(assignment.Race.Status, "Scheduled", StringComparison.OrdinalIgnoreCase) && assignment.Race.RaceDate > DateTime.UtcNow)
+        {
+            throw new InvalidOperationException("Cannot submit a report for a race that has not started yet.");
         }
 
         // 2. Validate referee user role

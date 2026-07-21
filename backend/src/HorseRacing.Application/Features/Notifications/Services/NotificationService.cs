@@ -73,11 +73,11 @@ public class NotificationService : INotificationService
         string? thumbnail = null, 
         string? actionUrl = null)
     {
-        var userExists = await _notificationRepository.UserExistsAsync(userId);
-        if (!userExists)
+        var isUserActive = await _notificationRepository.IsUserActiveAsync(userId);
+        if (!isUserActive)
         {
-            // Fail silently or throw depending on design, let's log/throw
-            throw new ArgumentException($"User with ID {userId} does not exist.");
+            // Do not send notification to inactive users
+            return;
         }
 
         var notification = new Notification
@@ -99,6 +99,56 @@ public class NotificationService : INotificationService
 
         // Push via SignalR
         await _notificationPusher.PushToUserAsync(userId, MapToResponse(notification));
+    }
+
+    public async Task SendNotificationToRoleAsync(
+        string roleName, 
+        string title, 
+        string content, 
+        string type, 
+        int? referenceId = null, 
+        string? thumbnail = null, 
+        string? actionUrl = null)
+    {
+        var activeUserIds = await _notificationRepository.GetActiveUserIdsByRoleAsync(roleName);
+        if (!activeUserIds.Any()) return;
+
+        foreach (var userId in activeUserIds)
+        {
+            var notification = new Notification
+            {
+                UserId = userId,
+                Title = title,
+                Content = content,
+                Type = type,
+                ReferenceId = referenceId,
+                Thumbnail = thumbnail,
+                ActionUrl = actionUrl,
+                IsRead = false,
+                CreatedAt = DateTime.UtcNow,
+                IsDeleted = false
+            };
+            await _notificationRepository.AddAsync(notification);
+        }
+        await _notificationRepository.SaveChangesAsync();
+
+        foreach (var userId in activeUserIds)
+        {
+            var notificationResponse = new NotificationResponse
+            {
+                UserId = userId,
+                Title = title,
+                Content = content,
+                Message = content,
+                Type = type,
+                ReferenceId = referenceId,
+                Thumbnail = thumbnail,
+                ActionUrl = actionUrl,
+                IsRead = false,
+                CreatedAt = DateTime.UtcNow
+            };
+            await _notificationPusher.PushToUserAsync(userId, notificationResponse);
+        }
     }
 
     public async Task BroadcastNotificationAsync(
@@ -167,6 +217,11 @@ public class NotificationService : INotificationService
             n.ReadAt = DateTime.UtcNow;
         }
         await _notificationRepository.SaveChangesAsync();
+    }
+
+    public async Task<List<int>> GetActiveUserIdsByRoleAsync(string roleName)
+    {
+        return await _notificationRepository.GetActiveUserIdsByRoleAsync(roleName);
     }
 
     private static NotificationResponse MapToResponse(Notification n)

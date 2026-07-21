@@ -262,6 +262,50 @@ public class AdminController : ControllerBase
         }
     }
 
+    [HttpPost("wallet/deposit")]
+    public async Task<IActionResult> DepositWallet([FromBody] DepositRequest request, [FromServices] IWalletService walletService)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var response = await walletService.DepositAsync(userId, request);
+            return Ok(new { message = "Treasury deposit successful", result = response });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WALLET DEPOSIT ERROR]: {ex}");
+            return StatusCode(500, new { message = "An error occurred during treasury deposit", detail = ex.Message });
+        }
+    }
+
+    [HttpPost("wallet/withdraw")]
+    public async Task<IActionResult> WithdrawWallet([FromBody] WithdrawRequest request, [FromServices] IWalletService walletService)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var response = await walletService.WithdrawAsync(userId, request);
+            return Ok(new { message = "Treasury withdrawal successful", result = response });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WALLET WITHDRAW ERROR]: {ex}");
+            return StatusCode(500, new { message = "An error occurred during treasury withdrawal", detail = ex.Message });
+        }
+    }
+
     [HttpPost("payouts/trigger/{raceId}")]
     public async Task<IActionResult> TriggerBetPayout(long raceId)
     {
@@ -585,7 +629,12 @@ public class AdminController : ControllerBase
                         .Where(jc => jc.TournamentId == r.TournamentId && jc.HorseId == r.HorseId)
                         .OrderByDescending(jc => jc.CreatedAt)
                         .Select(jc => jc.Status)
-                        .FirstOrDefault() ?? "NoContract"
+                        .FirstOrDefault() ?? "NoContract",
+                    JockeyName = context.JockeyContracts
+                        .Where(jc => jc.TournamentId == r.TournamentId && jc.HorseId == r.HorseId)
+                        .OrderByDescending(jc => jc.CreatedAt)
+                        .Select(jc => jc.Jockey != null ? jc.Jockey.FullName : null)
+                        .FirstOrDefault()
                 })
                 .ToListAsync();
             return Ok(new { message = "Registrations retrieved successfully", result = registrations });
@@ -745,6 +794,71 @@ public class AdminController : ControllerBase
         catch (Exception ex)
         {
             return StatusCode(500, new { message = "An error occurred retrieving predictions", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("bets/stats")]
+    public async Task<IActionResult> GetBetStats([FromServices] AppDbContext context)
+    {
+        try
+        {
+            var bets = await context.Bets.ToListAsync();
+            var totalBets = bets.Count;
+            var totalAmount = bets.Sum(b => b.Amount);
+            var wonBets = bets.Count(b => b.Status == "Won" || b.Status == "PaidOut");
+            var pendingBets = bets.Count(b => b.Status == "Pending");
+            var lostBets = bets.Count(b => b.Status == "Lost");
+
+            var payouts = await context.Payouts.ToListAsync();
+            var totalPayoutsPaid = payouts.Sum(p => p.Amount);
+            var houseProfit = totalAmount - totalPayoutsPaid;
+
+            var stats = new {
+                TotalBets = totalBets,
+                TotalAmount = totalAmount,
+                WonBets = wonBets,
+                PendingBets = pendingBets,
+                LostBets = lostBets,
+                TotalPayoutsPaid = totalPayoutsPaid,
+                HouseProfit = houseProfit
+            };
+
+            return Ok(new { message = "Bet stats retrieved successfully", result = stats });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving bet stats", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("bets")]
+    public async Task<IActionResult> GetBets([FromServices] AppDbContext context)
+    {
+        try
+        {
+            var bets = await context.Bets
+                .Include(b => b.User)
+                .Include(b => b.Race)
+                .Include(b => b.Horse)
+                .OrderByDescending(b => b.CreatedAt)
+                .Select(b => new {
+                    BetId = b.Id,
+                    SpectatorName = b.User != null ? b.User.FullName : "Unknown",
+                    RaceName = b.Race != null ? b.Race.Name : "Unknown Race",
+                    HorseName = b.Horse != null ? b.Horse.Name : "Unknown Horse",
+                    Amount = b.Amount,
+                    Odds = b.Odds,
+                    PotentialPayout = b.Amount * b.Odds,
+                    Status = b.Status,
+                    CreatedAt = b.CreatedAt
+                })
+                .ToListAsync();
+
+            return Ok(new { message = "Bets retrieved successfully", result = bets });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving bets", detail = ex.Message });
         }
     }
 

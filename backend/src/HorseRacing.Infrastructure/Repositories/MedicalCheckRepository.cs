@@ -22,6 +22,7 @@ public class MedicalCheckRepository : IMedicalCheckRepository
         => _context.MedicalCheckRecords
             .Include(m => m.Registration)
                 .ThenInclude(r => r!.Horse)
+                    .ThenInclude(h => h!.Owner)
             .Include(m => m.Registration)
                 .ThenInclude(r => r!.Tournament)
             .Include(m => m.Veterinarian);

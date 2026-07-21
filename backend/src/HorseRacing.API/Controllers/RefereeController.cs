@@ -184,11 +184,19 @@ public class RefereeController : ControllerBase
     }
 
     [HttpPost("races/{raceId}/results")]
-    public async Task<IActionResult> SubmitResultRoute([FromRoute] long raceId, [FromBody] SubmitRaceResultRequest request)
+    public async Task<IActionResult> SubmitResultRoute([FromRoute] long raceId, [FromBody] SubmitRaceResultRequest request, [FromServices] AppDbContext context)
     {
         try
         {
+            var userId = GetCurrentUserId();
+            var referee = await context.RefereeProfiles.FirstOrDefaultAsync(rp => rp.UserId == userId);
+            if (referee == null)
+            {
+                return NotFound(new { message = "Referee profile not found for current user." });
+            }
+
             request.RaceId = raceId;
+            request.RefereeId = referee.RefereeId;
             var response = await _resultService.SubmitResultAsync(request);
             return StatusCode(StatusCodes.Status201Created, response);
         }
@@ -215,10 +223,18 @@ public class RefereeController : ControllerBase
     }
 
     [HttpPost("results")]
-    public async Task<IActionResult> SubmitResult([FromBody] SubmitRaceResultRequest request)
+    public async Task<IActionResult> SubmitResult([FromBody] SubmitRaceResultRequest request, [FromServices] AppDbContext context)
     {
         try
         {
+            var userId = GetCurrentUserId();
+            var referee = await context.RefereeProfiles.FirstOrDefaultAsync(rp => rp.UserId == userId);
+            if (referee == null)
+            {
+                return NotFound(new { message = "Referee profile not found for current user." });
+            }
+
+            request.RefereeId = referee.RefereeId;
             var response = await _resultService.SubmitResultAsync(request);
             return StatusCode(StatusCodes.Status201Created, response);
         }

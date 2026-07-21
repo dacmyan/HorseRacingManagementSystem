@@ -72,10 +72,26 @@ public class NotificationRepository : INotificationRepository
         return (items, totalCount);
     }
 
+    public async Task<bool> IsUserActiveAsync(int userId)
+    {
+        return await _context.Users
+            .AnyAsync(u => u.UserId == userId && u.Status == "Active");
+    }
+
+
     public async Task<List<int>> GetActiveUserIdsAsync()
     {
         return await _context.Users
             .Where(u => u.Status == "Active")
+            .Select(u => u.UserId)
+            .ToListAsync();
+    }
+
+    public async Task<List<int>> GetActiveUserIdsByRoleAsync(string roleName)
+    {
+        return await _context.Users
+            .Include(u => u.Role)
+            .Where(u => u.Status == "Active" && (u.Role != null && u.Role.Name == roleName || (roleName == "Admin" && u.RoleId == 1)))
             .Select(u => u.UserId)
             .ToListAsync();
     }

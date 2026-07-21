@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using HorseRacing.Application.Features.FinancialRewards.DTOs;
 using HorseRacing.Application.Features.FinancialRewards.Interfaces;
 using HorseRacing.Application.Features.Notifications.Interfaces;
+using HorseRacing.Application.Features.UserManagement.Interfaces;
+using HorseRacing.Application.Common.Interfaces;
 using HorseRacing.Domain.Entities;
 
 namespace HorseRacing.Application.Features.FinancialRewards.Services;
@@ -14,15 +16,21 @@ public class WalletService : IWalletService
     private readonly IWalletRepository _walletRepository;
     private readonly IWalletTransactionRepository _transactionRepository;
     private readonly INotificationService _notificationService;
+    private readonly IUserRepository _userRepository;
+    private readonly IEmailService _emailService;
 
     public WalletService(
         IWalletRepository walletRepository,
         IWalletTransactionRepository transactionRepository,
-        INotificationService notificationService)
+        INotificationService notificationService,
+        IUserRepository userRepository,
+        IEmailService emailService)
     {
         _walletRepository = walletRepository;
         _transactionRepository = transactionRepository;
         _notificationService = notificationService;
+        _userRepository = userRepository;
+        _emailService = emailService;
     }
 
     private async Task<Wallet> GetOrCreateWalletAsync(int userId)
@@ -79,13 +87,42 @@ public class WalletService : IWalletService
         await _transactionRepository.SaveChangesAsync();
 
         // Create wallet notification
-        await _notificationService.SendNotificationToUserAsync(
-            userId,
-            "Deposit Successful",
-            $"You successfully deposited {request.Amount:N2}$ into your wallet. New balance: {wallet.Balance:N2}$.",
-            "Wallet",
-            actionUrl: "/spectator/wallet"
-        );
+        try
+        {
+            await _notificationService.SendNotificationToUserAsync(
+                userId,
+                "Deposit Successful",
+                $"You successfully deposited {request.Amount:N2}$ into your wallet. New balance: {wallet.Balance:N2}$.",
+                "Wallet",
+                actionUrl: "/spectator/wallet"
+            );
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WalletService.DepositAsync] Error sending notification: {ex}");
+        }
+
+        // Send Email Receipt
+        try
+        {
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user != null && !string.IsNullOrEmpty(user.Email))
+            {
+                 var subject = "Deposit Receipt: Deposit successful";
+                 var body = $@"
+                     <h2>Deposit Successful!</h2>
+                     <p>Hello {user.FullName},</p>
+                     <p>You have successfully deposited <strong>{request.Amount:N2}$</strong> into your wallet.</p>
+                     <p>Your new balance is: <strong>{wallet.Balance:N2}$</strong>.</p>
+                     <p>Thank you for using our services.</p>
+                 ";
+                await _emailService.SendEmailAsync(user.Email, subject, body);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WalletService.DepositAsync] Error sending email receipt: {ex}");
+        }
 
         return new WalletBalanceResponse
         {
@@ -121,13 +158,42 @@ public class WalletService : IWalletService
         await _transactionRepository.SaveChangesAsync();
 
         // Create wallet notification
-        await _notificationService.SendNotificationToUserAsync(
-            userId,
-            "Withdrawal Successful",
-            $"You successfully withdrew {request.Amount:N2}$ from your wallet. New balance: {wallet.Balance:N2}$.",
-            "Wallet",
-            actionUrl: "/spectator/wallet"
-        );
+        try
+        {
+            await _notificationService.SendNotificationToUserAsync(
+                userId,
+                "Withdrawal Successful",
+                $"You successfully withdrew {request.Amount:N2}$ from your wallet. New balance: {wallet.Balance:N2}$.",
+                "Wallet",
+                actionUrl: "/spectator/wallet"
+            );
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WalletService.WithdrawAsync] Error sending notification: {ex}");
+        }
+
+        // Send Email Receipt
+        try
+        {
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user != null && !string.IsNullOrEmpty(user.Email))
+            {
+                 var subject = "Withdrawal Receipt: Withdrawal successful";
+                 var body = $@"
+                     <h2>Withdrawal Successful!</h2>
+                     <p>Hello {user.FullName},</p>
+                     <p>You have successfully withdrew <strong>{request.Amount:N2}$</strong> from your wallet.</p>
+                     <p>Your new balance is: <strong>{wallet.Balance:N2}$</strong>.</p>
+                     <p>Thank you for using our services.</p>
+                 ";
+                await _emailService.SendEmailAsync(user.Email, subject, body);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WalletService.WithdrawAsync] Error sending email receipt: {ex}");
+        }
 
         return new WalletBalanceResponse
         {
@@ -146,10 +212,10 @@ public class WalletService : IWalletService
         {
             Id = t.TransactionId,
             WalletId = t.WalletId,
-            Amount = t.Amount,
+            Amount = t.PaymentMethod == "VNPay" ? t.Amount / 250m : t.Amount,
             Type = t.Type,
             Description = t.Description,
-            CreatedAt = t.CreatedAt
+            CreatedAt = DateTime.SpecifyKind(t.CreatedAt, DateTimeKind.Utc)
         });
     }
 }

@@ -22,9 +22,13 @@ public class EmailService : IEmailService
         var mailSettings = _configuration.GetSection("MailSettings");
         var host = mailSettings["Host"] ?? "smtp.gmail.com";
         var port = int.Parse(mailSettings["Port"] ?? "587");
-        var fromMail = mailSettings["Mail"] ?? "dackimvo@gmail.com";
+        var fromMail = mailSettings["Mail"] ?? "horseracing.noreply@gmail.com";
         var password = mailSettings["Password"] ?? string.Empty;
         var displayName = mailSettings["DisplayName"] ?? "Horse Racing Admin";
+
+        Console.WriteLine($"[DEBUG SMTP] Email: {fromMail}");
+        Console.WriteLine($"[DEBUG SMTP] Password Length: {password.Length}");
+        Console.WriteLine($"[DEBUG SMTP] Password Ends With: {(password.Length >= 3 ? password.Substring(password.Length - 3) : "Too short")}");
 
         var email = new MimeMessage();
         email.From.Add(new MailboxAddress(displayName, fromMail));
