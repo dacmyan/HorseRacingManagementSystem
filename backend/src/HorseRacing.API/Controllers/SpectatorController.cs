@@ -40,25 +40,6 @@ public class SpectatorController : ControllerBase
         return int.Parse(nameIdentifier ?? "0");
     }
 
-    [HttpPost("wallet/deposit")]
-    [BlockLockedUser]
-    public async Task<IActionResult> Deposit([FromBody] DepositRequest request)
-    {
-        try
-        {
-            var userId = GetCurrentUserId();
-            var response = await _walletService.DepositAsync(userId, request);
-            return Ok(new { message = "Deposit successful", result = response });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { message = "An error occurred during deposit", detail = ex.Message });
-        }
-    }
 
     [HttpPost("wallet/withdraw")]
     public async Task<IActionResult> Withdraw([FromBody] WithdrawRequest request)
