@@ -4,6 +4,7 @@ using FluentAssertions;
 using HorseRacing.Application.Features.TournamentAndRacing.DTOs;
 using HorseRacing.Application.Features.TournamentAndRacing.Interfaces;
 using HorseRacing.Application.Features.TournamentAndRacing.Services;
+using HorseRacing.Application.Features.BettingEngine.Interfaces;
 using HorseRacing.Domain.Entities;
 using HorseRacing.Domain.Entities.Tournaments;
 using Moq;
@@ -14,12 +15,14 @@ namespace HorseRacing.Tests.Unit;
 public class RaceServiceTests
 {
     private readonly Mock<IRaceRepository> _raceRepoMock;
+    private readonly Mock<IBettingService> _bettingServiceMock;
     private readonly RaceService _service;
 
     public RaceServiceTests()
     {
         _raceRepoMock = new Mock<IRaceRepository>();
-        _service = new RaceService(_raceRepoMock.Object);
+        _bettingServiceMock = new Mock<IBettingService>();
+        _service = new RaceService(_raceRepoMock.Object, _bettingServiceMock.Object);
     }
 
     [Fact]

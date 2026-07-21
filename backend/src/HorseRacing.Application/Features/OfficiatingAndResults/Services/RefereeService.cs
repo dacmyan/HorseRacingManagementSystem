@@ -20,6 +20,8 @@ public class RefereeService : IRefereeService
         _reportRepository = reportRepository;
     }
 
+    private static DateTime VietnamNow => TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
+
     public async Task<ViolationResponse> LogViolationAsync(LogViolationRequest request)
     {
         if (request == null)
@@ -34,7 +36,7 @@ public class RefereeService : IRefereeService
             throw new KeyNotFoundException($"Race with ID {request.RaceId} was not found.");
         }
 
-        if (string.Equals(race.Status, "Scheduled", StringComparison.OrdinalIgnoreCase) && race.RaceDate > DateTime.UtcNow)
+        if (string.Equals(race.Status, "Scheduled", StringComparison.OrdinalIgnoreCase) && race.RaceDate > VietnamNow)
         {
             throw new InvalidOperationException("Cannot record violations for a race that has not started yet.");
         }
@@ -145,7 +147,7 @@ public class RefereeService : IRefereeService
             throw new ArgumentException("Either AssignmentId or both RaceId and RefereeId must be provided.");
         }
 
-        if (assignment.Race != null && string.Equals(assignment.Race.Status, "Scheduled", StringComparison.OrdinalIgnoreCase) && assignment.Race.RaceDate > DateTime.UtcNow)
+        if (assignment.Race != null && string.Equals(assignment.Race.Status, "Scheduled", StringComparison.OrdinalIgnoreCase) && assignment.Race.RaceDate > VietnamNow)
         {
             throw new InvalidOperationException("Cannot submit a report for a race that has not started yet.");
         }
