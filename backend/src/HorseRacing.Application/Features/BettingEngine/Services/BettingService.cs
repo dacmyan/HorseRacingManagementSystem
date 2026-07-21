@@ -268,6 +268,16 @@ public class BettingService : IBettingService
             throw new KeyNotFoundException($"Race with ID {raceId} not found.");
         }
 
+        // Dynamically calculate real odds using 3-factor formula before returning
+        try
+        {
+            await RecalculateRaceOddsAsync(raceId);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ODDS ERROR] Failed to recalculate odds: {ex.Message}");
+        }
+
         var entries = (await _betRepository.GetRaceEntriesWithHorseAsync(raceId)).ToList();
 
         var wallet = await _walletRepository.GetByUserIdAsync(userId);
