@@ -10,6 +10,7 @@ using HorseRacing.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
 using System.Security.Claims;
+using HorseRacing.Application.Features.Notifications.Interfaces;
 
 namespace HorseRacing.API.Controllers;
 
@@ -28,7 +29,7 @@ public class RefereeController : ControllerBase
     }
 
     [HttpPost("violations")]
-    public async Task<IActionResult> LogViolation([FromBody] LogViolationRequest request, [FromServices] AppDbContext context)
+    public async Task<IActionResult> LogViolation([FromBody] LogViolationRequest request, [FromServices] AppDbContext context, [FromServices] INotificationService notificationService)
     {
         try
         {
@@ -43,6 +44,17 @@ public class RefereeController : ControllerBase
             request.RefereeId = referee.RefereeId;
             
             var response = await _refereeService.LogViolationAsync(request);
+            try
+            {
+                await notificationService.SendNotificationToRoleAsync(
+                    "Admin", "New race violation",
+                    $"Referee '{referee.UserId}' recorded a violation for race #{request.RaceId}.",
+                    "Violation", response.ViolationId, actionUrl: "/admin/violations");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[NOTIFICATION ERROR] Failed to notify admins about violation {response.ViolationId}: {ex.Message}");
+            }
             return StatusCode(StatusCodes.Status201Created, response);
         }
         catch (ArgumentNullException ex)
@@ -101,7 +113,7 @@ public class RefereeController : ControllerBase
             }
 
             var assignedRaceIds = await context.RaceRefereeAssignments
-                .Where(a => a.RefereeId == referee.RefereeId)
+                .Where(a => a.RefereeId == referee.RefereeId && a.Status == "Active")
                 .Select(a => a.RaceId)
                 .ToListAsync();
 
@@ -114,8 +126,7 @@ public class RefereeController : ControllerBase
                     RaceName = v.Race != null ? v.Race.Name : "",
                     Type = v.Description.Contains(":") ? v.Description.Split(':', StringSplitOptions.None)[0] : "Violation",
                     Note = v.Description,
-                    Penalty = v.Penalty,
-                    CreatedAt = DateTime.UtcNow // Using UTC now since Violation entity lacks CreatedAt
+                    Penalty = v.Penalty
                 })
                 .ToListAsync();
                 
@@ -128,7 +139,7 @@ public class RefereeController : ControllerBase
     }
 
     [HttpPost("reports")]
-    public async Task<IActionResult> SubmitReport([FromBody] CreateRefereeReportRequest request, [FromServices] AppDbContext context)
+    public async Task<IActionResult> SubmitReport([FromBody] CreateRefereeReportRequest request, [FromServices] AppDbContext context, [FromServices] INotificationService notificationService)
     {
         try
         {
@@ -141,6 +152,17 @@ public class RefereeController : ControllerBase
             request.RefereeId = referee.RefereeId;
 
             var response = await _refereeService.SubmitReportAsync(request);
+            try
+            {
+                await notificationService.SendNotificationToRoleAsync(
+                    "Admin", "New referee report",
+                    $"A referee report was submitted for race #{response.RaceId}.",
+                    "System", checked((int)response.ReportId), actionUrl: "/admin/reports");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[NOTIFICATION ERROR] Failed to notify admins about report {response.ReportId}: {ex.Message}");
+            }
             return StatusCode(StatusCodes.Status201Created, response);
         }
         catch (ArgumentNullException ex)
@@ -166,10 +188,22 @@ public class RefereeController : ControllerBase
     }
 
     [HttpGet("races/{raceId}/reports")]
-    public async Task<IActionResult> GetRaceReports([FromRoute] long raceId)
+    public async Task<IActionResult> GetRaceReports([FromRoute] long raceId, [FromServices] AppDbContext context)
     {
         try
         {
+            var userId = GetCurrentUserId();
+            var refereeId = await context.RefereeProfiles
+                .Where(profile => profile.UserId == userId)
+                .Select(profile => (int?)profile.RefereeId)
+                .FirstOrDefaultAsync();
+            if (!refereeId.HasValue)
+                return NotFound(new { message = "Referee profile not found for current user." });
+            var isAssigned = await context.RaceRefereeAssignments.AnyAsync(assignment =>
+                assignment.RaceId == raceId && assignment.RefereeId == refereeId.Value && assignment.Status == "Active");
+            if (!isAssigned)
+                return Forbid();
+
             var response = await _refereeService.GetReportsByRaceIdAsync(raceId);
             if (response == null)
             {
@@ -305,7 +339,7 @@ public class RefereeController : ControllerBase
             var assignments = await context.RaceRefereeAssignments
                 .Include(a => a.Race)
                     .ThenInclude(r => r.Round)
-                .Where(a => a.RefereeId == referee.RefereeId)
+                .Where(a => a.RefereeId == referee.RefereeId && a.Status == "Active")
                 .ToListAsync();
 
             var assignmentIds = assignments.Select(a => a.AssignmentId).ToList();
@@ -314,8 +348,9 @@ public class RefereeController : ControllerBase
                 .Where(r => assignmentIds.Contains(r.AssignmentId))
                 .ToListAsync();
 
+            var completedAssignmentIds = reports.Select(report => report.AssignmentId).Distinct().ToHashSet();
             var completedReportCount = reports.Count;
-            var pendingReportCount = assignments.Count - completedReportCount;
+            var pendingReportCount = assignments.Count(assignment => !completedAssignmentIds.Contains(assignment.AssignmentId));
             
             var assignedRaceIds = assignments.Select(a => a.RaceId).ToList();
             var violationsCreatedCount = await context.Violations
@@ -351,6 +386,18 @@ public class RefereeController : ControllerBase
     {
         try
         {
+            var userId = GetCurrentUserId();
+            var refereeId = await context.RefereeProfiles
+                .Where(profile => profile.UserId == userId)
+                .Select(profile => (int?)profile.RefereeId)
+                .FirstOrDefaultAsync();
+            if (!refereeId.HasValue)
+                return NotFound(new { message = "Referee profile not found for current user." });
+            var isAssigned = await context.RaceRefereeAssignments.AnyAsync(assignment =>
+                assignment.RaceId == raceId && assignment.RefereeId == refereeId.Value && assignment.Status == "Active");
+            if (!isAssigned)
+                return Forbid();
+
             var entries = await context.RaceEntries
                 .Include(re => re.Registration)
                     .ThenInclude(reg => reg.Horse)
@@ -390,13 +437,35 @@ public class RefereeController : ControllerBase
                 return NotFound(new { message = $"Violation with ID {id} was not found." });
             }
 
+            var userId = GetCurrentUserId();
+            var refereeId = await context.RefereeProfiles
+                .Where(profile => profile.UserId == userId)
+                .Select(profile => (int?)profile.RefereeId)
+                .FirstOrDefaultAsync();
+            if (!refereeId.HasValue)
+                return NotFound(new { message = "Referee profile not found for current user." });
+            var isAssigned = await context.RaceRefereeAssignments.AnyAsync(assignment =>
+                assignment.RaceId == violation.RaceId && assignment.RefereeId == refereeId.Value && assignment.Status == "Active");
+            if (!isAssigned)
+                return Forbid();
+
+            var raceStatus = await context.Races.Where(race => race.RaceId == violation.RaceId).Select(race => race.Status).FirstOrDefaultAsync();
+            if (new[] { "Finished", "Completed", "Cancelled" }.Contains(raceStatus, StringComparer.OrdinalIgnoreCase))
+                return BadRequest(new { message = $"Violations cannot be edited while race status is '{raceStatus}'." });
+
+            var allowedPenalties = new[] { "None", "Time Penalty", "Disqualified" };
+            if (!string.IsNullOrWhiteSpace(request.Penalty) && !allowedPenalties.Contains(request.Penalty.Trim(), StringComparer.OrdinalIgnoreCase))
+                return BadRequest(new { message = $"Penalty must be one of: {string.Join(", ", allowedPenalties)}." });
+            if (!string.IsNullOrWhiteSpace(request.Description) && request.Description.Trim().Length > 1000)
+                return BadRequest(new { message = "Violation description cannot exceed 1000 characters." });
+
             if (!string.IsNullOrEmpty(request.Penalty))
             {
-                violation.Penalty = request.Penalty;
+                violation.Penalty = request.Penalty.Trim();
             }
             if (!string.IsNullOrEmpty(request.Description))
             {
-                violation.Description = request.Description;
+                violation.Description = request.Description.Trim();
             }
 
             await context.SaveChangesAsync();

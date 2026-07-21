@@ -35,7 +35,7 @@ public class ResultRepository : IResultRepository
     public async Task<RaceRefereeAssignment?> GetAssignmentAsync(long raceId, int refereeId)
     {
         return await _context.RaceRefereeAssignments
-            .FirstOrDefaultAsync(rra => rra.RaceId == raceId && rra.RefereeId == refereeId);
+            .FirstOrDefaultAsync(rra => rra.RaceId == raceId && rra.RefereeId == refereeId && rra.Status == "Active");
     }
 
     public async Task<Horse?> GetHorseByIdOrNameAsync(string identifier)
