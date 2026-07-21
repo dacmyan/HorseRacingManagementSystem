@@ -25,10 +25,13 @@ public class RaceService : IRaceService
             throw new ArgumentNullException(nameof(request));
         }
 
+        request.Name = request.Name?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(request.Name))
         {
             throw new ArgumentException("Race name cannot be empty.", nameof(request.Name));
         }
+        if (request.Name.Length > 150)
+            throw new ArgumentException("Race name cannot exceed 150 characters.", nameof(request.Name));
 
         var round = await _raceRepository.GetRoundByIdAsync(request.RoundId);
         if (round == null)
@@ -55,6 +58,8 @@ public class RaceService : IRaceService
         {
             throw new ArgumentException("Race date is invalid.", nameof(request.RaceDate));
         }
+        if (request.RaceDate < DateTime.UtcNow.AddMinutes(-5))
+            throw new ArgumentException("Race date cannot be in the past.", nameof(request.RaceDate));
 
         if (round.StartDate.HasValue && round.EndDate.HasValue)
         {
@@ -182,6 +187,26 @@ public class RaceService : IRaceService
         {
             throw new InvalidOperationException("Registration tournament does not match the race tournament.");
         }
+
+        if (!string.Equals(registration.Status, "Approved", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Only Approved registrations can be assigned to a race.");
+        if (registration.Horse == null)
+            throw new InvalidOperationException("Registration is not associated with a horse.");
+        if (new[] { "Sick", "Injured" }.Contains(registration.Horse.HealthStatus, StringComparer.OrdinalIgnoreCase))
+            throw new InvalidOperationException("A sick or injured horse cannot be assigned to a race.");
+        var latestMedicalCheck = registration.MedicalCheckRecords?.OrderByDescending(m => m.CheckedAt).FirstOrDefault();
+        if (latestMedicalCheck == null ||
+            !(string.Equals(latestMedicalCheck.MedicalResult, "Pass", StringComparison.OrdinalIgnoreCase) ||
+              string.Equals(latestMedicalCheck.MedicalResult, "Passed", StringComparison.OrdinalIgnoreCase)) ||
+            string.Equals(latestMedicalCheck.DopingResult, "Positive", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Horse must pass its latest medical and doping check before lane assignment.");
+        if (new[] { "Live", "InProgress", "Running", "Finished", "Completed", "Cancelled" }
+            .Contains(race.Status, StringComparer.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Race entries cannot be changed while race status is '{race.Status}'.");
+        if (request.WinningProbability is < 0 or > 100)
+            throw new ArgumentException("Winning probability must be between 0 and 100.", nameof(request.WinningProbability));
+        if (request.CurrentOdds.HasValue && request.CurrentOdds <= 1)
+            throw new ArgumentException("Current odds must be greater than 1.", nameof(request.CurrentOdds));
 
         if (request.LaneNo <= 0)
         {

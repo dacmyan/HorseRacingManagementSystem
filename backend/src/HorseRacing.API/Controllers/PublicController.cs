@@ -365,6 +365,7 @@ private readonly IRaceResultService _resultService;
                     t.Rounds,
                     t.CancelCount,
                     t.HasMissingReferees,
+                    t.HasCompleteLaneAssignments,
                     ApprovedRegistration = approvedRegistration,
                     QualifiedRegistration = qualifiedRegistration,
                     Prizes = prizesGrouped.ContainsKey(t.TournamentId)
