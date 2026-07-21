@@ -53,14 +53,16 @@ public class RaceResultService : IRaceResultService
             throw new KeyNotFoundException($"Race with ID {request.RaceId} was not found.");
         }
 
-        // 2. Validate referee assignment if RefereeId is provided
-        if (request.RefereeId.HasValue)
+        // 2. Validate referee assignment (always mandatory)
+        if (!request.RefereeId.HasValue)
         {
-            var assignment = await _repository.GetAssignmentAsync(request.RaceId, request.RefereeId.Value);
-            if (assignment == null)
-            {
-                throw new InvalidOperationException("The referee is not assigned to this race.");
-            }
+            throw new ArgumentException("RefereeId is required to submit race results.");
+        }
+
+        var refereeAssignment = await _repository.GetAssignmentAsync(request.RaceId, request.RefereeId.Value);
+        if (refereeAssignment == null)
+        {
+            throw new InvalidOperationException("The referee is not assigned to this race.");
         }
 
         // 3. Validate Winner parameter
