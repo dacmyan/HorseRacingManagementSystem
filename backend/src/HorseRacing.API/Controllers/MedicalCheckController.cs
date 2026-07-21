@@ -135,8 +135,7 @@ public class MedicalCheckController : ControllerBase
         {
             var userId = GetCurrentUserId();
             var result = await _service.CreateAsync(userId, request);
-            return CreatedAtAction(nameof(GetById), new { id = result.Id },
-                new { message = "Medical check record created successfully", result });
+            return Ok(new { message = "Medical check record created successfully", result });
         }
         catch (ArgumentException ex)
         {
