@@ -40,6 +40,7 @@ public class RegistrationRepository : IRegistrationRepository
             .Include(r => r.Tournament)
             .Include(r => r.MedicalCheckRecords)
             .Where(r => r.Horse != null && r.Horse.OwnerId == ownerUserId)
+            .OrderByDescending(r => r.RegistrationId)
             .ToListAsync();
     }
 
