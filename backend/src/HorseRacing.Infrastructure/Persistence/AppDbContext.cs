@@ -414,11 +414,21 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(m => m.Temperature).HasPrecision(10, 2);
 
             entity.Property(m => m.RegistrationId)
-                .HasConversion<int>();
+                .HasConversion<int?>();
 
             entity.HasOne(m => m.Registration)
                 .WithMany(r => r.MedicalCheckRecords)
                 .HasForeignKey(m => m.RegistrationId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.Property(m => m.HorseId)
+                .HasConversion<int?>();
+
+            entity.HasOne(m => m.Horse)
+                .WithMany()
+                .HasForeignKey(m => m.HorseId)
+                .IsRequired(false)
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(m => m.Veterinarian)

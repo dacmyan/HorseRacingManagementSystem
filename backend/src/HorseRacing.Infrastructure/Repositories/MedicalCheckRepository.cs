@@ -22,7 +22,6 @@ public class MedicalCheckRepository : IMedicalCheckRepository
         => _context.MedicalCheckRecords
             .Include(m => m.Registration)
                 .ThenInclude(r => r!.Horse)
-                    .ThenInclude(h => h!.Owner)
             .Include(m => m.Registration)
                 .ThenInclude(r => r!.Tournament)
             .Include(m => m.Veterinarian);
@@ -160,8 +159,7 @@ public class MedicalCheckRepository : IMedicalCheckRepository
                 .ThenInclude(r => r!.MedicalCheckRecords)
             .Include(re => re.JockeyProfile)
                 .ThenInclude(j => j!.User)
-            .Where(re => !excludedStatuses.Contains(re.Status) && 
-                         (re.Registration.Status == "Approved" || re.Registration.Status == "Qualified"))
+            .Where(re => !excludedStatuses.Contains(re.Status))
             .OrderBy(re => re.Race!.RaceDate)
             .ToListAsync();
     }
@@ -194,6 +192,22 @@ public class MedicalCheckRepository : IMedicalCheckRepository
             .Where(u => u.Role != null && u.Role.Name == "Veterinarian")
             .Select(u => u.UserId)
             .ToListAsync();
+    }
+
+    public async Task<IEnumerable<MedicalCheckRecord>> GetPendingGeneralChecksAsync()
+    {
+        return await _context.MedicalCheckRecords
+            .Include(m => m.Horse)
+                .ThenInclude(h => h.Owner)
+            .Where(m => m.RegistrationId == null && m.MedicalResult == "Pending")
+            .ToListAsync();
+    }
+
+    public async Task<MedicalCheckRecord?> GetPendingGeneralCheckByHorseIdAsync(long horseId)
+    {
+        return await _context.MedicalCheckRecords
+            .Where(m => m.RegistrationId == null && m.HorseId == horseId && m.MedicalResult == "Pending")
+            .FirstOrDefaultAsync();
     }
 
     public async Task<HorseRacing.Application.Features.FinancialRewards.Interfaces.IDbTransaction> BeginTransactionAsync()

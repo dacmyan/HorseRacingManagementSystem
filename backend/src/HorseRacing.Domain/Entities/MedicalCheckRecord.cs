@@ -4,8 +4,10 @@ public class MedicalCheckRecord
 {
     public long Id { get; set; }
 
-    public long RegistrationId { get; set; }
+    public long? RegistrationId { get; set; }
     public Registration? Registration { get; set; }
+    public long? HorseId { get; set; }
+    public Horse? Horse { get; set; }
 
     /// <summary>UserId of the staff/referee/admin who performed the check.</summary>
     public int UserId { get; set; }

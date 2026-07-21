@@ -33,5 +33,7 @@ public interface IMedicalCheckRepository
     Task<Horse?> GetHorseByIdAsync(long horseId);
     void UpdateHorse(Horse horse);
     Task<List<int>> GetVeterinarianUserIdsAsync();
-    Task<IDbTransaction> BeginTransactionAsync();
+    Task<IEnumerable<MedicalCheckRecord>> GetPendingGeneralChecksAsync();
+    Task<MedicalCheckRecord?> GetPendingGeneralCheckByHorseIdAsync(long horseId);
+    Task<HorseRacing.Application.Features.FinancialRewards.Interfaces.IDbTransaction> BeginTransactionAsync();
 }

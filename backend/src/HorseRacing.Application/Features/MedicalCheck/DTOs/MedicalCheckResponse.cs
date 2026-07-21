@@ -4,7 +4,8 @@ public class MedicalCheckResponse
 {
     public long Id { get; set; }
 
-    public long RegistrationId { get; set; }
+    public long? RegistrationId { get; set; }
+    public long? HorseId { get; set; }
     public string? HorseName { get; set; }
     public string? TournamentName { get; set; }
 
