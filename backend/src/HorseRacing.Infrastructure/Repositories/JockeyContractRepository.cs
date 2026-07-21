@@ -45,6 +45,7 @@ public class JockeyContractRepository : IJockeyContractRepository
             .Include(jc => jc.Jockey)
             .Include(jc => jc.Tournament)
             .Where(jc => jc.Horse != null && jc.Horse.OwnerId == ownerUserId)
+            .OrderByDescending(jc => jc.ContractId)
             .ToListAsync();
     }
 
