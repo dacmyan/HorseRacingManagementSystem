@@ -1,7 +1,7 @@
 using HorseRacing.Application.Features.UserManagement.DTOs;
 using HorseRacing.Application.Features.UserManagement.Interfaces;
 using Microsoft.AspNetCore.Mvc;
-
+using Microsoft.Extensions.Configuration;
 namespace HorseRacing.API.Controllers;
 
 [ApiController]
@@ -9,10 +9,12 @@ namespace HorseRacing.API.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly IConfiguration _configuration;
 
-    public AuthController(IAuthService authService)
+    public AuthController(IAuthService authService, IConfiguration configuration)
     {
         _authService = authService;
+        _configuration = configuration;
     }
 
     [HttpPost("login")]
@@ -72,11 +74,13 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> VerifyEmail([FromQuery] string email, [FromQuery] string token)
     {
         var result = await _authService.VerifyEmailAsync(email, token);
+        var frontendUrl = _configuration["FrontendUrl"]?.TrimEnd('/') ?? "http://localhost:3000";
+
         if (!result)
         {
-            return BadRequest(new { message = "Mã xác thực không hợp lệ, sai hoặc đã hết hạn." });
+            return Redirect($"{frontendUrl}/login?verified=false&error=invalid_token");
         }
 
-        return Ok(new { message = "Email confirmed successfully. You can now login." });
+        return Redirect($"{frontendUrl}/login?verified=true");
     }
 }
