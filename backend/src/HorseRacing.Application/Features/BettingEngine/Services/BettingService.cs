@@ -208,6 +208,10 @@ public class BettingService : IBettingService
         foreach (var entry in entries)
         {
             var horse = entry.Registration?.Horse;
+            if (horse == null && entry.Registration != null && entry.Registration.HorseId > 0)
+            {
+                horse = await _betRepository.GetHorseByIdAsync(entry.Registration.HorseId);
+            }
             if (horse == null) continue;
 
             // 1. Speed (stored in AverageTime / RecentAverageTime columns, representing AverageSpeed / RecentAverageSpeed)

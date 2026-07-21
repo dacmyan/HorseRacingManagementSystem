@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using HorseRacing.Application.Features.TournamentAndRacing.DTOs;
 using HorseRacing.Application.Features.TournamentAndRacing.Interfaces;
+using HorseRacing.Application.Features.BettingEngine.Interfaces;
 using HorseRacing.Domain.Entities;
 using HorseRacing.Domain.Entities.Tournaments;
 
@@ -12,10 +13,12 @@ namespace HorseRacing.Application.Features.TournamentAndRacing.Services;
 public class RaceService : IRaceService
 {
     private readonly IRaceRepository _raceRepository;
+    private readonly IBettingService _bettingService;
 
-    public RaceService(IRaceRepository raceRepository)
+    public RaceService(IRaceRepository raceRepository, IBettingService bettingService)
     {
         _raceRepository = raceRepository;
+        _bettingService = bettingService;
     }
 
     public async Task<RaceScheduleResponse> CreateRaceAsync(CreateRaceRequest request)
@@ -306,6 +309,15 @@ public class RaceService : IRaceService
         if (raceExists.Round == null)
         {
             throw new InvalidOperationException("Race is missing round information.");
+        }
+
+        try
+        {
+            await _bettingService.RecalculateRaceOddsAsync(raceId);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ODDS RECALC ERROR] {ex.Message}");
         }
 
         var entries = await _raceRepository.GetRaceEntriesAsync(raceId);
