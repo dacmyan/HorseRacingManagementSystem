@@ -135,8 +135,7 @@ public class MedicalCheckController : ControllerBase
         {
             var userId = GetCurrentUserId();
             var result = await _service.CreateAsync(userId, request);
-            return CreatedAtAction(nameof(GetById), new { id = result.Id },
-                new { message = "Medical check record created successfully", result });
+            return Ok(new { message = "Medical check record created successfully", result });
         }
         catch (ArgumentException ex)
         {
@@ -205,6 +204,74 @@ public class MedicalCheckController : ControllerBase
         catch (Exception ex)
         {
             return StatusCode(500, new { message = "An error occurred updating the record", detail = ex.Message });
+        }
+    }
+
+    // ─── GET /api/MedicalCheck/unhealthy-horses ──────────────────────────────────
+    /// <summary>Get all unhealthy (Sick/Injured) horses (Admin / Veterinarian only).</summary>
+    [HttpGet("unhealthy-horses")]
+    [Authorize(Roles = "Admin,Veterinarian")]
+    public async Task<IActionResult> GetUnhealthyHorses()
+    {
+        try
+        {
+            var result = await _service.GetUnhealthyHorsesAsync();
+            return Ok(new { message = "Unhealthy horses retrieved successfully", result });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving unhealthy horses", detail = ex.Message });
+        }
+    }
+
+    // ─── PUT /api/MedicalCheck/horses/{id}/recover ──────────────────────────────
+    /// <summary>Confirm recovery of an unhealthy horse, setting health status to Healthy (Veterinarian only).</summary>
+    [HttpPut("horses/{id:long}/recover")]
+    [Authorize(Roles = "Veterinarian")]
+    public async Task<IActionResult> RecoverHorse(long id)
+    {
+        try
+        {
+            var updated = await _service.RecoverHorseAsync(id);
+            if (!updated)
+            {
+                return BadRequest(new { message = "Horse is already healthy." });
+            }
+            return Ok(new { message = "Horse health status updated to Healthy successfully." });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred updating horse health status", detail = ex.Message });
+        }
+    }
+
+    // ─── POST /api/MedicalCheck/horses/{id}/request-recovery ───────────────────
+    /// <summary>Request health recovery check for a sick/injured horse (HorseOwner only).</summary>
+    [HttpPost("horses/{id:long}/request-recovery")]
+    [Authorize(Roles = "HorseOwner")]
+    public async Task<IActionResult> RequestRecoveryCheck(long id)
+    {
+        try
+        {
+            var ownerUserId = GetCurrentUserId();
+            var result = await _service.RequestRecoveryCheckAsync(ownerUserId, id);
+            return Ok(new { message = "Recovery check request submitted successfully." });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred submitting recovery check request", detail = ex.Message });
         }
     }
 }

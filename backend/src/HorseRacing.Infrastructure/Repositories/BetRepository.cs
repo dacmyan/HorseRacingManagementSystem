@@ -146,8 +146,12 @@ public class BetRepository : IBetRepository
                 .ThenInclude(reg => reg!.Horse)
             .Include(re => re.JockeyProfile)
                 .ThenInclude(jp => jp!.User)
-            .Where(re => re.RaceId == raceId)
             .ToListAsync();
+    }
+
+    public async Task<Horse?> GetHorseByIdAsync(long horseId)
+    {
+        return await _context.Horses.FindAsync(horseId);
     }
 
     public async Task<decimal> GetTotalBetsForRaceAsync(long raceId)

@@ -2,7 +2,9 @@ namespace HorseRacing.Application.Features.MedicalCheck.DTOs;
 
 public class CreateMedicalCheckRequest
 {
-    public long RegistrationId { get; set; }
+    public long? RegistrationId { get; set; }
+    public long? MedicalRecordId { get; set; }
+    public long? HorseId { get; set; }
 
     /// <summary>"Initial" or "ReCheck"</summary>
     public string CheckType { get; set; } = "Initial";

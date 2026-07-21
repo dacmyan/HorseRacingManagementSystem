@@ -39,6 +39,8 @@ public class RaceResultService : IRaceResultService
         _tournamentService = tournamentService;
     }
 
+    private static DateTime VietnamNow => TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
+
     public async Task<RaceResultResponse> SubmitResultAsync(SubmitRaceResultRequest request)
     {
         if (request == null)
@@ -52,6 +54,11 @@ public class RaceResultService : IRaceResultService
         {
             throw new KeyNotFoundException($"Race with ID {request.RaceId} was not found.");
         }
+        if (race.RaceDate > VietnamNow)
+            throw new InvalidOperationException("Race results cannot be submitted before the scheduled race time.");
+        var submitAllowedStatuses = new[] { "Scheduled", "Active", "Live", "InProgress", "Running", "AwaitingResults" };
+        if (!submitAllowedStatuses.Contains(race.Status, StringComparer.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Race results cannot be submitted while race status is '{race.Status}'.");
 
         // 2. Validate referee assignment (always mandatory)
         if (!request.RefereeId.HasValue)
@@ -64,6 +71,8 @@ public class RaceResultService : IRaceResultService
         {
             throw new InvalidOperationException("The referee is not assigned to this race.");
         }
+        if (!string.Equals(refereeAssignment.Status, "Active", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("The referee assignment is no longer active.");
 
         // 3. Validate Winner parameter
         if (string.IsNullOrWhiteSpace(request.Winner))
@@ -110,6 +119,25 @@ public class RaceResultService : IRaceResultService
         {
             if (request.Entries != null && request.Entries.Any())
             {
+                if (request.Entries.Any(item => item.RaceEntryId <= 0 || item.FinishPosition <= 0 || item.FinishTime <= 0))
+                    throw new ArgumentException("Every result entry must have a valid entry ID, positive finish position, and positive finish time.");
+                if (request.Entries.Select(item => item.RaceEntryId).Distinct().Count() != request.Entries.Count)
+                    throw new ArgumentException("The submitted leaderboard contains duplicate race entries.");
+                if (request.Entries.Select(item => item.FinishPosition).Distinct().Count() != request.Entries.Count)
+                    throw new ArgumentException("Finish positions must be unique.");
+
+                var eligibleEntries = entries.Where(item =>
+                    item.Registration?.Horse != null &&
+                    !new[] { "Sick", "Injured" }.Contains(item.Registration.Horse.HealthStatus, StringComparer.OrdinalIgnoreCase) &&
+                    !invalidWinnerStatuses.Contains(item.Status, StringComparer.OrdinalIgnoreCase)).ToList();
+                var submittedIds = request.Entries.Select(item => item.RaceEntryId).OrderBy(id => id).ToList();
+                var eligibleIds = eligibleEntries.Select(item => item.RaceEntryId).OrderBy(id => id).ToList();
+                if (!submittedIds.SequenceEqual(eligibleIds))
+                    throw new ArgumentException("The leaderboard must contain every eligible horse in this race exactly once.");
+                var winningInput = request.Entries.SingleOrDefault(item => item.FinishPosition == 1);
+                if (winningInput == null || winningInput.RaceEntryId != entry.RaceEntryId)
+                    throw new ArgumentException("Winner must match the race entry in finish position 1.");
+
                 foreach (var manualEntry in request.Entries)
                 {
                     var match = entries.FirstOrDefault(re => re.RaceEntryId == manualEntry.RaceEntryId);
@@ -197,15 +225,15 @@ public class RaceResultService : IRaceResultService
         {
             // 1. Notify assigned referees
             var assignments = await _repository.GetAssignmentsForRaceAsync(race.RaceId);
-            var tournamentName = race.Round?.Tournament?.Name ?? "Giải đấu";
+            var tournamentName = race.Round?.Tournament?.Name ?? "Tournament";
             foreach (var assignment in assignments)
             {
                 if (assignment.RefereeProfile != null)
                 {
                     await _notificationService.SendNotificationToUserAsync(
                         assignment.RefereeProfile.UserId,
-                        "Giải đấu được phân công đã kết thúc",
-                        $"Giải đấu '{tournamentName}' mà bạn được phân công đã kết thúc, hãy gửi vi phạm và kết quả cho admin.",
+                        "Assigned Tournament Has Ended",
+                        $"Tournament '{tournamentName}', which you were assigned to officiate, has ended. Please submit all violation reports and race results for Admin review.",
                         "System",
                         referenceId: (int)race.RaceId,
                         actionUrl: "/referee/schedule"
@@ -358,6 +386,25 @@ public class RaceResultService : IRaceResultService
         catch (Exception ex)
         {
             Console.WriteLine($"[Notification Error] Failed to broadcast race result publication: {ex.Message}");
+        }
+
+        try
+        {
+            var refereeAssignments = await _repository.GetAssignmentsForRaceAsync(race.RaceId);
+            foreach (var assignment in refereeAssignments.Where(a => a.RefereeProfile != null))
+            {
+                await _notificationService.SendNotificationToUserAsync(
+                    assignment.RefereeProfile!.UserId,
+                    "Race results approved",
+                    $"Admin approved and published the results for race '{race.Name}'.",
+                    "Result",
+                    referenceId: (int)race.RaceId,
+                    actionUrl: "/referee/confirm-results");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Notification Error] Failed to notify referees about result publication: {ex.Message}");
         }
 
         return new RaceResultResponse

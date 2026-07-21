@@ -16,6 +16,9 @@ public interface IRaceRepository
     Task<List<RaceEntry>> GetRaceEntriesAsync(long raceId);
     Task<HashSet<long>> GetRaceIdsWithHealthIssuesAsync(IEnumerable<long> raceIds);
     Task<bool> HasActiveJockeyContractAsync(long tournamentId, long horseId, int jockeyId);
+    Task<bool> HasHorseScheduleConflictAsync(long horseId, long excludedRaceId, DateTime raceDate);
+    Task<bool> HasJockeyScheduleConflictAsync(int jockeyId, long excludedRaceId, DateTime raceDate);
+    Task<bool> HasFinancialOrResultDataAsync(long raceId);
     Task<(int JockeyProfileId, string JockeyName)?> GetActiveJockeyForHorseAsync(long tournamentId, long horseId);
     Task AddRaceEntryAsync(RaceEntry raceEntry);
     Task DeleteRaceAsync(long raceId);

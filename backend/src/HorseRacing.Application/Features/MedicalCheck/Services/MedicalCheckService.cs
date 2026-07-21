@@ -7,6 +7,7 @@ using HorseRacing.Application.Features.MedicalCheck.DTOs;
 using HorseRacing.Application.Features.MedicalCheck.Interfaces;
 using HorseRacing.Application.Features.ContractAndRegistration.Interfaces;
 using HorseRacing.Application.Features.Notifications.Interfaces;
+using HorseRacing.Application.Features.FinancialRewards.Interfaces;
 using HorseRacing.Domain.Entities;
 
 namespace HorseRacing.Application.Features.MedicalCheck.Services;
@@ -35,8 +36,9 @@ public class MedicalCheckService : IMedicalCheckService
     {
         Id              = r.Id,
         RegistrationId  = r.RegistrationId,
-        HorseName       = r.Registration?.Horse?.Name,
-        TournamentName  = r.Registration?.Tournament?.Name,
+        HorseId         = r.HorseId ?? r.Registration?.HorseId,
+        HorseName       = r.Horse?.Name ?? r.Registration?.Horse?.Name,
+        TournamentName  = r.Registration?.Tournament?.Name ?? "Normal Health Check",
         UserId          = r.UserId,
         CheckedByName   = r.Veterinarian != null ? (r.Veterinarian.FullName ?? r.Veterinarian.Username) : null,
         CheckType       = r.CheckType,
@@ -97,16 +99,12 @@ public class MedicalCheckService : IMedicalCheckService
 
         var validDoping    = new[] { "Negative", "Positive" };
         var validMedical   = new[] { "Pass", "Fail" };
-        var validCheckType = new[] { "Initial", "ReCheck" };
 
         if (!validDoping.Contains(request.DopingResult))
             throw new ArgumentException("DopingResult must be 'Negative' or 'Positive'.");
 
         if (!validMedical.Contains(request.MedicalResult))
             throw new ArgumentException("MedicalResult must be 'Pass' or 'Fail'.");
-
-        if (!validCheckType.Contains(request.CheckType))
-            throw new ArgumentException("CheckType must be 'Initial' or 'ReCheck'.");
 
         if (request.MedicalResult == "Fail" && string.IsNullOrWhiteSpace(request.FailReason))
             throw new ArgumentException("FailReason is required when MedicalResult is 'Fail'.");
@@ -115,25 +113,108 @@ public class MedicalCheckService : IMedicalCheckService
         if (string.Equals(request.MedicalResult, "Pass", StringComparison.OrdinalIgnoreCase))
             ValidatePassEligibility(request.Temperature, request.HeartRate, request.Weight, request.DopingResult);
 
-        // Business Validation: Registration must exist and be PendingVet.
-        var registration = await _registrationRepository.GetByIdAsync(request.RegistrationId);
+        // --- PATH A: Normal / General Health Check (MedicalRecordId is provided or RegistrationId is empty) ---
+        if (request.MedicalRecordId.HasValue || !request.RegistrationId.HasValue || request.RegistrationId.Value == 0)
+        {
+            MedicalCheckRecord record = null;
+            if (request.MedicalRecordId.HasValue)
+            {
+                record = await _repository.GetByIdAsync(request.MedicalRecordId.Value);
+            }
+            else if (request.HorseId.HasValue)
+            {
+                record = await _repository.GetPendingGeneralCheckByHorseIdAsync(request.HorseId.Value);
+            }
+
+            if (record == null)
+            {
+                if (request.HorseId.HasValue)
+                {
+                    record = new MedicalCheckRecord
+                    {
+                        HorseId = request.HorseId.Value,
+                        RegistrationId = null,
+                        CheckType = "General",
+                        MedicalResult = "Pending",
+                        Weight = 0,
+                        CheckedAt = DateTime.UtcNow
+                    };
+                    await _repository.AddAsync(record);
+                }
+                else
+                {
+                    throw new ArgumentException("MedicalRecordId or HorseId is required for general health check.");
+                }
+            }
+
+            var horse = await _repository.GetHorseByIdAsync(record.HorseId ?? request.HorseId ?? 0);
+            if (horse == null)
+                throw new ArgumentException("Associated horse not found.");
+
+            // Update record values with actual check info
+            record.UserId = performedByUserId;
+            record.CheckType = "General";
+            record.Weight = request.Weight;
+            record.Temperature = request.Temperature;
+            record.HeartRate = request.HeartRate;
+            record.DopingResult = request.DopingResult;
+            record.MedicalResult = request.MedicalResult;
+            record.FailReason = request.FailReason;
+            record.Notes = request.Notes;
+            record.CheckedAt = DateTime.UtcNow;
+
+            // Update horse health status based on check result
+            horse.HealthStatus = request.MedicalResult == "Fail"
+                ? (request.DopingResult == "Positive" ? "Sick" : "Injured")
+                : "Healthy";
+
+            await _repository.SaveChangesAsync();
+
+            // Send notification to Owner
+            var ownerId = horse.OwnerId;
+            var horseName = horse.Name;
+            if (request.MedicalResult == "Fail")
+            {
+                var failTitle = "Khám sức khỏe định kỳ không đạt";
+                var failContent = $"Ngựa {horseName} của bạn không đạt yêu cầu khám lại sức khỏe định kỳ vì lý do: {request.FailReason}.";
+                await _notificationService.SendNotificationToUserAsync(
+                    ownerId, failTitle, failContent, "Medical", (int?)horse.HorseId, null, "/owner/horses");
+            }
+            else
+            {
+                var passTitle = "Khám sức khỏe đạt (Healthy)";
+                var passContent = $"Ngựa {horseName} của bạn đã đạt yêu cầu khám sức khỏe định kỳ và đã hồi phục (Healthy).";
+                await _notificationService.SendNotificationToUserAsync(
+                    ownerId, passTitle, passContent, "Medical", (int?)horse.HorseId, null, "/owner/horses");
+            }
+
+            var populatedRecord = await _repository.GetByIdAsync(record.Id);
+            return Map(populatedRecord ?? record);
+        }
+
+        // --- PATH B: Tournament Registration Check (Existing Logic) ---
+        var validCheckType = new[] { "Initial", "ReCheck" };
+        if (!validCheckType.Contains(request.CheckType))
+            throw new ArgumentException("CheckType must be 'Initial' or 'ReCheck'.");
+
+        var registration = await _registrationRepository.GetByIdAsync(request.RegistrationId.Value);
         if (registration == null)
-            throw new ArgumentException($"Registration with ID {request.RegistrationId} does not exist.");
+            throw new ArgumentException($"Registration with ID {request.RegistrationId.Value} does not exist.");
 
         if (!string.Equals(registration.Status, "PendingVet", StringComparison.OrdinalIgnoreCase))
             throw new ArgumentException("Registration must be pending medical check before an initial medical check can be performed.");
 
-        // For Initial checks: only one Initial check allowed per Registration
         if (request.CheckType == "Initial")
         {
-            var existing = await _repository.GetByRegistrationIdAsync(request.RegistrationId);
+            var existing = await _repository.GetByRegistrationIdAsync(request.RegistrationId.Value);
             if (existing != null && existing.Any(r => r.CheckType == "Initial"))
                 throw new ArgumentException("An initial medical check record already exists for this registration.");
         }
 
-        var record = new MedicalCheckRecord
+        var newRecord = new MedicalCheckRecord
         {
-            RegistrationId = request.RegistrationId,
+            RegistrationId = request.RegistrationId.Value,
+            HorseId        = registration.HorseId,
             UserId         = performedByUserId,
             CheckType      = request.CheckType,
             Weight         = request.Weight,
@@ -146,22 +227,19 @@ public class MedicalCheckService : IMedicalCheckService
             CheckedAt      = DateTime.UtcNow,
         };
 
-        if (registration != null && registration.Horse != null)
+        if (registration.Horse != null)
         {
-            registration.Horse.HealthStatus = request.MedicalResult == "Fail" 
+            registration.Horse.HealthStatus = request.MedicalResult == "Fail"
                 ? (request.DopingResult == "Positive" ? "Sick" : "Injured")
                 : "Healthy";
         }
 
-        if (registration != null)
-        {
-            registration.Status = request.MedicalResult == "Pass" ? "Pending" : "Rejected";
-        }
+        registration.Status = request.MedicalResult == "Pass" ? "Pending" : "Rejected";
 
-        await _repository.AddAsync(record);
+        await _repository.AddAsync(newRecord);
         await _repository.SaveChangesAsync();
 
-        if (registration?.Horse != null)
+        if (registration.Horse != null)
         {
             var ownerId = registration.Horse.OwnerId;
             var horseName = registration.Horse.Name;
@@ -171,20 +249,27 @@ public class MedicalCheckService : IMedicalCheckService
                 var failTitle = "Khám sức khỏe không đạt";
                 var failContent = $"Ngựa {horseName} của bạn không đạt yêu cầu khám sức khỏe cho giải đấu {tournamentName} vì lý do: {request.FailReason}.";
                 await _notificationService.SendNotificationToUserAsync(
-                    ownerId, failTitle, failContent, "MedicalCheck", (int?)registration.RegistrationId, null, "/owner/registrations");
+                    ownerId, failTitle, failContent, "Medical", (int?)registration.RegistrationId, null, "/owner/registrations");
 
                 var ownerEmail = registration.Horse.Owner?.Email;
                 if (!string.IsNullOrWhiteSpace(ownerEmail))
                 {
-                    var emailBody = $@"
-                        <h2>Thông báo kết quả khám sức khỏe</h2>
-                        <p>Xin chào,</p>
-                        <p>Chúng tôi rất tiếc phải thông báo rằng ngựa <strong>{horseName}</strong> của bạn đã <strong>không đạt</strong> yêu cầu khám sức khỏe cho giải đấu <strong>{tournamentName}</strong>.</p>
-                        <p><strong>Lý do:</strong> {request.FailReason}</p>
-                        <p><strong>Ghi chú từ bác sĩ thú y:</strong> {request.Notes ?? "Không có"}</p>
-                        <br/>
-                        <p>Trân trọng,<br/>Ban Tổ Chức Giải Đua Ngựa</p>";
-                    await _emailService.SendEmailAsync(ownerEmail, failTitle, emailBody);
+                    try
+                    {
+                        var emailBody = $@"
+                            <h2>Thông báo kết quả khám sức khỏe</h2>
+                            <p>Xin chào,</p>
+                            <p>Chúng tôi rất tiếc phải thông báo rằng ngựa <strong>{horseName}</strong> của bạn đã <strong>không đạt</strong> yêu cầu khám sức khỏe cho giải đấu <strong>{tournamentName}</strong>.</p>
+                            <p><strong>Lý do:</strong> {request.FailReason}</p>
+                            <p><strong>Ghi chú từ bác sĩ thú y:</strong> {request.Notes ?? "Không có"}</p>
+                            <br/>
+                            <p>Trân trọng,<br/>Ban Tổ Chức Giải Đua Ngựa</p>";
+                        await _emailService.SendEmailAsync(ownerEmail, failTitle, emailBody);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[EMAIL ERROR] Failed to send email to {ownerEmail}: {ex.Message}");
+                    }
                 }
             }
             else
@@ -192,21 +277,21 @@ public class MedicalCheckService : IMedicalCheckService
                 var passTitle = "Khám sức khỏe đạt (Pass)";
                 var passContent = $"Ngựa {horseName} của bạn đã đạt (pass) yêu cầu khám sức khỏe cho giải đấu {tournamentName}.";
                 await _notificationService.SendNotificationToUserAsync(
-                    ownerId, passTitle, passContent, "MedicalCheck", (int?)registration.RegistrationId, null, "/owner/registrations");
+                    ownerId, passTitle, passContent, "Medical", (int?)registration.RegistrationId, null, "/owner/registrations");
 
                 try
                 {
-                    var ownerName = registration.Horse.Owner != null 
-                        ? (registration.Horse.Owner.FullName ?? registration.Horse.Owner.Username) 
-                        : "Chủ ngựa";
+                    var ownerName = registration.Horse.Owner != null
+                        ? (registration.Horse.Owner.FullName ?? registration.Horse.Owner.Username)
+                        : "Horse Owner";
                     var adminIds = await _registrationRepository.GetAdminUserIdsAsync();
                     foreach (var adminId in adminIds)
                     {
                         await _notificationService.SendNotificationToUserAsync(
                             adminId,
-                            "Ngựa đủ điều kiện đăng ký giải",
-                            $"Ngựa '{horseName}' của chủ ngựa '{ownerName}' đã đủ điều kiện đăng ký giải đấu '{tournamentName}'.",
-                            "MedicalCheck",
+                            "Horse Eligible for Tournament",
+                            $"Horse '{horseName}', owned by '{ownerName}', is now eligible to participate in tournament '{tournamentName}'.",
+                            "Medical",
                             (int?)registration.RegistrationId,
                             null,
                             "/admin/registrations"
@@ -220,8 +305,8 @@ public class MedicalCheckService : IMedicalCheckService
             }
         }
 
-        var populated = await _repository.GetByIdAsync(record.Id);
-        return Map(populated ?? record);
+        var populatedResult = await _repository.GetByIdAsync(newRecord.Id);
+        return Map(populatedResult ?? newRecord);
     }
 
     public async Task<MedicalCheckResponse> UpdateAsync(long id, UpdateMedicalCheckRequest request)
@@ -278,15 +363,22 @@ public class MedicalCheckService : IMedicalCheckService
             var failReason = record.FailReason ?? "Không có lý do cụ thể";
             var notes = request.Notes ?? record.Notes;
 
-            var emailBody = $@"
-                <h2>Cập nhật kết quả khám sức khỏe</h2>
-                <p>Xin chào,</p>
-                <p>Hồ sơ khám sức khỏe của ngựa <strong>{horseName}</strong> cho giải đấu <strong>{tournamentName}</strong> vừa được bác sĩ thú y cập nhật với kết quả <strong>KHÔNG ĐẠT</strong>.</p>
-                <p><strong>Lý do:</strong> {failReason}</p>
-                <p><strong>Ghi chú:</strong> {notes ?? "Không có"}</p>
-                <br/>
-                <p>Trân trọng,<br/>Ban Tổ Chức Giải Đua Ngựa</p>";
-            await _emailService.SendEmailAsync(record.Registration.Horse.Owner.Email, failTitle, emailBody);
+            try
+            {
+                var emailBody = $@"
+                    <h2>Cập nhật kết quả khám sức khỏe</h2>
+                    <p>Xin chào,</p>
+                    <p>Hồ sơ khám sức khỏe của ngựa <strong>{horseName}</strong> cho giải đấu <strong>{tournamentName}</strong> vừa được bác sĩ thú y cập nhật với kết quả <strong>KHÔNG ĐẠT</strong>.</p>
+                    <p><strong>Lý do:</strong> {failReason}</p>
+                    <p><strong>Ghi chú:</strong> {notes ?? "Không có"}</p>
+                    <br/>
+                    <p>Trân trọng,<br/>Ban Tổ Chức Giải Đua Ngựa</p>";
+                await _emailService.SendEmailAsync(record.Registration.Horse.Owner.Email, failTitle, emailBody);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[EMAIL ERROR] Failed to send update email to {record.Registration.Horse.Owner.Email}: {ex.Message}");
+            }
         }
 
         var populated = await _repository.GetByIdAsync(record.Id);
@@ -304,15 +396,43 @@ public class MedicalCheckService : IMedicalCheckService
 
     public async Task<IEnumerable<PendingRegistrationResponse>> GetPendingRegistrationsAsync()
     {
+        var list = new List<PendingRegistrationResponse>();
+
+        // 1. Get pending tournament registrations
         var regs = await _repository.GetPendingRegistrationsForChecksAsync();
-        return regs.Select(r => new PendingRegistrationResponse
+        foreach (var r in regs)
         {
-            RegistrationId = r.RegistrationId,
-            HorseName      = r.Horse?.Name ?? string.Empty,
-            TournamentName = r.Tournament?.Name ?? string.Empty,
-            OwnerName      = r.Horse?.Owner != null ? (r.Horse.Owner.FullName ?? r.Horse.Owner.Username) : string.Empty,
-            RegisteredAt   = r.RegisteredAt
-        });
+            list.Add(new PendingRegistrationResponse
+            {
+                RegistrationId = r.RegistrationId,
+                MedicalRecordId = null,
+                HorseId        = r.HorseId,
+                HorseName      = r.Horse?.Name ?? string.Empty,
+                TournamentName = r.Tournament?.Name ?? string.Empty,
+                OwnerName      = r.Horse?.Owner != null ? (r.Horse.Owner.FullName ?? r.Horse.Owner.Username) : string.Empty,
+                RegisteredAt   = r.RegisteredAt,
+                InspectionType = "Tournament"
+            });
+        }
+
+        // 2. Get pending general/recovery health checks
+        var generalChecks = await _repository.GetPendingGeneralChecksAsync();
+        foreach (var g in generalChecks)
+        {
+            list.Add(new PendingRegistrationResponse
+            {
+                RegistrationId = null,
+                MedicalRecordId = g.Id,
+                HorseId        = g.HorseId ?? 0,
+                HorseName      = g.Horse?.Name ?? string.Empty,
+                TournamentName = "Normal Health Check",
+                OwnerName      = g.Horse?.Owner != null ? (g.Horse.Owner.FullName ?? g.Horse.Owner.Username) : string.Empty,
+                RegisteredAt   = g.CheckedAt,
+                InspectionType = "General"
+            });
+        }
+
+        return list.OrderByDescending(x => x.RegisteredAt);
     }
 
     // ─── Re-Examination Workflow ──────────────────────────────────────────────
@@ -344,162 +464,186 @@ public class MedicalCheckService : IMedicalCheckService
         if (!eligibleStatuses.Any(s => string.Equals(registration.Status, s, StringComparison.OrdinalIgnoreCase)))
             throw new ArgumentException($"Registration status '{registration.Status}' is not eligible for re-examination. Must be Approved or Qualified.");
 
-        // 3. Create a NEW MedicalCheckRecord (NEVER overwrite previous records)
-        var newRecord = new MedicalCheckRecord
+        await using var transaction = await _repository.BeginTransactionAsync();
+        try
         {
-            RegistrationId = request.RegistrationId,
-            UserId         = vetUserId,
-            CheckType      = "ReCheck",
-            Weight         = request.Weight,
-            Temperature    = request.Temperature,
-            HeartRate      = request.HeartRate,
-            DopingResult   = request.DopingResult,
-            MedicalResult  = request.MedicalResult,
-            FailReason     = request.FailReason,
-            Notes          = request.Notes,
-            CheckedAt      = DateTime.UtcNow,
-        };
+            // 3. Create a NEW MedicalCheckRecord (NEVER overwrite previous records)
+            var newRecord = new MedicalCheckRecord
+            {
+                RegistrationId = request.RegistrationId,
+                UserId         = vetUserId,
+                CheckType      = "ReCheck",
+                Weight         = request.Weight,
+                Temperature    = request.Temperature,
+                HeartRate      = request.HeartRate,
+                DopingResult   = request.DopingResult,
+                MedicalResult  = request.MedicalResult,
+                FailReason     = request.FailReason,
+                Notes          = request.Notes,
+                CheckedAt      = DateTime.UtcNow,
+            };
 
-        await _repository.AddAsync(newRecord);
+            await _repository.AddAsync(newRecord);
 
-        // 4. If horse PASSED → no withdrawal needed
-        if (request.MedicalResult == "Pass")
-        {
+            // 4. If horse PASSED → no withdrawal needed
+            if (request.MedicalResult == "Pass")
+            {
+                if (registration.Horse != null)
+                {
+                    registration.Horse.HealthStatus = "Healthy";
+                }
+                await _repository.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                var passRecord = await _repository.GetByIdAsync(newRecord.Id);
+                return new RecheckResultResponse
+                {
+                    MedicalRecord      = Map(passRecord ?? newRecord),
+                    HorseWithdrawn     = false,
+                    RegistrationStatus = registration.Status,
+                    Message            = $"Re-inspection passed. Horse '{registration.Horse?.Name}' continues to compete."
+                };
+            }
+
+            // 5. Horse FAILED → withdrawal workflow
             if (registration.Horse != null)
             {
-                registration.Horse.HealthStatus = "Healthy";
+                registration.Horse.HealthStatus = request.DopingResult == "Positive" ? "Sick" : "Injured";
             }
+
+            // 5a. Update Registration → Disqualified
+            registration.Status = "Disqualified";
+            _repository.UpdateRegistration(registration);
+
+            // 5b. Find active RaceEntry
+            var raceEntry = await _repository.GetActiveRaceEntryByRegistrationIdAsync(request.RegistrationId);
+            var withdrawStatus = "None";
+            var withdrawReason = request.FailReason ?? "FailedMedicalReCheck";
+
+            if (raceEntry != null)
+            {
+                var race = await _repository.GetRaceByRaceEntryIdAsync(raceEntry.RaceEntryId);
+                var alreadyFinalStatuses = new[] { "Withdrawn", "Scratch", "DNF", "Disqualified", "Finished" };
+
+                if (race != null && !alreadyFinalStatuses.Any(s => string.Equals(raceEntry.Status, s, StringComparison.OrdinalIgnoreCase)))
+                {
+                    if (string.Equals(race.Status, "InProgress", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Race in progress → DNF
+                        raceEntry.Status         = "DNF";
+                        raceEntry.WithdrawReason = withdrawReason;
+                        raceEntry.WithdrawTime   = DateTime.UtcNow;
+                        withdrawStatus = "DNF";
+                    }
+                    else
+                    {
+                        // Race not started → Withdrawn
+                        raceEntry.Status         = "Withdrawn";
+                        raceEntry.WithdrawReason = withdrawReason;
+                        raceEntry.WithdrawTime   = DateTime.UtcNow;
+                        withdrawStatus = "Withdrawn";
+                    }
+
+                    _repository.UpdateRaceEntry(raceEntry);
+                }
+            }
+
             await _repository.SaveChangesAsync();
-            var passRecord = await _repository.GetByIdAsync(newRecord.Id);
+
+            // 6. Send notifications
+            var horseName      = registration.Horse?.Name ?? $"RegistrationId #{registration.RegistrationId}";
+            var tournamentName = registration.Tournament?.Name ?? string.Empty;
+            var failTitle      = "⚠️ Horse disqualified due to medical check";
+            var failContent    = $"Horse {horseName} failed the medical re-inspection in tournament {tournamentName}. Reason: {withdrawReason}.";
+
+            // Notify owner
+            var ownerId = await _repository.GetOwnerUserIdByRegistrationAsync(request.RegistrationId);
+            if (ownerId.HasValue)
+                await _notificationService.SendNotificationToUserAsync(
+                    ownerId.Value, failTitle, failContent, "Medical", (int?)raceEntry?.RaceEntryId);
+
+            var ownerEmail = registration.Horse?.Owner?.Email;
+            if (!string.IsNullOrWhiteSpace(ownerEmail))
+            {
+                try
+                {
+                    var emailBody = $@"
+                        <h2>Thông báo kết quả tái khám (Re-Check)</h2>
+                        <p>Xin chào,</p>
+                        <p>Chúng tôi rất tiếc phải thông báo rằng ngựa <strong>{horseName}</strong> của bạn đã <strong>không đạt</strong> yêu cầu trong đợt tái khám cho giải đấu <strong>{tournamentName}</strong>.</p>
+                        <p><strong>Kết quả:</strong> {withdrawReason}</p>
+                        <p><strong>Ghi chú từ bác sĩ:</strong> {request.Notes ?? "Không có"}</p>
+                        <p>Ngựa của bạn đã bị <strong>loại khỏi cuộc đua (Withdrawn/DNF)</strong> theo quy định.</p>
+                        <br/>
+                        <p>Trân trọng,<br/>Ban Tổ Chức Giải Đua Ngựa</p>";
+                    await _emailService.SendEmailAsync(ownerEmail, failTitle, emailBody);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[EMAIL ERROR] Failed to send recheck email to {ownerEmail}: {ex.Message}");
+                }
+            }
+
+            // Notify jockey & referees & bettors (if race entry exists)
+            if (raceEntry != null)
+            {
+                var jockeyId = await _repository.GetJockeyUserIdByRaceEntryAsync(raceEntry.RaceEntryId);
+                if (jockeyId.HasValue)
+                    await _notificationService.SendNotificationToUserAsync(
+                        jockeyId.Value, failTitle,
+                        $"Horse {horseName} in tournament {tournamentName} has been withdrawn due to failed medical check. Your contract has been affected.",
+                        "Medical", (int?)raceEntry.RaceEntryId);
+
+                var refereeIds = await _repository.GetRefereeUserIdsByRaceIdAsync(raceEntry.RaceId);
+                foreach (var refereeId in refereeIds)
+                    await _notificationService.SendNotificationToUserAsync(
+                        refereeId, failTitle, failContent, "Medical", (int?)raceEntry.RaceEntryId);
+
+                var bettorIds = await _repository.GetBettorUserIdsByRaceIdAsync(raceEntry.RaceId);
+                foreach (var bettorId in bettorIds)
+                    await _notificationService.SendNotificationToUserAsync(
+                        bettorId,
+                        "⚠️ Bet Update — Horse withdrawn from race",
+                        $"Horse {horseName} has been withdrawn from the race in tournament {tournamentName} due to failing the medical check. Please check your bet status.",
+                        "Bet", (int?)raceEntry.RaceId);
+            }
+
+            await transaction.CommitAsync();
+
+            var populated = await _repository.GetByIdAsync(newRecord.Id);
+            var actionText = withdrawStatus == "DNF" ? "marked as DNF" : "withdrawn from the race";
             return new RecheckResultResponse
             {
-                MedicalRecord      = Map(passRecord ?? newRecord),
-                HorseWithdrawn     = false,
-                RegistrationStatus = registration.Status,
-                Message            = $"Re-inspection passed. Horse '{registration.Horse?.Name}' continues to compete."
+                MedicalRecord      = Map(populated ?? newRecord),
+                HorseWithdrawn     = true,
+                WithdrawStatus     = withdrawStatus == "None" ? null : withdrawStatus,
+                WithdrawReason     = withdrawReason,
+                RegistrationStatus = "Disqualified",
+                Message            = $"Re-inspection failed. Horse '{horseName}' has been {actionText}."
             };
         }
-
-        // 5. Horse FAILED → withdrawal workflow
-        if (registration.Horse != null)
+        catch (Exception)
         {
-            registration.Horse.HealthStatus = request.DopingResult == "Positive" ? "Sick" : "Injured";
+            await transaction.RollbackAsync();
+            throw;
         }
-
-        // 5a. Update Registration → Disqualified
-        registration.Status = "Disqualified";
-        _repository.UpdateRegistration(registration);
-
-        // 5b. Find active RaceEntry
-        var raceEntry = await _repository.GetActiveRaceEntryByRegistrationIdAsync(request.RegistrationId);
-        var withdrawStatus = "None";
-        var withdrawReason = request.FailReason ?? "FailedMedicalReCheck";
-
-        if (raceEntry != null)
-        {
-            var race = await _repository.GetRaceByRaceEntryIdAsync(raceEntry.RaceEntryId);
-            var alreadyFinalStatuses = new[] { "Withdrawn", "Scratch", "DNF", "Disqualified", "Finished" };
-
-            if (race != null && !alreadyFinalStatuses.Any(s => string.Equals(raceEntry.Status, s, StringComparison.OrdinalIgnoreCase)))
-            {
-                if (string.Equals(race.Status, "InProgress", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Race in progress → DNF
-                    raceEntry.Status         = "DNF";
-                    raceEntry.WithdrawReason = withdrawReason;
-                    raceEntry.WithdrawTime   = DateTime.UtcNow;
-                    withdrawStatus = "DNF";
-                }
-                else
-                {
-                    // Race not started → Withdrawn
-                    raceEntry.Status         = "Withdrawn";
-                    raceEntry.WithdrawReason = withdrawReason;
-                    raceEntry.WithdrawTime   = DateTime.UtcNow;
-                    withdrawStatus = "Withdrawn";
-                }
-
-                _repository.UpdateRaceEntry(raceEntry);
-            }
-        }
-
-        await _repository.SaveChangesAsync();
-
-        // 6. Send notifications
-        var horseName      = registration.Horse?.Name ?? $"RegistrationId #{registration.RegistrationId}";
-        var tournamentName = registration.Tournament?.Name ?? string.Empty;
-        var failTitle      = "⚠️ Horse disqualified due to medical check";
-        var failContent    = $"Horse {horseName} failed the medical re-inspection in tournament {tournamentName}. Reason: {withdrawReason}.";
-
-        // Notify owner
-        var ownerId = await _repository.GetOwnerUserIdByRegistrationAsync(request.RegistrationId);
-        if (ownerId.HasValue)
-            await _notificationService.SendNotificationToUserAsync(
-                ownerId.Value, failTitle, failContent, "MedicalWithdrawal", (int?)raceEntry?.RaceEntryId);
-
-        var ownerEmail = registration.Horse?.Owner?.Email;
-        if (!string.IsNullOrWhiteSpace(ownerEmail))
-        {
-            var emailBody = $@"
-                <h2>Thông báo kết quả tái khám (Re-Check)</h2>
-                <p>Xin chào,</p>
-                <p>Chúng tôi rất tiếc phải thông báo rằng ngựa <strong>{horseName}</strong> của bạn đã <strong>không đạt</strong> yêu cầu trong đợt tái khám cho giải đấu <strong>{tournamentName}</strong>.</p>
-                <p><strong>Kết quả:</strong> {withdrawReason}</p>
-                <p><strong>Ghi chú từ bác sĩ:</strong> {request.Notes ?? "Không có"}</p>
-                <p>Ngựa của bạn đã bị <strong>loại khỏi cuộc đua (Withdrawn/DNF)</strong> theo quy định.</p>
-                <br/>
-                <p>Trân trọng,<br/>Ban Tổ Chức Giải Đua Ngựa</p>";
-            await _emailService.SendEmailAsync(ownerEmail, failTitle, emailBody);
-        }
-
-        // Notify jockey & referees & bettors (if race entry exists)
-        if (raceEntry != null)
-        {
-            var jockeyId = await _repository.GetJockeyUserIdByRaceEntryAsync(raceEntry.RaceEntryId);
-            if (jockeyId.HasValue)
-                await _notificationService.SendNotificationToUserAsync(
-                    jockeyId.Value, failTitle,
-                    $"Horse {horseName} in tournament {tournamentName} has been withdrawn due to failed medical check. Your contract has been affected.",
-                    "MedicalWithdrawal", (int?)raceEntry.RaceEntryId);
-
-            var refereeIds = await _repository.GetRefereeUserIdsByRaceIdAsync(raceEntry.RaceId);
-            foreach (var refereeId in refereeIds)
-                await _notificationService.SendNotificationToUserAsync(
-                    refereeId, failTitle, failContent, "MedicalWithdrawal", (int?)raceEntry.RaceEntryId);
-
-            var bettorIds = await _repository.GetBettorUserIdsByRaceIdAsync(raceEntry.RaceId);
-            foreach (var bettorId in bettorIds)
-                await _notificationService.SendNotificationToUserAsync(
-                    bettorId,
-                    "⚠️ Bet Update — Horse withdrawn from race",
-                    $"Horse {horseName} has been withdrawn from the race in tournament {tournamentName} due to failing the medical check. Please check your bet status.",
-                    "BettingUpdate", (int?)raceEntry.RaceId);
-        }
-
-        var populated = await _repository.GetByIdAsync(newRecord.Id);
-        var actionText = withdrawStatus == "DNF" ? "marked as DNF" : "withdrawn from the race";
-        return new RecheckResultResponse
-        {
-            MedicalRecord      = Map(populated ?? newRecord),
-            HorseWithdrawn     = true,
-            WithdrawStatus     = withdrawStatus == "None" ? null : withdrawStatus,
-            WithdrawReason     = withdrawReason,
-            RegistrationStatus = "Disqualified",
-            Message            = $"Re-inspection failed. Horse '{horseName}' has been {actionText}."
-        };
     }
 
     // ─── Assigned Race Entries ────────────────────────────────────────────────
     public async Task<IEnumerable<AssignedRaceEntryResponse>> GetAssignedRaceEntriesAsync()
     {
         var entries = await _repository.GetAssignedRaceEntriesAsync();
-        return entries.Select(re =>
-        {
-            var latestCheck = re.Registration?.MedicalCheckRecords?
-                .OrderByDescending(m => m.CheckedAt)
-                .FirstOrDefault();
+        var resultList = new List<AssignedRaceEntryResponse>();
 
-            return new AssignedRaceEntryResponse
+        foreach (var re in entries)
+        {
+            MedicalCheckRecord? latestCheck = null;
+            if (re.Registration != null)
+            {
+                latestCheck = await _repository.GetLatestByHorseIdAsync(re.Registration.HorseId);
+            }
+
+            resultList.Add(new AssignedRaceEntryResponse
             {
                 RaceEntryId       = re.RaceEntryId,
                 RaceId            = re.RaceId,
@@ -517,10 +661,106 @@ public class MedicalCheckService : IMedicalCheckService
                                       ? (re.JockeyProfile.User.FullName ?? re.JockeyProfile.User.Username)
                                       : null,
                 TournamentName    = re.Registration?.Tournament?.Name,
-                LastMedicalResult = latestCheck?.MedicalResult,
+                LastMedicalResult = latestCheck?.MedicalResult ?? (re.Registration?.Horse?.HealthStatus == "Sick" || re.Registration?.Horse?.HealthStatus == "Injured" ? "Fail" : null),
                 LastCheckType     = latestCheck?.CheckType,
                 LastCheckedAt     = latestCheck?.CheckedAt,
-            };
+            });
+        }
+
+        return resultList;
+    }
+
+    public async Task<IEnumerable<UnhealthyHorseResponse>> GetUnhealthyHorsesAsync()
+    {
+        var horses = await _repository.GetUnhealthyHorsesAsync();
+        return horses.Select(h => new UnhealthyHorseResponse
+        {
+            HorseId = h.HorseId,
+            Name = h.Name,
+            Age = h.Age,
+            Gender = h.Gender,
+            Breed = h.Breed,
+            HealthStatus = h.HealthStatus,
+            OwnerId = h.OwnerId,
+            OwnerName = h.Owner != null ? (h.Owner.FullName ?? h.Owner.Username) : string.Empty
         });
+    }
+
+    public async Task<bool> RecoverHorseAsync(long horseId)
+    {
+        var horse = await _repository.GetHorseByIdAsync(horseId);
+        if (horse == null)
+        {
+            throw new KeyNotFoundException($"Horse with ID {horseId} not found.");
+        }
+
+        if (horse.HealthStatus == "Healthy" || horse.HealthStatus == "Good")
+        {
+            return false;
+        }
+
+        horse.HealthStatus = "Healthy";
+        _repository.UpdateHorse(horse);
+        await _repository.SaveChangesAsync();
+
+        // Send notification to Owner
+        var title = "Ngựa đã hồi phục sức khỏe";
+        var content = $"Ngựa {horse.Name} của bạn đã được bác sĩ thú y xác nhận hồi phục (trạng thái: Healthy). Bạn đã có thể đăng ký giải đấu mới cho ngựa.";
+        await _notificationService.SendNotificationToUserAsync(
+            horse.OwnerId, title, content, "Medical", null, null, "/owner/horses");
+
+        return true;
+    }
+
+    public async Task<bool> RequestRecoveryCheckAsync(int ownerUserId, long horseId)
+    {
+        var horse = await _repository.GetHorseByIdAsync(horseId);
+        if (horse == null)
+        {
+            throw new KeyNotFoundException($"Horse with ID {horseId} not found.");
+        }
+
+        if (horse.OwnerId != ownerUserId)
+        {
+            throw new InvalidOperationException("Access denied. You do not own this horse.");
+        }
+
+        if (horse.HealthStatus == "Healthy" || horse.HealthStatus == "Good")
+        {
+            throw new InvalidOperationException("Horse is already healthy.");
+        }
+
+        // Create a pending medical check record if one doesn't exist
+        var existingPending = await _repository.GetPendingGeneralCheckByHorseIdAsync(horseId);
+        if (existingPending == null)
+        {
+            var pendingCheck = new MedicalCheckRecord
+            {
+                HorseId = horseId,
+                RegistrationId = null,
+                CheckType = "General",
+                MedicalResult = "Pending",
+                UserId = ownerUserId,
+                Weight = 0,
+                CheckedAt = DateTime.UtcNow
+            };
+            await _repository.AddAsync(pendingCheck);
+            await _repository.SaveChangesAsync();
+        }
+
+        // Get all Vet user IDs to notify
+        var vetIds = await _repository.GetVeterinarianUserIdsAsync();
+        if (vetIds.Any())
+        {
+            var title = "Yêu cầu khám phục hồi sức khỏe";
+            var content = $"Chủ ngựa {horse.Owner?.FullName ?? horse.Owner?.Username ?? "Owner"} đã gửi yêu cầu khám phục hồi sức khỏe cho ngựa {horse.Name} (Trạng thái hiện tại: {horse.HealthStatus}).";
+            foreach (var vetId in vetIds)
+            {
+                await _notificationService.SendNotificationToUserAsync(
+                    vetId, title, content, "Medical", null, null, "/vet/medical-check");
+            }
+        }
+
+        return true;
     }
 }

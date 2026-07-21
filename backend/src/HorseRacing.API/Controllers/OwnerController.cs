@@ -405,7 +405,9 @@ public class OwnerController : ControllerBase
                         ? (finishPosition == 1 ? 10 : 5)
                         : 0,
                     PrizeAmount = prizeAmount,
-                    Status = raceStatus
+                    Status = raceStatus,
+                    LaneNo = re.LaneNo,
+                    RaceDate = re.Race != null ? re.Race.RaceDate : (DateTime?)null
                 };
             }).ToList();
 

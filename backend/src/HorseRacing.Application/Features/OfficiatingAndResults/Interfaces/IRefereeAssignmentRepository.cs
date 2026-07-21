@@ -11,6 +11,7 @@ public interface IRefereeAssignmentRepository
     Task<RefereeProfile?> GetRefereeProfileByIdAsync(int refereeId);
     Task<RaceRefereeAssignment?> GetAssignmentAsync(long raceId, int refereeId);
     Task<List<RaceRefereeAssignment>> GetAssignmentsForRaceAsync(long raceId);
+    Task<bool> HasScheduleConflictAsync(int refereeId, long excludedRaceId, DateTime raceDate);
     Task AddAssignmentAsync(RaceRefereeAssignment assignment);
     void RemoveAssignment(RaceRefereeAssignment assignment);
     Task SaveChangesAsync();

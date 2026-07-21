@@ -208,6 +208,10 @@ public class BettingService : IBettingService
         foreach (var entry in entries)
         {
             var horse = entry.Registration?.Horse;
+            if (horse == null && entry.Registration != null && entry.Registration.HorseId > 0)
+            {
+                horse = await _betRepository.GetHorseByIdAsync(entry.Registration.HorseId);
+            }
             if (horse == null) continue;
 
             // 1. Speed (stored in AverageTime / RecentAverageTime columns, representing AverageSpeed / RecentAverageSpeed)
@@ -266,6 +270,16 @@ public class BettingService : IBettingService
         if (race == null)
         {
             throw new KeyNotFoundException($"Race with ID {raceId} not found.");
+        }
+
+        // Dynamically calculate real odds using 3-factor formula before returning
+        try
+        {
+            await RecalculateRaceOddsAsync(raceId);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ODDS ERROR] Failed to recalculate odds: {ex.Message}");
         }
 
         var entries = (await _betRepository.GetRaceEntriesWithHorseAsync(raceId)).ToList();

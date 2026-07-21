@@ -13,4 +13,5 @@ public class RegistrationResponse
     public DateTime RegisteredAt { get; set; }
     public int? JockeyId { get; set; }
     public string? JockeyName { get; set; }
+    public string? RejectionSource { get; set; }
 }
