@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using HorseRacing.Application.Features.FinancialRewards.DTOs;
 using HorseRacing.Application.Features.FinancialRewards.Interfaces;
 using HorseRacing.Application.Features.Notifications.Interfaces;
+using HorseRacing.Application.Features.UserManagement.Interfaces;
+using HorseRacing.Application.Common.Interfaces;
 using HorseRacing.Domain.Entities;
 
 namespace HorseRacing.Application.Features.FinancialRewards.Services;
@@ -14,15 +16,21 @@ public class WalletService : IWalletService
     private readonly IWalletRepository _walletRepository;
     private readonly IWalletTransactionRepository _transactionRepository;
     private readonly INotificationService _notificationService;
+    private readonly IUserRepository _userRepository;
+    private readonly IEmailService _emailService;
 
     public WalletService(
         IWalletRepository walletRepository,
         IWalletTransactionRepository transactionRepository,
-        INotificationService notificationService)
+        INotificationService notificationService,
+        IUserRepository userRepository,
+        IEmailService emailService)
     {
         _walletRepository = walletRepository;
         _transactionRepository = transactionRepository;
         _notificationService = notificationService;
+        _userRepository = userRepository;
+        _emailService = emailService;
     }
 
     private async Task<Wallet> GetOrCreateWalletAsync(int userId)
@@ -87,6 +95,21 @@ public class WalletService : IWalletService
             actionUrl: "/spectator/wallet"
         );
 
+        // Send Email Receipt
+        var user = await _userRepository.GetByIdAsync(userId);
+        if (user != null && !string.IsNullOrEmpty(user.Email))
+        {
+            var subject = "Biên lai Nạp Tiền: Nạp tiền thành công";
+            var body = $@"
+                <h2>Nạp tiền thành công!</h2>
+                <p>Xin chào {user.FullName},</p>
+                <p>Bạn đã nạp thành công <strong>{request.Amount:N2}$</strong> vào ví của mình.</p>
+                <p>Số dư mới của bạn là: <strong>{wallet.Balance:N2}$</strong>.</p>
+                <p>Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi.</p>
+            ";
+            await _emailService.SendEmailAsync(user.Email, subject, body);
+        }
+
         return new WalletBalanceResponse
         {
             WalletId = wallet.WalletId,
@@ -129,6 +152,21 @@ public class WalletService : IWalletService
             actionUrl: "/spectator/wallet"
         );
 
+        // Send Email Receipt
+        var user = await _userRepository.GetByIdAsync(userId);
+        if (user != null && !string.IsNullOrEmpty(user.Email))
+        {
+            var subject = "Biên lai Rút Tiền: Rút tiền thành công";
+            var body = $@"
+                <h2>Rút tiền thành công!</h2>
+                <p>Xin chào {user.FullName},</p>
+                <p>Bạn đã rút thành công <strong>{request.Amount:N2}$</strong> từ ví của mình.</p>
+                <p>Số dư mới của bạn là: <strong>{wallet.Balance:N2}$</strong>.</p>
+                <p>Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi.</p>
+            ";
+            await _emailService.SendEmailAsync(user.Email, subject, body);
+        }
+
         return new WalletBalanceResponse
         {
             WalletId = wallet.WalletId,
@@ -146,10 +184,10 @@ public class WalletService : IWalletService
         {
             Id = t.TransactionId,
             WalletId = t.WalletId,
-            Amount = t.Amount,
+            Amount = t.PaymentMethod == "VNPay" ? t.Amount / 250m : t.Amount,
             Type = t.Type,
             Description = t.Description,
-            CreatedAt = t.CreatedAt
+            CreatedAt = DateTime.SpecifyKind(t.CreatedAt, DateTimeKind.Utc)
         });
     }
 }

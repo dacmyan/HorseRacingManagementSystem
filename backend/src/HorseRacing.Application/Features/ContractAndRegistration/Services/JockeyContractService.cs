@@ -8,6 +8,7 @@ using HorseRacing.Application.Features.HorseManagement.Interfaces;
 using HorseRacing.Application.Features.UserManagement.Interfaces;
 using HorseRacing.Application.Features.Notifications.Interfaces;
 using HorseRacing.Application.Features.TournamentAndRacing.Interfaces;
+using HorseRacing.Application.Common.Interfaces;
 using HorseRacing.Domain.Entities;
 
 namespace HorseRacing.Application.Features.ContractAndRegistration.Services;
@@ -22,6 +23,7 @@ public class JockeyContractService : IJockeyContractService
     private readonly INotificationService _notificationService;
     private readonly ITournamentRepository _tournamentRepository;
     private readonly IRegistrationRepository _registrationRepository;
+    private readonly IEmailService _emailService;
 
     public JockeyContractService(
         IJockeyContractRepository contractRepository,
@@ -29,7 +31,8 @@ public class JockeyContractService : IJockeyContractService
         IUserRepository userRepository,
         INotificationService notificationService,
         ITournamentRepository tournamentRepository,
-        IRegistrationRepository registrationRepository)
+        IRegistrationRepository registrationRepository,
+        IEmailService emailService)
     {
         _contractRepository = contractRepository;
         _horseRepository = horseRepository;
@@ -37,6 +40,7 @@ public class JockeyContractService : IJockeyContractService
         _notificationService = notificationService;
         _tournamentRepository = tournamentRepository;
         _registrationRepository = registrationRepository;
+        _emailService = emailService;
     }
 
     private JockeyContractResponse MapToResponse(JockeyContract contract)
@@ -215,6 +219,35 @@ public class JockeyContractService : IJockeyContractService
             actionUrl: "/jockey/invitations"
         );
 
+        // 6. Send emails to Owner and Jockey
+        var ownerUser = await _userRepository.GetByIdAsync(ownerUserId);
+        if (ownerUser != null && !string.IsNullOrEmpty(ownerUser.Email))
+        {
+            var ownerSubject = "Đề nghị hợp đồng đã được gửi";
+            var ownerBody = $@"
+                <h2>Đề nghị hợp đồng nài ngựa đã được gửi</h2>
+                <p>Xin chào {ownerUser.FullName},</p>
+                <p>Bạn đã gửi thành công lời mời thuê nài ngựa <strong>{jockeyUser.FullName}</strong> cho ngựa <strong>{horse.Name}</strong> tham gia giải đấu <strong>{tournament.Name}</strong>.</p>
+                <p>Thời hạn hợp đồng: từ {request.StartDate:dd/MM/yyyy} đến {request.EndDate:dd/MM/yyyy}.</p>
+                <p>Trân trọng,</p>
+            ";
+            await _emailService.SendEmailAsync(ownerUser.Email, ownerSubject, ownerBody);
+        }
+
+        if (!string.IsNullOrEmpty(jockeyUser.Email))
+        {
+            var jockeySubject = "Lời mời hợp đồng nài ngựa mới";
+            var jockeyBody = $@"
+                <h2>Bạn có một lời mời hợp đồng mới!</h2>
+                <p>Xin chào {jockeyUser.FullName},</p>
+                <p>Bạn vừa nhận được lời mời cưỡi ngựa <strong>{horse.Name}</strong> từ chủ ngựa <strong>{horse.Owner?.FullName ?? "Owner"}</strong> trong giải đấu <strong>{tournament.Name}</strong>.</p>
+                <p>Thời hạn hợp đồng: từ {request.StartDate:dd/MM/yyyy} đến {request.EndDate:dd/MM/yyyy}.</p>
+                <p>Vui lòng đăng nhập hệ thống để phản hồi lời mời.</p>
+                <p>Trân trọng,</p>
+            ";
+            await _emailService.SendEmailAsync(jockeyUser.Email, jockeySubject, jockeyBody);
+        }
+
         // Fetch populated contract for mapped response
         var populated = await _contractRepository.GetByIdAsync(contract.ContractId);
         return MapToResponse(populated ?? contract);
@@ -345,6 +378,33 @@ public class JockeyContractService : IJockeyContractService
             actionUrl: "/owner/jockeys"
         );
 
+        // Send emails
+        var ownerUser = await _userRepository.GetByIdAsync(contract.Horse?.OwnerId ?? 0);
+        if (ownerUser != null && !string.IsNullOrEmpty(ownerUser.Email))
+        {
+            var ownerSubject = "Phản hồi hợp đồng nài ngựa";
+            var ownerBody = $@"
+                <h2>Phản hồi từ Nài ngựa</h2>
+                <p>Xin chào {ownerUser.FullName},</p>
+                <p>Nài ngựa <strong>{contract.Jockey?.FullName ?? "Jockey"}</strong> đã phản hồi <strong>{request.Status}</strong> đối với lời mời cưỡi ngựa <strong>{contract.Horse?.Name ?? "Horse"}</strong>.</p>
+                <p>Trân trọng,</p>
+            ";
+            await _emailService.SendEmailAsync(ownerUser.Email, ownerSubject, ownerBody);
+        }
+
+        var jockeyUser = await _userRepository.GetByIdAsync(jockeyUserId);
+        if (jockeyUser != null && !string.IsNullOrEmpty(jockeyUser.Email))
+        {
+            var jockeySubject = "Cập nhật trạng thái hợp đồng nài ngựa";
+            var jockeyBody = $@"
+                <h2>Cập nhật Hợp đồng</h2>
+                <p>Xin chào {jockeyUser.FullName},</p>
+                <p>Bạn đã phản hồi <strong>{request.Status}</strong> cho hợp đồng cưỡi ngựa <strong>{contract.Horse?.Name ?? "Horse"}</strong>.</p>
+                <p>Trân trọng,</p>
+            ";
+            await _emailService.SendEmailAsync(jockeyUser.Email, jockeySubject, jockeyBody);
+        }
+
         return MapToResponse(contract);
     }
 
@@ -375,6 +435,33 @@ public class JockeyContractService : IJockeyContractService
             referenceId: (int)contract.ContractId,
             actionUrl: "/jockey/invitations"
         );
+
+        // Send Emails
+        var ownerUser = await _userRepository.GetByIdAsync(ownerUserId);
+        if (ownerUser != null && !string.IsNullOrEmpty(ownerUser.Email))
+        {
+            var ownerSubject = "Hủy lời mời nài ngựa";
+            var ownerBody = $@"
+                <h2>Hủy hợp đồng</h2>
+                <p>Xin chào {ownerUser.FullName},</p>
+                <p>Bạn đã hủy lời mời nài ngựa đối với hợp đồng của ngựa <strong>{contract.Horse?.Name ?? "Horse"}</strong>.</p>
+                <p>Trân trọng,</p>
+            ";
+            await _emailService.SendEmailAsync(ownerUser.Email, ownerSubject, ownerBody);
+        }
+
+        var jockeyUser = await _userRepository.GetByIdAsync(contract.JockeyId);
+        if (jockeyUser != null && !string.IsNullOrEmpty(jockeyUser.Email))
+        {
+            var jockeySubject = "Hợp đồng bị hủy từ chủ ngựa";
+            var jockeyBody = $@"
+                <h2>Hủy hợp đồng</h2>
+                <p>Xin chào {jockeyUser.FullName},</p>
+                <p>Lời mời cưỡi ngựa <strong>{contract.Horse?.Name ?? "Horse"}</strong> đã bị hủy bởi chủ ngựa.</p>
+                <p>Trân trọng,</p>
+            ";
+            await _emailService.SendEmailAsync(jockeyUser.Email, jockeySubject, jockeyBody);
+        }
 
         return MapToResponse(contract);
     }

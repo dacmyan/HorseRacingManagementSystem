@@ -94,13 +94,11 @@ public class TournamentService : ITournamentService
 
         try
         {
-            await _notificationService.BroadcastNotificationAsync(
-                "New Tournament Scheduled",
-                $"Tournament '{tournament.Name}' has been scheduled. Registration starts on {tournament.RegistrationStartDate:dd/MM/yyyy HH:mm}.",
-                "Tournament",
-                referenceId: (int)tournament.TournamentId,
-                actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
-            );
+            var msg = $"Giải đấu '{tournament.Name}' đã được tạo thành công. Thời gian mở đăng ký bắt đầu từ {tournament.RegistrationStartDate:dd/MM/yyyy HH:mm}.";
+            await _notificationService.SendNotificationToRoleAsync("HorseOwner", "Giải đấu mới được tạo", msg, "Tournament", (int)tournament.TournamentId, actionUrl: "/owner/tournaments");
+            await _notificationService.SendNotificationToRoleAsync("Jockey", "Giải đấu mới được tạo", msg, "Tournament", (int)tournament.TournamentId, actionUrl: "/jockey/schedule");
+            await _notificationService.SendNotificationToRoleAsync("Referee", "Giải đấu mới được tạo", msg, "Tournament", (int)tournament.TournamentId, actionUrl: "/referee/schedule");
+            await _notificationService.SendNotificationToRoleAsync("Spectator", "Giải đấu mới được tạo", msg, "Tournament", (int)tournament.TournamentId, actionUrl: $"/spectator/tournaments/{tournament.TournamentId}");
         }
         catch (Exception ex)
         {
@@ -152,13 +150,23 @@ public class TournamentService : ITournamentService
 
         try
         {
-            await _notificationService.BroadcastNotificationAsync(
-                "Tournament Updated",
-                $"Tournament '{tournament.Name}' has updated its information and status changed to '{tournament.Status}'.",
-                "Tournament",
-                referenceId: (int)tournament.TournamentId,
-                actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
-            );
+            if (string.Equals(tournament.Status, "Cancelled", StringComparison.OrdinalIgnoreCase))
+            {
+                var cancelMsg = $"Giải đấu '{tournament.Name}' đã bị hủy.";
+                await _notificationService.SendNotificationToRoleAsync("HorseOwner", "Giải đấu bị hủy", cancelMsg, "Tournament", (int)tournament.TournamentId);
+                await _notificationService.SendNotificationToRoleAsync("Jockey", "Giải đấu bị hủy", cancelMsg, "Tournament", (int)tournament.TournamentId);
+                await _notificationService.SendNotificationToRoleAsync("Spectator", "Giải đấu bị hủy", cancelMsg, "Tournament", (int)tournament.TournamentId);
+            }
+            else
+            {
+                await _notificationService.BroadcastNotificationAsync(
+                    "Cập nhật giải đấu",
+                    $"Giải đấu '{tournament.Name}' đã được cập nhật thông tin.",
+                    "Tournament",
+                    referenceId: (int)tournament.TournamentId,
+                    actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
+                );
+            }
         }
         catch (Exception ex)
         {
@@ -632,6 +640,17 @@ public class TournamentService : ITournamentService
         // Send notifications for scheduled races
         try
         {
+            // 2. Notify Spectators
+            await _notificationService.SendNotificationToRoleAsync(
+                "Spectator",
+                "Giải đấu đã được xếp lịch",
+                $"Hãy đặt cược với giải đấu '{tournament.Name}' đã được xếp lịch.",
+                "Tournament",
+                referenceId: (int)tournament.TournamentId,
+                actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
+            );
+
+            // 3. Notify qualified Owners
             var approvedOwners = qualifiedRegistrations
                 .Select(r => r.Horse.OwnerId)
                 .Distinct()
@@ -641,21 +660,27 @@ public class TournamentService : ITournamentService
             {
                 await _notificationService.SendNotificationToUserAsync(
                     ownerId,
-                    "Races Scheduled",
-                    $"Races for tournament '{tournament.Name}' have been scheduled. The tournament starts on {tournament.StartDate:dd/MM/yyyy}.",
+                    "Giải đấu đã được xếp lịch",
+                    $"Lịch đua cho giải đấu '{tournament.Name}' đã được xếp thành công. Giải đấu bắt đầu vào {tournament.StartDate:dd/MM/yyyy}.",
                     "Tournament",
                     referenceId: (int)tournament.TournamentId,
                     actionUrl: "/owner/registrations"
                 );
             }
 
-            await _notificationService.BroadcastNotificationAsync(
-                "Races Scheduled",
-                $"Tournament '{tournament.Name}' races have been scheduled. Place your bets now to win exciting rewards!",
-                "Tournament",
-                referenceId: (int)tournament.TournamentId,
-                actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
-            );
+            // 4. Notify active Jockeys assigned to qualified horses
+            var activeJockeyUserIds = activeJockeys.Values.Distinct().ToList();
+            foreach (var jockeyUserId in activeJockeyUserIds)
+            {
+                await _notificationService.SendNotificationToUserAsync(
+                    jockeyUserId,
+                    "Giải đấu đã được xếp lịch",
+                    $"Giải đấu '{tournament.Name}' mà bạn nài ngựa đã được xếp lịch thi đấu.",
+                    "Tournament",
+                    referenceId: (int)tournament.TournamentId,
+                    actionUrl: "/jockey/schedule"
+                );
+            }
         }
         catch (Exception ex)
         {

@@ -12,6 +12,7 @@ public interface INotificationRepository
     Task AddAsync(Notification notification);
     Task SaveChangesAsync();
     Task<(IEnumerable<Notification> Items, int TotalCount)> GetPagedByUserIdAsync(int userId, string? type, bool? isRead, int page, int pageSize);
-    Task<List<int>> GetActiveUserIdsAsync();
+    Task<bool> IsUserActiveAsync(int userId);
     Task<List<int>> GetActiveUserIdsByRoleAsync(string roleName);
+    Task<List<int>> GetActiveUserIdsAsync();
 }

@@ -72,6 +72,13 @@ public class NotificationRepository : INotificationRepository
         return (items, totalCount);
     }
 
+    public async Task<bool> IsUserActiveAsync(int userId)
+    {
+        return await _context.Users
+            .AnyAsync(u => u.UserId == userId && u.Status == "Active");
+    }
+
+
     public async Task<List<int>> GetActiveUserIdsAsync()
     {
         return await _context.Users

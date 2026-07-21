@@ -118,6 +118,28 @@ public class RegistrationService : IRegistrationService
         await _registrationRepository.SaveChangesAsync();
 
         var populated = await _registrationRepository.GetByIdAsync(registration.RegistrationId);
+
+        if (populated != null)
+        {
+            try
+            {
+                var horseName = populated.Horse?.Name ?? "Ngựa";
+                var tournamentName = populated.Tournament?.Name ?? "Giải đấu";
+                await _notificationService.SendNotificationToRoleAsync(
+                    "Veterinarian",
+                    "Yêu cầu khám sức khỏe mới",
+                    $"Ngựa '{horseName}' đã đăng ký tham gia giải đấu '{tournamentName}' và đang chờ khám sức khỏe.",
+                    "MedicalCheck",
+                    referenceId: (int)populated.TournamentId,
+                    actionUrl: "/vet/inspections"
+                );
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[NOTIFICATION ERROR] Failed to send notification to Veterinarian: {ex.Message}");
+            }
+        }
+
         return MapToResponse(populated ?? registration);
     }
 
@@ -176,16 +198,35 @@ public class RegistrationService : IRegistrationService
                 {
                     await _notificationService.SendNotificationToUserAsync(
                         ownerId,
-                        "Horse Registration Approved",
-                        $"Your horse '{horseName}' has been approved for tournament '{tournamentName}'.",
+                        "Duyệt ngựa tham gia giải đấu",
+                        $"Ngựa '{horseName}' của bạn đã được duyệt tham gia giải đấu '{tournamentName}'.",
                         "Tournament",
                         referenceId: (int)notifyReg.TournamentId,
                         actionUrl: "/owner/registrations"
                     );
+
+                    // If the horse has an accepted/active jockey contract, notify the Jockey
+                    var contracts = await _contractRepository.GetByOwnerIdAsync(ownerId);
+                    var activeContract = contracts.FirstOrDefault(c =>
+                        c.HorseId == notifyReg.HorseId &&
+                        c.TournamentId == notifyReg.TournamentId &&
+                        (c.Status == "Accepted" || c.Status == "Active"));
+
+                    if (activeContract != null)
+                    {
+                        await _notificationService.SendNotificationToUserAsync(
+                            activeContract.JockeyId,
+                            "Ngựa nài đã được duyệt",
+                            $"Ngựa '{horseName}' mà bạn nài đã được duyệt vào giải đấu '{tournamentName}'.",
+                            "Tournament",
+                            referenceId: (int)notifyReg.TournamentId,
+                            actionUrl: "/jockey/schedule"
+                        );
+                    }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[NOTIFICATION ERROR] Failed to send approval notification to owner {ownerId}: {ex.Message}");
+                    Console.WriteLine($"[NOTIFICATION ERROR] Failed to send approval notification: {ex.Message}");
                 }
             }
             else if (request.Status.Equals("Rejected", StringComparison.OrdinalIgnoreCase))
@@ -194,8 +235,8 @@ public class RegistrationService : IRegistrationService
                 {
                     await _notificationService.SendNotificationToUserAsync(
                         ownerId,
-                        "Horse Registration Rejected",
-                        $"Your horse '{horseName}' has been rejected for tournament '{tournamentName}'. Please check horse details and re-register if registration period is still open.",
+                        "Từ chối đăng ký ngựa",
+                        $"Đơn đăng ký cho ngựa '{horseName}' tại giải đấu '{tournamentName}' đã bị từ chối. Vui lòng kiểm tra lại thông tin.",
                         "Tournament",
                         referenceId: (int)notifyReg.TournamentId,
                         actionUrl: "/owner/registrations"

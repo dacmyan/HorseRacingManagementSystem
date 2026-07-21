@@ -110,18 +110,15 @@ using (var scope = app.Services.CreateScope())
     {
         logger.LogInformation("Checking database migrations...");
         var db = services.GetRequiredService<AppDbContext>();
-        await db.Database.MigrateAsync();
-        logger.LogInformation("Database migration check completed.");
+        // await db.Database.MigrateAsync();
+        logger.LogInformation("Database migration check skipped.");
 
-        var dataSeeder = services.GetRequiredService<DataSeeder>();
-        await dataSeeder.SeedAsync();
-
-
+        // var dataSeeder = services.GetRequiredService<DataSeeder>();
+        // await dataSeeder.SeedAsync();
     }
     catch (Exception ex)
     {
-        logger.LogError(ex, "An error occurred during database migration or seeding.");
-        throw;
+        logger.LogError(ex, "An error occurred during database migration or seeding. Continuing startup...");
     }
 }
 
