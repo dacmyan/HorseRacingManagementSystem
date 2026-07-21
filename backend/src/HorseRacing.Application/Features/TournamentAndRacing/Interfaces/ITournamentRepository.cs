@@ -11,6 +11,7 @@ public interface ITournamentRepository
     void Update(Tournament tournament);
     Task SaveChangesAsync();
     Task<bool> ExistsAsync(long tournamentId);
+    Task<bool> NameExistsAsync(string name, long? excludeTournamentId = null);
     Task<Tournament?> GetByIdAsync(long tournamentId);
     Task<Tournament?> GetByIdWithRoundsAsync(long tournamentId);
     Task<List<Tournament>> GetAllAsync();
@@ -32,6 +33,8 @@ public interface ITournamentRepository
     Task<List<HorseRacing.Domain.Entities.Registration>> GetRegistrationsByTournamentIdAsync(long tournamentId);
     Task<bool> HasOverlappingTournamentAsync(DateTime startDate, DateTime endDate, long? excludeTournamentId = null);
     Task<bool> HasRacesMissingRefereesAsync(long tournamentId);
+    Task<bool> HasCompleteLaneAssignmentsAsync(long tournamentId);
+    Task<Dictionary<long, (bool HasCompleteLaneAssignments, bool HasMissingReferees)>> GetReadinessByTournamentIdsAsync(IEnumerable<long> tournamentIds);
     Task<List<int>> GetAdminUserIdsAsync();
 
     /// <summary>

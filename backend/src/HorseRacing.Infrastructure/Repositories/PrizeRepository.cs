@@ -43,6 +43,9 @@ public class PrizeRepository : IPrizeRepository
         await _context.TournamentPrizePayouts.AddAsync(payout);
     }
 
+    public Task<bool> HasTournamentPrizePayoutsAsync(long tournamentId) =>
+        _context.TournamentPrizePayouts.AnyAsync(p => p.TournamentId == tournamentId);
+
     public async Task SaveChangesAsync()
     {
         await _context.SaveChangesAsync();

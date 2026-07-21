@@ -6,7 +6,7 @@ namespace HorseRacing.Application.Features.TournamentAndRacing.Services;
 
 public interface ITournamentService
 {
-    Task<TournamentResponse> CreateTournamentAsync(CreateTournamentRequest request);
+    Task<TournamentResponse> CreateTournamentAsync(CreateTournamentRequest request, int adminUserId = 0);
     Task<TournamentResponse?> UpdateTournamentAsync(long id, UpdateTournamentRequest request);
     Task<List<TournamentResponse>> GetAllTournamentsAsync();
     Task<TournamentResponse?> GetTournamentByIdAsync(long id);

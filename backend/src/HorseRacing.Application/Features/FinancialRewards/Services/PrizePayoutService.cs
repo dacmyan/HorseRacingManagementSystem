@@ -59,16 +59,31 @@ public class PrizePayoutService : IPrizePayoutService
 
     public async Task ProcessPrizePayoutAsync(PrizePayoutRequest request)
     {
+        ArgumentNullException.ThrowIfNull(request);
+        if (request.TournamentId <= 0)
+            throw new ArgumentException("Tournament ID must be greater than zero.");
+        if (await _prizeRepository.HasTournamentPrizePayoutsAsync(request.TournamentId))
+            throw new InvalidOperationException("Tournament prizes have already been paid.");
+
         var tournament = await _betRepository.GetTournamentByIdAsync(request.TournamentId);
         if (tournament == null)
         {
             throw new ArgumentException($"Tournament with ID {request.TournamentId} not found.");
         }
 
-        // 1. Check system treasury balance before configuring prizes
-        decimal totalConfiguredPrizePool = (request.FirstPlacePrize > 0 ? request.FirstPlacePrize : 10000m)
-                                         + (request.SecondPlacePrize > 0 ? request.SecondPlacePrize : 5000m)
-                                         + (request.ThirdPlacePrize > 0 ? request.ThirdPlacePrize : 2500m);
+        var firstPrize = await _prizeRepository.GetByTournamentAndRankAsync(request.TournamentId, 1);
+        var secondPrize = await _prizeRepository.GetByTournamentAndRankAsync(request.TournamentId, 2);
+        var thirdPrize = await _prizeRepository.GetByTournamentAndRankAsync(request.TournamentId, 3);
+
+        decimal firstAmount = request.FirstPlacePrize > 0 ? request.FirstPlacePrize : firstPrize?.Amount ?? 0m;
+        decimal secondAmount = request.SecondPlacePrize > 0 ? request.SecondPlacePrize : secondPrize?.Amount ?? 0m;
+        decimal thirdAmount = request.ThirdPlacePrize > 0 ? request.ThirdPlacePrize : thirdPrize?.Amount ?? 0m;
+        if (firstAmount <= 0 || secondAmount <= 0 || thirdAmount <= 0)
+            throw new InvalidOperationException("All three tournament prizes must be configured before payout.");
+        if (!(firstAmount > secondAmount && secondAmount > thirdAmount))
+            throw new InvalidOperationException("Prize amounts must follow: first place > second place > third place.");
+
+        decimal totalConfiguredPrizePool = firstAmount + secondAmount + thirdAmount;
 
         var adminUserIds = await _notificationService.GetActiveUserIdsByRoleAsync("Admin");
         int adminUserId = adminUserIds.FirstOrDefault();
@@ -78,22 +93,21 @@ public class PrizePayoutService : IPrizePayoutService
             if (adminWallet.Balance < totalConfiguredPrizePool)
             {
                 throw new InvalidOperationException(
-                    $"Insufficient system treasury balance to configure prizes. Required prize pool: ${totalConfiguredPrizePool:N2}, Current Treasury Balance: ${adminWallet.Balance:N2}. Please deposit funds into the treasury first."
+                    $"Insufficient system treasury balance. Required prize pool: {totalConfiguredPrizePool:N2} VND, Current Treasury Balance: {adminWallet.Balance:N2} VND."
                 );
             }
         }
 
         // 2. Configure and save First, Second, Third place prizes
-        var firstPrize = await _prizeRepository.GetByTournamentAndRankAsync(request.TournamentId, 1);
         if (firstPrize == null)
         {
             firstPrize = new Prize
             {
                 TournamentId = request.TournamentId,
                 RankPosition = 1,
-                Amount = request.FirstPlacePrize > 0 ? request.FirstPlacePrize : 10000m,
-                OwnerPercentage = 70m,
-                JockeyPercentage = 30m
+                Amount = firstAmount,
+                OwnerPercentage = 100m,
+                JockeyPercentage = 0m
             };
             await _prizeRepository.AddAsync(firstPrize);
         }
@@ -101,17 +115,18 @@ public class PrizePayoutService : IPrizePayoutService
         {
             firstPrize.Amount = request.FirstPlacePrize;
         }
+        firstPrize.OwnerPercentage = 100m;
+        firstPrize.JockeyPercentage = 0m;
 
-        var secondPrize = await _prizeRepository.GetByTournamentAndRankAsync(request.TournamentId, 2);
         if (secondPrize == null)
         {
             secondPrize = new Prize
             {
                 TournamentId = request.TournamentId,
                 RankPosition = 2,
-                Amount = request.SecondPlacePrize > 0 ? request.SecondPlacePrize : 5000m,
-                OwnerPercentage = 70m,
-                JockeyPercentage = 30m
+                Amount = secondAmount,
+                OwnerPercentage = 100m,
+                JockeyPercentage = 0m
             };
             await _prizeRepository.AddAsync(secondPrize);
         }
@@ -119,17 +134,18 @@ public class PrizePayoutService : IPrizePayoutService
         {
             secondPrize.Amount = request.SecondPlacePrize;
         }
+        secondPrize.OwnerPercentage = 100m;
+        secondPrize.JockeyPercentage = 0m;
 
-        var thirdPrize = await _prizeRepository.GetByTournamentAndRankAsync(request.TournamentId, 3);
         if (thirdPrize == null)
         {
             thirdPrize = new Prize
             {
                 TournamentId = request.TournamentId,
                 RankPosition = 3,
-                Amount = request.ThirdPlacePrize > 0 ? request.ThirdPlacePrize : 2500m,
-                OwnerPercentage = 70m,
-                JockeyPercentage = 30m
+                Amount = thirdAmount,
+                OwnerPercentage = 100m,
+                JockeyPercentage = 0m
             };
             await _prizeRepository.AddAsync(thirdPrize);
         }
@@ -137,6 +153,8 @@ public class PrizePayoutService : IPrizePayoutService
         {
             thirdPrize.Amount = request.ThirdPlacePrize;
         }
+        thirdPrize.OwnerPercentage = 100m;
+        thirdPrize.JockeyPercentage = 0m;
 
         await _prizeRepository.SaveChangesAsync();
 
@@ -159,6 +177,9 @@ public class PrizePayoutService : IPrizePayoutService
         await using var dbTransaction = await _prizeRepository.BeginTransactionAsync();
         try
         {
+            if (await _prizeRepository.HasTournamentPrizePayoutsAsync(request.TournamentId))
+                throw new InvalidOperationException("Tournament prizes have already been paid.");
+
             decimal totalBets = await _betRepository.GetTotalBetsForRaceAsync(finalRace.RaceId);
             decimal totalPayouts = await _betRepository.GetTotalPayoutsForRaceAsync(finalRace.RaceId);
             decimal houseProfit = totalBets - totalPayouts;
@@ -173,6 +194,16 @@ public class PrizePayoutService : IPrizePayoutService
                 .Where(re => re.FinishPosition.HasValue)
                 .OrderBy(re => re.FinishPosition!.Value)
                 .ToList();
+            var topThree = finalEntries.Where(e => e.FinishPosition is >= 1 and <= 3).ToList();
+            if (topThree.Count != 3 || topThree.Select(e => e.FinishPosition).Distinct().Count() != 3)
+                throw new InvalidOperationException("Final race must contain exactly one finisher for each position 1, 2, and 3 before payout.");
+
+            var requiredTreasuryAmount = totalConfiguredPrizePool + bonusPool;
+            if (adminUserId <= 0)
+                throw new InvalidOperationException("No active Admin treasury account was found.");
+            var treasuryWallet = await GetOrCreateWalletAsync(adminUserId);
+            if (treasuryWallet.Balance < requiredTreasuryAmount)
+                throw new InvalidOperationException($"Insufficient treasury balance. Required: {requiredTreasuryAmount:N2} VND; current: {treasuryWallet.Balance:N2} VND.");
 
             foreach (var entry in finalEntries)
             {
