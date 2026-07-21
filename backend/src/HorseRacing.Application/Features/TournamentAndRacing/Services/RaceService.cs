@@ -21,6 +21,8 @@ public class RaceService : IRaceService
         _bettingService = bettingService;
     }
 
+    private static DateTime VietnamNow => TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
+
     public async Task<RaceScheduleResponse> CreateRaceAsync(CreateRaceRequest request)
     {
         if (request == null)
@@ -61,7 +63,7 @@ public class RaceService : IRaceService
         {
             throw new ArgumentException("Race date is invalid.", nameof(request.RaceDate));
         }
-        if (request.RaceDate < DateTime.UtcNow.AddMinutes(-5))
+        if (request.RaceDate < VietnamNow.AddMinutes(-5))
             throw new ArgumentException("Race date cannot be in the past.", nameof(request.RaceDate));
 
         if (round.StartDate.HasValue && round.EndDate.HasValue)
@@ -430,7 +432,7 @@ public class RaceService : IRaceService
         {
             throw new ArgumentException("Race date is invalid.", nameof(request.RaceDate));
         }
-        if (request.RaceDate < DateTime.UtcNow.AddMinutes(-5))
+        if (request.RaceDate < VietnamNow.AddMinutes(-5))
             throw new ArgumentException("Race date cannot be in the past.", nameof(request.RaceDate));
 
         var round = await _raceRepository.GetRoundByIdAsync(race.RoundId);
