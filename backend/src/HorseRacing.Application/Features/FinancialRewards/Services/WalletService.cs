@@ -87,27 +87,41 @@ public class WalletService : IWalletService
         await _transactionRepository.SaveChangesAsync();
 
         // Create wallet notification
-        await _notificationService.SendNotificationToUserAsync(
-            userId,
-            "Deposit Successful",
-            $"You successfully deposited {request.Amount:N2}$ into your wallet. New balance: {wallet.Balance:N2}$.",
-            "Wallet",
-            actionUrl: "/spectator/wallet"
-        );
+        try
+        {
+            await _notificationService.SendNotificationToUserAsync(
+                userId,
+                "Deposit Successful",
+                $"You successfully deposited {request.Amount:N2}$ into your wallet. New balance: {wallet.Balance:N2}$.",
+                "Wallet",
+                actionUrl: "/spectator/wallet"
+            );
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WalletService.DepositAsync] Error sending notification: {ex}");
+        }
 
         // Send Email Receipt
-        var user = await _userRepository.GetByIdAsync(userId);
-        if (user != null && !string.IsNullOrEmpty(user.Email))
+        try
         {
-            var subject = "Biên lai Nạp Tiền: Nạp tiền thành công";
-            var body = $@"
-                <h2>Nạp tiền thành công!</h2>
-                <p>Xin chào {user.FullName},</p>
-                <p>Bạn đã nạp thành công <strong>{request.Amount:N2}$</strong> vào ví của mình.</p>
-                <p>Số dư mới của bạn là: <strong>{wallet.Balance:N2}$</strong>.</p>
-                <p>Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi.</p>
-            ";
-            await _emailService.SendEmailAsync(user.Email, subject, body);
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user != null && !string.IsNullOrEmpty(user.Email))
+            {
+                var subject = "Biên lai Nạp Tiền: Nạp tiền thành công";
+                var body = $@"
+                    <h2>Nạp tiền thành công!</h2>
+                    <p>Xin chào {user.FullName},</p>
+                    <p>Bạn đã nạp thành công <strong>{request.Amount:N2}$</strong> vào ví của mình.</p>
+                    <p>Số dư mới của bạn là: <strong>{wallet.Balance:N2}$</strong>.</p>
+                    <p>Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi.</p>
+                ";
+                await _emailService.SendEmailAsync(user.Email, subject, body);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WalletService.DepositAsync] Error sending email receipt: {ex}");
         }
 
         return new WalletBalanceResponse
@@ -144,27 +158,41 @@ public class WalletService : IWalletService
         await _transactionRepository.SaveChangesAsync();
 
         // Create wallet notification
-        await _notificationService.SendNotificationToUserAsync(
-            userId,
-            "Withdrawal Successful",
-            $"You successfully withdrew {request.Amount:N2}$ from your wallet. New balance: {wallet.Balance:N2}$.",
-            "Wallet",
-            actionUrl: "/spectator/wallet"
-        );
+        try
+        {
+            await _notificationService.SendNotificationToUserAsync(
+                userId,
+                "Withdrawal Successful",
+                $"You successfully withdrew {request.Amount:N2}$ from your wallet. New balance: {wallet.Balance:N2}$.",
+                "Wallet",
+                actionUrl: "/spectator/wallet"
+            );
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WalletService.WithdrawAsync] Error sending notification: {ex}");
+        }
 
         // Send Email Receipt
-        var user = await _userRepository.GetByIdAsync(userId);
-        if (user != null && !string.IsNullOrEmpty(user.Email))
+        try
         {
-            var subject = "Biên lai Rút Tiền: Rút tiền thành công";
-            var body = $@"
-                <h2>Rút tiền thành công!</h2>
-                <p>Xin chào {user.FullName},</p>
-                <p>Bạn đã rút thành công <strong>{request.Amount:N2}$</strong> từ ví của mình.</p>
-                <p>Số dư mới của bạn là: <strong>{wallet.Balance:N2}$</strong>.</p>
-                <p>Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi.</p>
-            ";
-            await _emailService.SendEmailAsync(user.Email, subject, body);
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user != null && !string.IsNullOrEmpty(user.Email))
+            {
+                var subject = "Biên lai Rút Tiền: Rút tiền thành công";
+                var body = $@"
+                    <h2>Rút tiền thành công!</h2>
+                    <p>Xin chào {user.FullName},</p>
+                    <p>Bạn đã rút thành công <strong>{request.Amount:N2}$</strong> từ ví của mình.</p>
+                    <p>Số dư mới của bạn là: <strong>{wallet.Balance:N2}$</strong>.</p>
+                    <p>Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi.</p>
+                ";
+                await _emailService.SendEmailAsync(user.Email, subject, body);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WalletService.WithdrawAsync] Error sending email receipt: {ex}");
         }
 
         return new WalletBalanceResponse
