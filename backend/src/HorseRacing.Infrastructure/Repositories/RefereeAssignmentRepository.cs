@@ -51,6 +51,20 @@ public class RefereeAssignmentRepository : IRefereeAssignmentRepository
             .ToListAsync();
     }
 
+    public async Task<bool> HasScheduleConflictAsync(int refereeId, long excludedRaceId, DateTime raceDate)
+    {
+        return await _context.RaceRefereeAssignments
+            .AsNoTracking()
+            .AnyAsync(a => a.RefereeId == refereeId &&
+                           a.RaceId != excludedRaceId &&
+                           a.Status == "Active" &&
+                           a.Race != null &&
+                           a.Race.RaceDate == raceDate &&
+                           a.Race.Status != "Cancelled" &&
+                           a.Race.Status != "Completed" &&
+                           a.Race.Status != "Finished");
+    }
+
     public async Task AddAssignmentAsync(RaceRefereeAssignment assignment)
     {
         await _context.RaceRefereeAssignments.AddAsync(assignment);

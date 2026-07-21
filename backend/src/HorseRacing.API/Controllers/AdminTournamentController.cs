@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using HorseRacing.Infrastructure.Persistence;
 using HorseRacing.Application.Features.Notifications.Interfaces;
 using System;
+using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
 
 namespace HorseRacing.API.Controllers
@@ -113,7 +114,7 @@ namespace HorseRacing.API.Controllers
         }
 
         [HttpPut("{id}/cancel")]
-        public async Task<IActionResult> CancelTournament(long id)
+        public async Task<IActionResult> CancelTournament(long id, [FromBody] CancelTournamentRequest request)
         {
             if (id <= 0)
                 return BadRequest("Tournament ID must be greater than zero.");
@@ -166,15 +167,23 @@ namespace HorseRacing.API.Controllers
                 .Distinct()
                 .ToList();
 
+            var cancellationMessage = $"Tournament '{tournament.Name}' has been cancelled. Reason: {request.Reason.Trim()}";
             foreach (var userId in ownerIds)
-                await _notificationService.SendNotificationToUserAsync(userId, "Tournament cancelled", $"Tournament '{tournament.Name}' has been cancelled.", "Tournament", (int)id, actionUrl: "/owner/tournaments");
+                await _notificationService.SendNotificationToUserAsync(userId, "Tournament cancelled", cancellationMessage, "Tournament", (int)id, actionUrl: "/owner/tournaments");
             foreach (var userId in jockeyIds)
-                await _notificationService.SendNotificationToUserAsync(userId, "Tournament cancelled", $"Tournament '{tournament.Name}' has been cancelled.", "Tournament", (int)id, actionUrl: "/jockey/schedule");
+                await _notificationService.SendNotificationToUserAsync(userId, "Tournament cancelled", cancellationMessage, "Tournament", (int)id, actionUrl: "/jockey/schedule");
             foreach (var userId in refereeIds)
-                await _notificationService.SendNotificationToUserAsync(userId, "Tournament cancelled", $"Tournament '{tournament.Name}' has been cancelled. Your officiating assignment is no longer active.", "Tournament", (int)id, actionUrl: "/referee/schedule");
-            await _notificationService.SendNotificationToRoleAsync("Spectator", "Tournament cancelled", $"Tournament '{tournament.Name}' has been cancelled.", "Tournament", (int)id, actionUrl: $"/spectator/tournaments/{id}");
+                await _notificationService.SendNotificationToUserAsync(userId, "Tournament cancelled", $"{cancellationMessage} Your officiating assignment is no longer active.", "Tournament", (int)id, actionUrl: "/referee/schedule");
+            await _notificationService.SendNotificationToRoleAsync("Spectator", "Tournament cancelled", cancellationMessage, "Tournament", (int)id, actionUrl: $"/spectator/tournaments/{id}");
 
             return Ok(new { Message = "Tournament cancelled successfully." });
         }
+    }
+
+    public sealed class CancelTournamentRequest
+    {
+        [Required(AllowEmptyStrings = false)]
+        [StringLength(500, MinimumLength = 5)]
+        public string Reason { get; set; } = string.Empty;
     }
 }

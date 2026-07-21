@@ -219,6 +219,10 @@ public class TournamentService : ITournamentService
                 {
                     throw new InvalidOperationException("Tournament cannot become Active before lanes are assigned for every race.");
                 }
+                if (await _tournamentRepository.HasRacesMissingRefereesAsync(id))
+                {
+                    throw new InvalidOperationException("Tournament cannot become Active before every race has a referee.");
+                }
             }
             tournament.Status = request.Status;
         }

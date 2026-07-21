@@ -101,6 +101,31 @@ public class RaceRepository : IRaceRepository
                 && (jc.Status == "Active" || jc.Status == "Accepted"));
     }
 
+    public async Task<bool> HasHorseScheduleConflictAsync(long horseId, long excludedRaceId, DateTime raceDate)
+    {
+        return await _context.RaceEntries.AsNoTracking().AnyAsync(entry =>
+            entry.RaceId != excludedRaceId &&
+            entry.Registration != null && entry.Registration.HorseId == horseId &&
+            entry.Status != "Withdrawn" && entry.Status != "Cancelled" &&
+            entry.Race != null && entry.Race.RaceDate == raceDate &&
+            entry.Race.Status != "Cancelled" && entry.Race.Status != "Completed" && entry.Race.Status != "Finished");
+    }
+
+    public async Task<bool> HasJockeyScheduleConflictAsync(int jockeyId, long excludedRaceId, DateTime raceDate)
+    {
+        return await _context.RaceEntries.AsNoTracking().AnyAsync(entry =>
+            entry.RaceId != excludedRaceId && entry.JockeyId == jockeyId &&
+            entry.Status != "Withdrawn" && entry.Status != "Cancelled" &&
+            entry.Race != null && entry.Race.RaceDate == raceDate &&
+            entry.Race.Status != "Cancelled" && entry.Race.Status != "Completed" && entry.Race.Status != "Finished");
+    }
+
+    public async Task<bool> HasFinancialOrResultDataAsync(long raceId)
+    {
+        return await _context.Bets.AsNoTracking().AnyAsync(b => b.RaceId == raceId) ||
+               await _context.RaceResults.AsNoTracking().AnyAsync(r => r.RaceId == raceId);
+    }
+
     public async Task<(int JockeyProfileId, string JockeyName)?> GetActiveJockeyForHorseAsync(long tournamentId, long horseId)
     {
         if (horseId < int.MinValue || horseId > int.MaxValue)

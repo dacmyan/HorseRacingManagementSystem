@@ -94,7 +94,7 @@ public class WalletService : IWalletService
                 "Deposit Successful",
                 $"You successfully deposited {request.Amount:N2}$ into your wallet. New balance: {wallet.Balance:N2}$.",
                 "Wallet",
-                actionUrl: "/spectator/wallet"
+                actionUrl: "/spectator/wallet/overview"
             );
         }
         catch (Exception ex)
@@ -165,7 +165,7 @@ public class WalletService : IWalletService
                 "Withdrawal Successful",
                 $"You successfully withdrew {request.Amount:N2}$ from your wallet. New balance: {wallet.Balance:N2}$.",
                 "Wallet",
-                actionUrl: "/spectator/wallet"
+                actionUrl: "/spectator/wallet/overview"
             );
         }
         catch (Exception ex)

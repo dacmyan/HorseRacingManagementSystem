@@ -296,7 +296,7 @@ public class PrizePayoutService : IPrizePayoutService
                     $"Congratulations! Your horse '{horse.Name}' successfully achieved Top {rank} in the tournament '{tournament.Name}'. You have received a prize of {totalPrizeAmount:N2}$ in your wallet. Current wallet balance: {ownerWallet.Balance:N2}$.",
                     "Wallet",
                     referenceId: (int)tournament.TournamentId,
-                    actionUrl: "/owner/wallet"
+                    actionUrl: "/owner/wallet/overview"
                 );
 
                 // --- Jockey Notification (No money transferred to Jockey wallet) ---

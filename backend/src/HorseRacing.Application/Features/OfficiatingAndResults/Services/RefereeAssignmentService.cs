@@ -59,6 +59,8 @@ public class RefereeAssignmentService : IRefereeAssignmentService
         {
             throw new InvalidOperationException("Referee is already assigned to this race.");
         }
+        if (await _repository.HasScheduleConflictAsync(request.RefereeId, raceId, race.RaceDate))
+            throw new InvalidOperationException("This referee is already assigned to another race at the same time.");
 
         // 4. Create and add assignment
         var assignment = new RaceRefereeAssignment
@@ -147,6 +149,9 @@ public class RefereeAssignmentService : IRefereeAssignmentService
         {
             throw new KeyNotFoundException($"Referee assignment not found for Race ID {raceId} and Referee ID {refereeId}.");
         }
+        if (new[] { "Live", "InProgress", "Running", "Finished", "Completed", "Cancelled" }
+            .Contains(race.Status, StringComparer.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Referee assignments cannot be removed while race status is '{race.Status}'.");
 
         _repository.RemoveAssignment(assignment);
         await _repository.SaveChangesAsync();

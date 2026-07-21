@@ -234,6 +234,8 @@ public class RaceService : IRaceService
         {
             throw new InvalidOperationException("This horse is already entered in this race.");
         }
+        if (await _raceRepository.HasHorseScheduleConflictAsync(registration.HorseId, raceId, race.RaceDate))
+            throw new InvalidOperationException("This horse is already entered in another race at the same time.");
 
         if (request.JockeyId.HasValue)
         {
@@ -252,6 +254,8 @@ public class RaceService : IRaceService
             {
                 throw new InvalidOperationException("The jockey does not have an active contract for this horse.");
             }
+            if (await _raceRepository.HasJockeyScheduleConflictAsync(request.JockeyId.Value, raceId, race.RaceDate))
+                throw new InvalidOperationException("This jockey is already assigned to another race at the same time.");
         }
 
         var raceEntry = new RaceEntry
@@ -358,6 +362,12 @@ public class RaceService : IRaceService
         {
             throw new KeyNotFoundException($"Race with ID {raceId} not found.");
         }
+
+        if (new[] { "Live", "InProgress", "Running", "Finished", "Completed" }
+            .Contains(race.Status, StringComparer.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Race cannot be deleted while its status is '{race.Status}'.");
+        if (await _raceRepository.HasFinancialOrResultDataAsync(raceId))
+            throw new InvalidOperationException("Race cannot be deleted after bets or results have been recorded.");
 
         await _raceRepository.DeleteRaceAsync(raceId);
     }
