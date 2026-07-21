@@ -223,15 +223,15 @@ public class RaceResultService : IRaceResultService
         {
             // 1. Notify assigned referees
             var assignments = await _repository.GetAssignmentsForRaceAsync(race.RaceId);
-            var tournamentName = race.Round?.Tournament?.Name ?? "Giải đấu";
+            var tournamentName = race.Round?.Tournament?.Name ?? "Tournament";
             foreach (var assignment in assignments)
             {
                 if (assignment.RefereeProfile != null)
                 {
                     await _notificationService.SendNotificationToUserAsync(
                         assignment.RefereeProfile.UserId,
-                        "Giải đấu được phân công đã kết thúc",
-                        $"Giải đấu '{tournamentName}' mà bạn được phân công đã kết thúc, hãy gửi vi phạm và kết quả cho admin.",
+                        "Assigned Tournament Has Ended",
+                        $"Tournament '{tournamentName}', which you were assigned to officiate, has ended. Please submit all violation reports and race results for Admin review.",
                         "System",
                         referenceId: (int)race.RaceId,
                         actionUrl: "/referee/schedule"

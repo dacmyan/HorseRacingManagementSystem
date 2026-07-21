@@ -413,8 +413,8 @@ public class AdminController : ControllerBase
                         {
                             await notificationService.SendNotificationToUserAsync(
                                 group.Key,
-                                "Đăng ký bị hủy tự động",
-                                $"Đăng ký của ngựa [{horseNames}] trong giải đấu '{tournamentName}' đã bị hủy tự động do chưa có jockey được chấp nhận khi đăng ký đóng.",
+                                "Registration Automatically Cancelled",
+                                $"The registration for horse(s) [{horseNames}] in tournament '{tournamentName}' was automatically cancelled because no accepted jockey contract was in place when registration closed.",
                                 "System",
                                 (int)id,
                                 actionUrl: "/owner/registrations"
@@ -1409,8 +1409,8 @@ public class AdminController : ControllerBase
 
             // 2. Notify all active users
             await notificationService.BroadcastNotificationAsync(
-                "Giải đấu kết thúc thi đấu",
-                $"Giải đấu '{tournament.Name}' đã kết thúc thi đấu. Ban tổ chức đang tổng hợp kết quả chính thức.",
+                "Tournament Racing Completed",
+                $"Racing for tournament '{tournament.Name}' has ended. The organizers are compiling the official results.",
                 "Tournament",
                 referenceId: (int)tournament.TournamentId,
                 actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
@@ -1434,8 +1434,8 @@ public class AdminController : ControllerBase
                         {
                             await notificationService.SendNotificationToUserAsync(
                                 assignment.RefereeProfile.UserId,
-                                "Yêu cầu nộp kết quả giải đấu",
-                                $"Giải đấu '{tournament.Name}' đã kết thúc. Vui lòng gửi kết quả vi phạm và ghi kết quả xếp hạng ngựa gửi đến admin.",
+                                "Tournament Results Submission Required",
+                                $"Tournament '{tournament.Name}' has ended. Please submit all violation reports and record the horse rankings for Admin review.",
                                 "System",
                                 referenceId: (int)tournament.TournamentId,
                                 actionUrl: "/referee/confirm-results"
@@ -1504,8 +1504,8 @@ public class AdminController : ControllerBase
 
             // Broadcast to all active users
             await notificationService.BroadcastNotificationAsync(
-                "Giải đấu kết thúc & trao giải",
-                $"Giải đấu '{tournament.Name}' đã kết thúc thành công! Tiền thưởng đã được trao cho các chủ ngựa đạt giải.",
+                "Tournament Completed and Prizes Awarded",
+                $"Tournament '{tournament.Name}' has been completed successfully. Prize money has been awarded to the winning horse owners.",
                 "Tournament",
                 referenceId: (int)tournament.TournamentId,
                 actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"

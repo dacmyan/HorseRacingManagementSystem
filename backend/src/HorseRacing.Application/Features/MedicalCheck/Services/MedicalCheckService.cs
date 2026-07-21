@@ -276,14 +276,14 @@ public class MedicalCheckService : IMedicalCheckService
                 {
                     var ownerName = registration.Horse.Owner != null
                         ? (registration.Horse.Owner.FullName ?? registration.Horse.Owner.Username)
-                        : "Chủ ngựa";
+                        : "Horse Owner";
                     var adminIds = await _registrationRepository.GetAdminUserIdsAsync();
                     foreach (var adminId in adminIds)
                     {
                         await _notificationService.SendNotificationToUserAsync(
                             adminId,
-                            "Ngựa đủ điều kiện đăng ký giải",
-                            $"Ngựa '{horseName}' của chủ ngựa '{ownerName}' đã đủ điều kiện đăng ký giải đấu '{tournamentName}'.",
+                            "Horse Eligible for Tournament",
+                            $"Horse '{horseName}', owned by '{ownerName}', is now eligible to participate in tournament '{tournamentName}'.",
                             "Medical",
                             (int?)registration.RegistrationId,
                             null,
