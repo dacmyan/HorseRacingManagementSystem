@@ -18,6 +18,7 @@ using System.Threading.Tasks;
 using HorseRacing.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
+using System.Security.Claims;
 
 namespace HorseRacing.API.Controllers;
 
@@ -334,7 +335,11 @@ public class AdminController : ControllerBase
     {
         try
         {
-            var response = await _tournamentService.CreateTournamentAsync(request);
+            var adminUserIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(adminUserIdValue, out var adminUserId))
+                return Unauthorized(new { message = "Unable to identify the Admin wallet." });
+
+            var response = await _tournamentService.CreateTournamentAsync(request, adminUserId);
             return StatusCode(StatusCodes.Status201Created, response);
         }
         catch (ArgumentException ex)
@@ -383,6 +388,8 @@ public class AdminController : ControllerBase
             {
                 return NotFound(new { message = $"Tournament with ID {id} was not found." });
             }
+            if (!new[] { "PendingRegistration", "Registration Open" }.Contains(tournament.Status, StringComparer.OrdinalIgnoreCase))
+                return BadRequest(new { message = $"Registration cannot be closed while tournament status is '{tournament.Status}'." });
 
             tournament.RegistrationEndDate = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
             tournament.Status = "PendingScheduling";
@@ -658,8 +665,13 @@ public class AdminController : ControllerBase
                 return NotFound(new { message = $"Registration #{id} not found." });
 
             var validStatuses = new[] { "Approved", "Rejected" };
-            if (!validStatuses.Contains(request.Status))
+            request.Status = request.Status?.Trim() ?? string.Empty;
+            if (!validStatuses.Contains(request.Status, StringComparer.OrdinalIgnoreCase))
                 return BadRequest(new { message = "Status must be 'Approved' or 'Rejected'." });
+            request.Status = validStatuses.First(s => s.Equals(request.Status, StringComparison.OrdinalIgnoreCase));
+
+            if (!string.Equals(registration.Status, "Pending", StringComparison.OrdinalIgnoreCase))
+                return BadRequest(new { message = "Only Pending registrations can be reviewed." });
 
             if (request.Status == "Approved")
             {
@@ -1060,7 +1072,18 @@ public class AdminController : ControllerBase
                 return NotFound(new { message = $"User with ID {id} was not found." });
             }
 
-            user.Status = user.Status == "Active" ? "Inactive" : "Active";
+            var currentAdminId = GetCurrentUserId();
+            if (id == currentAdminId && string.Equals(user.Status, "Active", StringComparison.OrdinalIgnoreCase))
+                return BadRequest(new { message = "Administrators cannot deactivate their own account." });
+            var isAdmin = await context.Entry(user).Reference(u => u.Role).Query().AnyAsync(r => r.Name == "Admin");
+            if (isAdmin && string.Equals(user.Status, "Active", StringComparison.OrdinalIgnoreCase))
+            {
+                var activeAdminCount = await context.Users.CountAsync(u => u.Role != null && u.Role.Name == "Admin" && u.Status == "Active");
+                if (activeAdminCount <= 1)
+                    return BadRequest(new { message = "The last active administrator cannot be deactivated." });
+            }
+
+            user.Status = string.Equals(user.Status, "Active", StringComparison.OrdinalIgnoreCase) ? "Inactive" : "Active";
             await context.SaveChangesAsync();
 
             return Ok(new { message = "User status updated successfully", result = user });
@@ -1114,12 +1137,19 @@ public class AdminController : ControllerBase
                 return NotFound(new { message = $"Violation with ID {id} was not found." });
             }
 
-            if (request.Status != "Pending" && request.Status != "Confirmed" && request.Status != "Rejected")
+            var requestedStatus = request.Status?.Trim();
+            var validViolationStatuses = new[] { "Pending", "Confirmed", "Rejected" };
+            if (requestedStatus == null || !validViolationStatuses.Contains(requestedStatus, StringComparer.OrdinalIgnoreCase))
             {
                 return BadRequest(new { message = "Invalid status. Must be 'Pending', 'Confirmed', or 'Rejected'." });
             }
 
-            violation.Status = request.Status;
+            requestedStatus = validViolationStatuses.First(s => s.Equals(requestedStatus, StringComparison.OrdinalIgnoreCase));
+            if (!string.Equals(violation.Status, "Pending", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(violation.Status, requestedStatus, StringComparison.OrdinalIgnoreCase))
+                return BadRequest(new { message = $"A {violation.Status} violation cannot be changed to {requestedStatus}." });
+
+            violation.Status = requestedStatus;
             await context.SaveChangesAsync();
 
             var refereeUserIds = await context.RaceRefereeAssignments
@@ -1230,7 +1260,9 @@ public class AdminController : ControllerBase
                 return BadRequest(new { message = "Cannot disqualify this horse. Only horses diagnosed by the veterinarian as Sick or Injured can be disqualified." });
             }
 
-            var reason = request?.Reason ?? "AdminDecision";
+            var reason = string.IsNullOrWhiteSpace(request?.Reason) ? "AdminDecision" : request.Reason.Trim();
+            if (reason.Length > 500)
+                return BadRequest(new { message = "Withdrawal reason cannot exceed 500 characters." });
 
             // Set status
             if (string.Equals(race.Status, "InProgress", StringComparison.OrdinalIgnoreCase))
@@ -1248,10 +1280,6 @@ public class AdminController : ControllerBase
             if (entry.Registration != null)
             {
                 entry.Registration.Status = "Disqualified";
-                if (entry.Registration.Horse != null)
-                {
-                    entry.Registration.Horse.HealthStatus = "Injured";
-                }
             }
 
             await context.SaveChangesAsync();
@@ -1320,6 +1348,12 @@ public class AdminController : ControllerBase
             {
                 return BadRequest(new { message = $"Tournament is not in Active status. Current status: {tournament.Status}." });
             }
+            var allRaces = tournament.Rounds.SelectMany(r => r.Races).ToList();
+            if (allRaces.Count == 0 || allRaces.Any(r => !new[] { "Finished", "Completed" }.Contains(r.Status, StringComparer.OrdinalIgnoreCase)))
+                return BadRequest(new { message = "All tournament races must be finished before completing the racing phase." });
+            var finalRoundForValidation = tournament.Rounds.FirstOrDefault(r => r.RoundNumber == 2);
+            if (finalRoundForValidation == null || finalRoundForValidation.Races.Count != 1)
+                return BadRequest(new { message = "Tournament must have exactly one final race." });
 
             // 1. Update tournament status
             tournament.Status = "AwaitingResults";
@@ -1386,7 +1420,7 @@ public class AdminController : ControllerBase
                 return NotFound(new { message = $"Tournament with ID {tournamentId} not found." });
             }
 
-            if (tournament.Status != "AwaitingResults" && tournament.Status != "Active")
+            if (tournament.Status != "AwaitingResults")
             {
                 return BadRequest(new { message = $"Tournament is in status '{tournament.Status}' and cannot be completed." });
             }

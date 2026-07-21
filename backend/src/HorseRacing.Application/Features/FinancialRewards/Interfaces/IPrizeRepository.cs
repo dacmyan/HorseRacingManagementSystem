@@ -16,6 +16,7 @@ public interface IPrizeRepository
     Task<Prize?> GetByTournamentAndRankAsync(int tournamentId, int rank);
     Task AddAsync(Prize prize);
     Task AddTournamentPrizePayoutAsync(TournamentPrizePayout payout);
+    Task<bool> HasTournamentPrizePayoutsAsync(long tournamentId);
     Task SaveChangesAsync();
     Task<IDbTransaction> BeginTransactionAsync();
 }

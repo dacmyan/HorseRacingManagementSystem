@@ -15,6 +15,7 @@ public class TournamentResponse
     public string Status { get; set; } = "Registration Open";
     public int CancelCount { get; set; } = 0;
     public bool HasMissingReferees { get; set; }
+    public bool HasCompleteLaneAssignments { get; set; }
     public List<RoundResponse> Rounds { get; set; } = new List<RoundResponse>();
 }
 

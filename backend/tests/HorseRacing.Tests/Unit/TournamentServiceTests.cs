@@ -13,6 +13,7 @@ using Xunit;
 
 using HorseRacing.Application.Features.Notifications.Interfaces;
 using HorseRacing.Application.Features.BettingEngine.Interfaces;
+using HorseRacing.Application.Features.FinancialRewards.Interfaces;
 
 namespace HorseRacing.Tests.Unit;
 
@@ -21,6 +22,7 @@ public class TournamentServiceTests
     private readonly Mock<ITournamentRepository> _tournamentRepoMock;
     private readonly Mock<INotificationService> _notificationMock;
     private readonly Mock<IBettingService> _bettingServiceMock;
+    private readonly Mock<IWalletRepository> _walletRepositoryMock;
     private readonly TournamentService _service;
 
     public TournamentServiceTests()
@@ -28,6 +30,9 @@ public class TournamentServiceTests
         _tournamentRepoMock = new Mock<ITournamentRepository>();
         _notificationMock = new Mock<INotificationService>();
         _bettingServiceMock = new Mock<IBettingService>();
+        _walletRepositoryMock = new Mock<IWalletRepository>();
+        _walletRepositoryMock.Setup(r => r.GetByUserIdAsync(1))
+            .ReturnsAsync(new Wallet { UserId = 1, Balance = 1_000_000m });
         
         _tournamentRepoMock.Setup(r => r.GetMedicalCheckRecordsForTournamentAsync(It.IsAny<long>()))
             .ReturnsAsync((long tId) => 
@@ -45,7 +50,7 @@ public class TournamentServiceTests
         _tournamentRepoMock.Setup(r => r.GetRacesByRoundIdAsync(It.IsAny<long>()))
             .ReturnsAsync(new List<Race>());
 
-        _service = new TournamentService(_tournamentRepoMock.Object, _notificationMock.Object, _bettingServiceMock.Object);
+        _service = new TournamentService(_tournamentRepoMock.Object, _notificationMock.Object, _bettingServiceMock.Object, _walletRepositoryMock.Object);
     }
 
     [Fact]
@@ -66,14 +71,15 @@ public class TournamentServiceTests
         {
             Name = "Summer Cup",
             Description = "This is a great tournament.",
-            StartDate = DateTime.UtcNow.AddDays(3),
-            EndDate = DateTime.UtcNow.AddDays(5),
+            StartDate = DateTime.UtcNow.AddDays(6),
+            EndDate = DateTime.UtcNow.AddDays(8),
             RegistrationStartDate = DateTime.UtcNow,
-            RegistrationEndDate = DateTime.UtcNow.AddHours(12)
+            RegistrationEndDate = DateTime.UtcNow.AddHours(12),
+            Prizes = ValidPrizes()
         };
 
         // Act
-        var response = await _service.CreateTournamentAsync(request);
+        var response = await _service.CreateTournamentAsync(request, 1);
 
         // Assert
         response.Name.Should().Be("Summer Cup");
@@ -136,6 +142,53 @@ public class TournamentServiceTests
 
         createdEntries.GroupBy(e => e.RaceId).Should().OnlyContain(group =>
             group.Select(e => e.LaneNo).SequenceEqual(Enumerable.Range(1, group.Count())));
+    }
+
+    [Fact]
+    public async Task GenerateRacesForTournamentAsync_ShouldSplitHorsesEvenly_WhenRegistrationsCountIs13()
+    {
+        // Arrange
+        var tournament = BuildTournament();
+        var registrations = BuildRegistrations(13);
+        var createdRaces = new List<Race>();
+        var createdEntries = new List<HorseRacing.Domain.Entities.RaceEntry>();
+
+        _tournamentRepoMock.Setup(r => r.ClearRoundsAndRacesAsync(tournament.TournamentId))
+            .Returns(Task.CompletedTask);
+        _tournamentRepoMock.Setup(r => r.GetByIdWithRoundsAsync(tournament.TournamentId))
+            .ReturnsAsync(tournament);
+        _tournamentRepoMock.Setup(r => r.GetApprovedRegistrationsAsync(tournament.TournamentId))
+            .ReturnsAsync(registrations);
+        _tournamentRepoMock.Setup(r => r.GetActiveJockeyProfileIdsByHorseAsync(tournament.TournamentId, It.IsAny<IEnumerable<long>>()))
+            .ReturnsAsync(new Dictionary<long, int>());
+        _tournamentRepoMock.Setup(r => r.AddRoundAsync(It.IsAny<Round>()))
+            .Returns(Task.CompletedTask);
+        _tournamentRepoMock.Setup(r => r.AddRacesAsync(It.IsAny<IEnumerable<Race>>()))
+            .Callback<IEnumerable<Race>>(races =>
+            {
+                var list = races.ToList();
+                for (int i = 0; i < list.Count; i++)
+                {
+                    list[i].RaceId = i + 1;
+                }
+                createdRaces = list;
+            })
+            .Returns(Task.CompletedTask);
+        _tournamentRepoMock.Setup(r => r.AddRaceEntriesAsync(It.IsAny<IEnumerable<HorseRacing.Domain.Entities.RaceEntry>>()))
+            .Callback<IEnumerable<HorseRacing.Domain.Entities.RaceEntry>>(entries => createdEntries = entries.ToList())
+            .Returns(Task.CompletedTask);
+        _tournamentRepoMock.Setup(r => r.SaveChangesAsync()).Returns(Task.CompletedTask);
+
+        // Act
+        var response = await _service.GenerateRacesForTournamentAsync(tournament.TournamentId);
+
+        // Assert
+        response.Should().HaveCount(2);
+        createdRaces.Should().HaveCount(2);
+
+        // 13 horses split into 2 races -> 7 and 6
+        createdEntries.GroupBy(e => e.RaceId).Select(g => g.Count())
+            .Should().Equal(7, 6);
     }
 
     [Fact]
@@ -275,8 +328,8 @@ public class TournamentServiceTests
                 {
                     TournamentId = 10,
                     Name = "Overlapping Tournament",
-                    StartDate = DateTime.UtcNow.AddDays(3),
-                    EndDate = DateTime.UtcNow.AddDays(5),
+                    StartDate = DateTime.UtcNow.AddDays(7),
+                    EndDate = DateTime.UtcNow.AddDays(9),
                     Status = "Active"
                 }
             });
@@ -286,12 +339,13 @@ public class TournamentServiceTests
             Name = "Overlapping Cup",
             RegistrationStartDate = DateTime.UtcNow,
             RegistrationEndDate = DateTime.UtcNow.AddHours(12),
-            StartDate = DateTime.UtcNow.AddDays(3),
-            EndDate = DateTime.UtcNow.AddDays(5)
+            StartDate = DateTime.UtcNow.AddDays(7),
+            EndDate = DateTime.UtcNow.AddDays(9),
+            Prizes = ValidPrizes()
         };
 
         // Act
-        Func<Task> act = async () => await _service.CreateTournamentAsync(request);
+        Func<Task> act = async () => await _service.CreateTournamentAsync(request, 1);
 
         // Assert
         await act.Should().ThrowAsync<ArgumentException>()
@@ -312,8 +366,8 @@ public class TournamentServiceTests
                 {
                     TournamentId = 10,
                     Name = "Overlapping Tournament",
-                    StartDate = DateTime.UtcNow.AddDays(3),
-                    EndDate = DateTime.UtcNow.AddDays(5),
+                    StartDate = DateTime.UtcNow.AddDays(7),
+                    EndDate = DateTime.UtcNow.AddDays(9),
                     Status = "Active"
                 }
             });
@@ -323,8 +377,8 @@ public class TournamentServiceTests
             Name = "Summer Cup Updated",
             RegistrationStartDate = tournament.RegistrationStartDate ?? DateTime.UtcNow,
             RegistrationEndDate = tournament.RegistrationEndDate ?? DateTime.UtcNow.AddHours(12),
-            StartDate = DateTime.UtcNow.AddDays(3),
-            EndDate = DateTime.UtcNow.AddDays(5)
+            StartDate = DateTime.UtcNow.AddDays(7),
+            EndDate = DateTime.UtcNow.AddDays(9)
         };
 
         // Act
@@ -369,6 +423,13 @@ public class TournamentServiceTests
             }
         };
     }
+
+    private static List<PrizeConfigRequest> ValidPrizes() => new()
+    {
+        new() { RankPosition = 1, Amount = 300_000m },
+        new() { RankPosition = 2, Amount = 200_000m },
+        new() { RankPosition = 3, Amount = 100_000m }
+    };
 
     private static List<Registration> BuildRegistrations(int count)
     {

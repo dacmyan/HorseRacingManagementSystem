@@ -24,6 +24,10 @@ public class RefereeAssignmentService : IRefereeAssignmentService
 
     public async Task<RaceRefereeResponse> AssignRefereeAsync(long raceId, AssignRefereeRequest request)
     {
+        ArgumentNullException.ThrowIfNull(request);
+        if (raceId <= 0 || request.RefereeId <= 0)
+            throw new ArgumentException("Race ID and referee ID must be greater than zero.");
+
         // 1. Validate race existence
         var race = await _repository.GetRaceByIdAsync(raceId);
         if (race == null)
@@ -42,6 +46,12 @@ public class RefereeAssignmentService : IRefereeAssignmentService
         {
             throw new ArgumentException("The specified referee profile is not associated with a valid Referee user role.");
         }
+        if (!string.Equals(refereeProfile.Status, "Active", StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(refereeProfile.User.Status, "Active", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Only an active referee with an active user account can be assigned.");
+        if (new[] { "Live", "InProgress", "Running", "Finished", "Completed", "Cancelled" }
+            .Contains(race.Status, StringComparer.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Referees cannot be assigned while race status is '{race.Status}'.");
 
         // 3. Check duplicate assignment
         var existing = await _repository.GetAssignmentAsync(raceId, request.RefereeId);

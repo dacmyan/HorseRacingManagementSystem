@@ -16,8 +16,15 @@ public class UserRepository : IUserRepository
 
     public async Task<AppUser?> GetByEmailAsync(string email)
     {
-        return await _context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Email == email);
+        var normalized = email.Trim().ToLower();
+        return await _context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Email.ToLower() == normalized);
     }
+
+    public Task<bool> UsernameExistsAsync(string username) =>
+        _context.Users.AnyAsync(u => u.Username.ToLower() == username.Trim().ToLower());
+
+    public Task<bool> RefereeLicenseExistsAsync(string licenseNumber) =>
+        _context.RefereeProfiles.AnyAsync(r => r.LicenseNumber.ToLower() == licenseNumber.Trim().ToLower());
 
     public async Task<AppUser?> GetByIdAsync(int id)
     {

@@ -58,7 +58,6 @@ public class TournamentRepository : ITournamentRepository
     public async Task<List<Tournament>> GetAllAsync()
     {
         return await _context.Tournaments
-            .AsNoTracking()
             .Include(t => t.Rounds)
             .OrderByDescending(t => t.StartDate)
             .ToListAsync();
@@ -328,6 +327,88 @@ public class TournamentRepository : ITournamentRepository
             .ToListAsync();
 
         return assignedRaceIds.Count < races.Count;
+    }
+
+    public async Task<bool> NameExistsAsync(string name, long? excludeTournamentId = null)
+    {
+        var normalizedName = name.Trim().ToLower();
+        return await _context.Tournaments.AsNoTracking()
+            .AnyAsync(t => t.Name.ToLower() == normalizedName &&
+                (!excludeTournamentId.HasValue || t.TournamentId != excludeTournamentId.Value));
+    }
+
+    public async Task<bool> HasCompleteLaneAssignmentsAsync(long tournamentId)
+    {
+        var raceIds = await (
+            from round in _context.Rounds.AsNoTracking()
+            join race in _context.Races.AsNoTracking()
+                on round.RoundId equals race.RoundId
+            where round.TournamentId == tournamentId
+            select race.RaceId
+        ).ToListAsync();
+
+        if (raceIds.Count == 0)
+        {
+            return false;
+        }
+
+        var raceIdsWithEntries = await _context.RaceEntries.AsNoTracking()
+            .Where(entry => raceIds.Contains(entry.RaceId))
+            .Select(entry => entry.RaceId)
+            .Distinct()
+            .ToListAsync();
+
+        return raceIdsWithEntries.Count == raceIds.Count;
+    }
+
+    public async Task<Dictionary<long, (bool HasCompleteLaneAssignments, bool HasMissingReferees)>> GetReadinessByTournamentIdsAsync(
+        IEnumerable<long> tournamentIds)
+    {
+        var ids = tournamentIds.Distinct().ToList();
+        var result = ids.ToDictionary(
+            id => id,
+            _ => (HasCompleteLaneAssignments: false, HasMissingReferees: false));
+
+        if (ids.Count == 0)
+        {
+            return result;
+        }
+
+        var tournamentRaces = await (
+            from round in _context.Rounds.AsNoTracking()
+            join race in _context.Races.AsNoTracking()
+                on round.RoundId equals race.RoundId
+            where ids.Contains(round.TournamentId)
+            select new { round.TournamentId, race.RaceId }
+        ).ToListAsync();
+
+        var raceIds = tournamentRaces.Select(x => x.RaceId).Distinct().ToList();
+        if (raceIds.Count == 0)
+        {
+            return result;
+        }
+
+        var raceIdsWithEntries = (await _context.RaceEntries.AsNoTracking()
+            .Where(entry => raceIds.Contains(entry.RaceId))
+            .Select(entry => entry.RaceId)
+            .Distinct()
+            .ToListAsync()).ToHashSet();
+
+        var raceIdsWithReferees = (await _context.RaceRefereeAssignments.AsNoTracking()
+            .Where(assignment => raceIds.Contains(assignment.RaceId))
+            .Select(assignment => assignment.RaceId)
+            .Distinct()
+            .ToListAsync()).ToHashSet();
+
+        foreach (var group in tournamentRaces.GroupBy(x => x.TournamentId))
+        {
+            var tournamentRaceIds = group.Select(x => x.RaceId).Distinct().ToList();
+            result[group.Key] = (
+                tournamentRaceIds.All(raceIdsWithEntries.Contains),
+                tournamentRaceIds.Any(raceId => !raceIdsWithReferees.Contains(raceId)));
+        }
+
+        return result;
     }
 
     public async Task<List<int>> GetAdminUserIdsAsync()

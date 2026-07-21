@@ -18,6 +18,12 @@ public class AdminService : IAdminService
 
     public async Task<CreateAccountResponseDto> CreateAccountAsync(CreateAccountRequestDto request)
     {
+        ArgumentNullException.ThrowIfNull(request);
+        request.FullName = request.FullName?.Trim() ?? string.Empty;
+        request.Email = request.Email?.Trim().ToLowerInvariant() ?? string.Empty;
+        request.Role = request.Role?.Trim() ?? string.Empty;
+        request.LicenseNumber = request.LicenseNumber?.Trim();
+
         // 1. Validation
         if (string.IsNullOrWhiteSpace(request.FullName))
             throw new ArgumentException("Full name is required.");
@@ -25,8 +31,10 @@ public class AdminService : IAdminService
         if (string.IsNullOrWhiteSpace(request.Email))
             throw new ArgumentException("Email is required.");
 
-        if (string.IsNullOrWhiteSpace(request.Password) || request.Password.Length < 6)
-            throw new ArgumentException("Password must be at least 6 characters.");
+        if (string.IsNullOrWhiteSpace(request.Password) || request.Password.Length < 8 ||
+            !request.Password.Any(char.IsUpper) || !request.Password.Any(char.IsLower) ||
+            !request.Password.Any(char.IsDigit) || request.Password.All(char.IsLetterOrDigit))
+            throw new ArgumentException("Password must be at least 8 characters and contain uppercase, lowercase, number, and special character.");
 
         if (string.IsNullOrWhiteSpace(request.Role))
             throw new ArgumentException("Role is required.");
@@ -34,10 +42,17 @@ public class AdminService : IAdminService
         if (request.Role.Equals("Referee", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(request.LicenseNumber))
             throw new ArgumentException("License number is required for Referee.");
 
+        if (request.ExperienceYears is < 0 or > 80)
+            throw new ArgumentException("Experience years must be between 0 and 80.");
+
         // 2. Uniqueness check
         var existingUser = await _userRepository.GetByEmailAsync(request.Email);
         if (existingUser != null)
             throw new ArgumentException("Email already exists.");
+
+        if (request.Role.Equals("Referee", StringComparison.OrdinalIgnoreCase) &&
+            await _userRepository.RefereeLicenseExistsAsync(request.LicenseNumber!))
+            throw new ArgumentException("License number already exists.");
 
         // 3. Role check
         var dbRole = await _userRepository.GetRoleByNameAsync(request.Role);
@@ -45,11 +60,17 @@ public class AdminService : IAdminService
             throw new ArgumentException($"Role '{request.Role}' does not exist.");
 
         // 4. Create AppUser
+        var usernameBase = request.Email.Split('@')[0];
+        var username = usernameBase;
+        var suffix = 1;
+        while (await _userRepository.UsernameExistsAsync(username))
+            username = $"{usernameBase}{suffix++}";
+
         var newUser = new AppUser
         {
             FullName = request.FullName,
             Email = request.Email,
-            Username = request.Email.Split('@')[0],
+            Username = username,
             RoleId = dbRole.RoleId,
             Status = "Active",
             IsEmailConfirmed = true, // Admin-created accounts don't require email verification

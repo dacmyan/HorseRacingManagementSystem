@@ -59,6 +59,7 @@ public class RaceRepository : IRaceRepository
         return await _context.Registrations
             .AsNoTracking()
             .Include(r => r.Horse)
+            .Include(r => r.MedicalCheckRecords)
             .FirstOrDefaultAsync(r => r.RegistrationId == registrationId);
     }
 
