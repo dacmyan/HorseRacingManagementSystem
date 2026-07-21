@@ -131,7 +131,7 @@ public class RegistrationService : IRegistrationService
                     $"Ngựa '{horseName}' đã đăng ký tham gia giải đấu '{tournamentName}' và đang chờ khám sức khỏe.",
                     "MedicalCheck",
                     referenceId: (int)populated.TournamentId,
-                    actionUrl: "/vet/inspections"
+                    actionUrl: "/vet/medical-check"
                 );
             }
             catch (Exception ex)

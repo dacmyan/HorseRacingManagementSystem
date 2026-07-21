@@ -501,6 +501,10 @@ public class AdminController : ControllerBase
         {
             return NotFound(new { message = ex.Message });
         }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
         catch (Exception ex)
         {
             return StatusCode(500, new { message = "An error occurred during race deletion", detail = ex.Message });
@@ -562,6 +566,10 @@ public class AdminController : ControllerBase
         catch (KeyNotFoundException ex)
         {
             return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
         }
         catch (Exception ex)
         {
@@ -1204,7 +1212,7 @@ public class AdminController : ControllerBase
                     $"Violation #{violation.Id} for race #{violation.RaceId} has been {violation.Status.ToLowerInvariant()} by Admin.",
                     "Race",
                     referenceId: (int)violation.RaceId,
-                    actionUrl: $"/referee/races/{violation.RaceId}");
+                    actionUrl: "/referee/violations");
 
             return Ok(new { message = "Violation status updated successfully", result = violation });
         }
@@ -1351,7 +1359,7 @@ public class AdminController : ControllerBase
                 foreach (var userId in refereeUserIds)
                     await notificationService.SendNotificationToUserAsync(
                         userId, "Race entry withdrawn", notice, "Race", (int)race.RaceId,
-                        actionUrl: $"/referee/races/{race.RaceId}");
+                        actionUrl: "/referee/schedule");
             }
 
             return Ok(new { 
