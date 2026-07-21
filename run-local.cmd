@@ -24,6 +24,14 @@ for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":5173" ^| findstr "LISTENING
 timeout /t 1 /nobreak >nul
 echo [*] San sang khoi dong...
 echo.
+echo =====================================================================
+echo [INFO] De test VNPay Sandbox IPN Webhook tu may local:
+echo 1. Tai va chay ngrok:  ngrok http 5005
+echo 2. Copy URL ngrok cua ban (dang: https://xxxx.ngrok-free.app)
+echo 3. Cap nhat VNPAY_IPN_URL trong backend/.env bang URL do:
+echo    VNPAY_IPN_URL=https://xxxx.ngrok-free.app/api/payments/vnpay/ipn
+echo =====================================================================
+echo.
 
-npx concurrently -k -p "[{name}]" -n "Backend,Frontend" -c "blue.bold,green.bold" "cd backend && dotnet run --project src/HorseRacing.API -- --urls http://localhost:5005" "cd frontend && npm run dev"
+npx concurrently -k -p "[{name}]" -n "Backend,Frontend" -c "blue.bold,green.bold" "cd backend && dotnet run --project src/HorseRacing.API -- --urls http://localhost:5005" "cd ..\Horse-Tournament-Management-Frontend && npm run dev"
 

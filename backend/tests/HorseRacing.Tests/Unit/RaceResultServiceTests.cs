@@ -48,7 +48,7 @@ public class RaceResultServiceTests
     public async Task SubmitResultAsync_ShouldThrowKeyNotFoundException_WhenRaceNotFound()
     {
         // Arrange
-        var request = new SubmitRaceResultRequest { RaceId = 999, Winner = "Horse A" };
+        var request = new SubmitRaceResultRequest { RaceId = 999, Winner = "Horse A", RefereeId = 5 };
         _repoMock.Setup(r => r.GetRaceByIdAsync(999)).ReturnsAsync((Race?)null);
 
         // Act
@@ -79,9 +79,10 @@ public class RaceResultServiceTests
     public async Task SubmitResultAsync_ShouldThrowKeyNotFoundException_WhenWinnerHorseNotFound()
     {
         // Arrange
-        var request = new SubmitRaceResultRequest { RaceId = 1, Winner = "NonExistent" };
+        var request = new SubmitRaceResultRequest { RaceId = 1, Winner = "NonExistent", RefereeId = 5 };
         var race = new Race { RaceId = 1, Name = "Race 1" };
         _repoMock.Setup(r => r.GetRaceByIdAsync(1)).ReturnsAsync(race);
+        _repoMock.Setup(r => r.GetAssignmentAsync(1, 5)).ReturnsAsync(new RaceRefereeAssignment());
         _repoMock.Setup(r => r.GetHorseByIdOrNameAsync("NonExistent")).ReturnsAsync((Horse?)null);
 
         // Act
@@ -95,10 +96,11 @@ public class RaceResultServiceTests
     public async Task SubmitResultAsync_ShouldThrowArgumentException_WhenHorseNotInRaceEntries()
     {
         // Arrange
-        var request = new SubmitRaceResultRequest { RaceId = 1, Winner = "Horse A" };
+        var request = new SubmitRaceResultRequest { RaceId = 1, Winner = "Horse A", RefereeId = 5 };
         var race = new Race { RaceId = 1, Name = "Race 1" };
         var horse = new Horse { HorseId = 10, Name = "Horse A" };
         _repoMock.Setup(r => r.GetRaceByIdAsync(1)).ReturnsAsync(race);
+        _repoMock.Setup(r => r.GetAssignmentAsync(1, 5)).ReturnsAsync(new RaceRefereeAssignment());
         _repoMock.Setup(r => r.GetHorseByIdOrNameAsync("Horse A")).ReturnsAsync(horse);
         _repoMock.Setup(r => r.GetRaceEntryByHorseIdAsync(1, 10)).ReturnsAsync((RaceEntry?)null);
 
@@ -114,12 +116,13 @@ public class RaceResultServiceTests
     public async Task SubmitResultAsync_ShouldPersistResult_WhenValidRequest()
     {
         // Arrange
-        var request = new SubmitRaceResultRequest { RaceId = 1, Winner = "Horse A" };
+        var request = new SubmitRaceResultRequest { RaceId = 1, Winner = "Horse A", RefereeId = 5 };
         var race = new Race { RaceId = 1, Name = "Race 1", Status = "Scheduled" };
         var horse = new Horse { HorseId = 10, Name = "Horse A" };
         var entry = new RaceEntry { RaceEntryId = 50, RaceId = 1, RegistrationId = 5 };
 
         _repoMock.Setup(r => r.GetRaceByIdAsync(1)).ReturnsAsync(race);
+        _repoMock.Setup(r => r.GetAssignmentAsync(1, 5)).ReturnsAsync(new RaceRefereeAssignment());
         _repoMock.Setup(r => r.GetHorseByIdOrNameAsync("Horse A")).ReturnsAsync(horse);
         _repoMock.Setup(r => r.GetRaceEntryByHorseIdAsync(1, 10)).ReturnsAsync(entry);
         _repoMock.Setup(r => r.GetResultByRaceIdAsync(1)).ReturnsAsync((RaceResult?)null);
@@ -159,12 +162,13 @@ public class RaceResultServiceTests
     public async Task SubmitResultAsync_ShouldThrowArgumentException_WhenWinnerHorseIsSickOrInjured()
     {
         // Arrange
-        var request = new SubmitRaceResultRequest { RaceId = 1, Winner = "Horse A" };
+        var request = new SubmitRaceResultRequest { RaceId = 1, Winner = "Horse A", RefereeId = 5 };
         var race = new Race { RaceId = 1, Name = "Race 1", Status = "Scheduled" };
         var horse = new Horse { HorseId = 10, Name = "Horse A", HealthStatus = "Sick" };
         var entry = new RaceEntry { RaceEntryId = 50, RaceId = 1, RegistrationId = 5 };
 
         _repoMock.Setup(r => r.GetRaceByIdAsync(1)).ReturnsAsync(race);
+        _repoMock.Setup(r => r.GetAssignmentAsync(1, 5)).ReturnsAsync(new RaceRefereeAssignment());
         _repoMock.Setup(r => r.GetHorseByIdOrNameAsync("Horse A")).ReturnsAsync(horse);
         _repoMock.Setup(r => r.GetRaceEntryByHorseIdAsync(1, 10)).ReturnsAsync(entry);
 
@@ -180,12 +184,13 @@ public class RaceResultServiceTests
     public async Task SubmitResultAsync_ShouldThrowArgumentException_WhenWinnerHorseRaceEntryIsWithdrawn()
     {
         // Arrange
-        var request = new SubmitRaceResultRequest { RaceId = 1, Winner = "Horse A" };
+        var request = new SubmitRaceResultRequest { RaceId = 1, Winner = "Horse A", RefereeId = 5 };
         var race = new Race { RaceId = 1, Name = "Race 1", Status = "Scheduled" };
         var horse = new Horse { HorseId = 10, Name = "Horse A", HealthStatus = "Healthy" };
         var entry = new RaceEntry { RaceEntryId = 50, RaceId = 1, RegistrationId = 5, Status = "Withdrawn" };
 
         _repoMock.Setup(r => r.GetRaceByIdAsync(1)).ReturnsAsync(race);
+        _repoMock.Setup(r => r.GetAssignmentAsync(1, 5)).ReturnsAsync(new RaceRefereeAssignment());
         _repoMock.Setup(r => r.GetHorseByIdOrNameAsync("Horse A")).ReturnsAsync(horse);
         _repoMock.Setup(r => r.GetRaceEntryByHorseIdAsync(1, 10)).ReturnsAsync(entry);
 

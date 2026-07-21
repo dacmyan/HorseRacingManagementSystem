@@ -5,6 +5,7 @@ using HorseRacing.Infrastructure.Persistence;
 using HorseRacing.Application.Features.Notifications.Interfaces;
 using HorseRacing.Application.Features.TournamentAndRacing.Interfaces;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -49,12 +50,12 @@ namespace HorseRacing.API.Services
                                 try
                                 {
                                     await notificationService.BroadcastNotificationAsync(
-                                        "New Tournament Open for Registration",
-                                        $"Tournament '{tournament.Name}' starting on {tournament.StartDate:dd/MM/yyyy} is now open for registration.",
-                                        "Tournament",
-                                        referenceId: (int)tournament.TournamentId,
-                                        actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
-                                    );
+                                         "Tournament Registration Open",
+                                         $"Registration for tournament '{tournament.Name}' is now open. Register your horses now!",
+                                         "Tournament",
+                                         referenceId: (int)tournament.TournamentId,
+                                         actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
+                                     );
                                 }
                                 catch (Exception ex)
                                 {
@@ -70,8 +71,13 @@ namespace HorseRacing.API.Services
 
                         foreach (var tournament in expiredTournaments)
                         {
-                            int registeredCount = await context.Registrations
-                                .CountAsync(r => r.TournamentId == tournament.TournamentId, stoppingToken);
+                            var approvedRegistrations = await context.Registrations
+                                .Include(r => r.MedicalCheckRecords)
+                                .Where(r => r.TournamentId == tournament.TournamentId && r.Status == "Approved")
+                                .ToListAsync(stoppingToken);
+                            int registeredCount = approvedRegistrations.Count(r => r.MedicalCheckRecords.Any(check =>
+                                (check.MedicalResult == "Pass" || check.MedicalResult == "Passed") &&
+                                check.DopingResult != "Positive"));
 
                             if (registeredCount >= 12)
                             {
@@ -79,6 +85,35 @@ namespace HorseRacing.API.Services
                                 tournament.Status = "PendingScheduling";
                                 await context.SaveChangesAsync(stoppingToken);
                                 Console.WriteLine($"[SYSTEM AUTOMATION]: Tournament {tournament.TournamentId} ({tournament.Name}) has {registeredCount} registered horses. Status updated to PendingScheduling.");
+
+                                // Notify all registered horse owners
+                                if (notificationService != null)
+                                {
+                                    try
+                                    {
+                                        var registeredOwners = await context.Registrations
+                                            .Where(r => r.TournamentId == tournament.TournamentId && r.Horse != null)
+                                            .Select(r => r.Horse.OwnerId)
+                                            .Distinct()
+                                            .ToListAsync(stoppingToken);
+
+                                        foreach (var ownerId in registeredOwners)
+                                        {
+                                            await notificationService.SendNotificationToUserAsync(
+                                                ownerId,
+                                                "Tournament Registration Closed",
+                                                $"Registration for tournament '{tournament.Name}' has closed. The scheduling phase will begin shortly.",
+                                                "Tournament",
+                                                referenceId: (int)tournament.TournamentId,
+                                                actionUrl: "/owner/registrations"
+                                            );
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Console.WriteLine($"[NOTIFICATION ERROR] Failed to send registration close notifications: {ex.Message}");
+                                    }
+                                }
 
                                 // Auto-cancel registrations without accepted jockey
                                 var tournamentRepo = scope.ServiceProvider.GetRequiredService<ITournamentRepository>();
@@ -120,51 +155,129 @@ namespace HorseRacing.API.Services
                                 if (tournament.CancelCount == 0)
                                 {
                                     // Lần 1: Tự động gia hạn thêm 3 ngày
-                                    tournament.RegistrationEndDate = tournament.RegistrationEndDate.Value.AddDays(3);
-                                    if (tournament.StartDate != null)
-                                        tournament.StartDate = tournament.StartDate.Value.AddDays(3);
-                                    if (tournament.EndDate != null)
-                                        tournament.EndDate = tournament.EndDate.Value.AddDays(3);
-                                    tournament.CancelCount = 1;
+                                    tournament.Status = "Registration Suspended";
                                     await context.SaveChangesAsync(stoppingToken);
-                                    Console.WriteLine($"[SYSTEM AUTOMATION]: Tournament {tournament.TournamentId} ({tournament.Name}) has only {registeredCount} registrations. Extended deadline by 3 days.");
+                                    if (notificationService != null)
+                                    {
+                                        var adminIds = await notificationService.GetActiveUserIdsByRoleAsync("Admin");
+                                        foreach (var adminId in adminIds)
+                                        {
+                                            await notificationService.SendNotificationToUserAsync(
+                                                adminId,
+                                                "Registration Extension Required",
+                                                $"Tournament '{tournament.Name}' has only {registeredCount}/12 qualified horses. Extend registration once; the new deadline will be 48 hours before the tournament starts, or cancel the tournament.",
+                                                "Tournament",
+                                                (int)tournament.TournamentId,
+                                                actionUrl: "/admin/tournaments");
+                                        }
+                                    }
                                 }
                                 else if (tournament.CancelCount == 1)
                                 {
                                     // Lần 2: Hủy giải đấu
-                                    tournament.Status = "Cancelled";
+                                    tournament.Status = "Registration Suspended";
                                     tournament.CancelCount = 2;
                                     await context.SaveChangesAsync(stoppingToken);
-                                    Console.WriteLine($"[SYSTEM AUTOMATION]: Tournament {tournament.TournamentId} ({tournament.Name}) failed to reach 12 registrations after extension. Status updated to Cancelled.");
+                                    Console.WriteLine($"[SYSTEM AUTOMATION]: Tournament {tournament.TournamentId} ({tournament.Name}) is still below 12 qualified horses after its only extension. Admin cancellation required.");
 
                                     // Lấy danh sách OwnerId duy nhất của các ngựa đã đăng ký
-                                    var owners = await context.Registrations
-                                        .Where(r => r.TournamentId == tournament.TournamentId && r.Horse != null)
-                                        .Select(r => r.Horse.OwnerId)
-                                        .Distinct()
-                                        .ToListAsync(stoppingToken);
+                                    var adminIds = notificationService == null
+                                        ? new List<int>()
+                                        : (await notificationService.GetActiveUserIdsByRoleAsync("Admin")).ToList();
 
                                     if (notificationService != null)
                                     {
-                                        foreach (var ownerId in owners)
+                                        foreach (var adminId in adminIds)
                                         {
                                             try
                                             {
                                                 await notificationService.SendNotificationToUserAsync(
-                                                    ownerId,
-                                                    "Giải đấu bị hủy",
-                                                    $"Giải đấu '{tournament.Name}' đã bị hủy do không đủ số lượng ngựa đăng ký tối thiểu (12 ngựa) sau thời gian gia hạn.",
-                                                    "System",
-                                                    (int)tournament.TournamentId
+                                                    adminId,
+                                                    "Tournament Cancellation Required",
+                                                    $"Tournament '{tournament.Name}' still has only {registeredCount}/12 qualified horses after its one allowed extension. Please cancel the tournament.",
+                                                    "Tournament",
+                                                    (int)tournament.TournamentId,
+                                                    actionUrl: "/admin/tournaments"
                                                 );
                                             }
                                             catch (Exception ex)
                                             {
-                                                Console.WriteLine($"[NOTIFICATION ERROR] Failed to send notification to owner {ownerId}: {ex.Message}");
+                                                Console.WriteLine($"[NOTIFICATION ERROR] Failed to send cancellation warning to admin {adminId}: {ex.Message}");
                                             }
                                         }
                                     }
                                 }
+                            }
+                        }
+
+                        // 3. Warn Admins during the final 24 hours when a tournament is not ready.
+                        // A notification is sent at most once every 12 hours per tournament.
+                        var readinessDeadline = now.AddHours(24);
+                        var readinessTournaments = await context.Tournaments
+                            .Where(t => t.StartDate != null &&
+                                        t.StartDate <= readinessDeadline &&
+                                        t.EndDate >= now &&
+                                        t.Status != "Completed" &&
+                                        t.Status != "Finished" &&
+                                        t.Status != "Cancelled")
+                            .ToListAsync(stoppingToken);
+
+                        foreach (var tournament in readinessTournaments)
+                        {
+                            var raceIds = await (
+                                from round in context.Rounds.AsNoTracking()
+                                join race in context.Races.AsNoTracking() on round.RoundId equals race.RoundId
+                                where round.TournamentId == tournament.TournamentId
+                                select race.RaceId
+                            ).ToListAsync(stoppingToken);
+
+                            var raceIdsWithLanes = await context.RaceEntries.AsNoTracking()
+                                .Where(entry => raceIds.Contains(entry.RaceId))
+                                .Select(entry => entry.RaceId)
+                                .Distinct()
+                                .ToListAsync(stoppingToken);
+                            var hasCompleteLanes = raceIds.Count > 0 && raceIdsWithLanes.Count == raceIds.Count;
+
+                            var assignedRefereeRaceIds = await context.RaceRefereeAssignments.AsNoTracking()
+                                .Where(assignment => raceIds.Contains(assignment.RaceId))
+                                .Select(assignment => assignment.RaceId)
+                                .Distinct()
+                                .ToListAsync(stoppingToken);
+                            var hasMissingReferees = raceIds.Count == 0 || assignedRefereeRaceIds.Count < raceIds.Count;
+
+                            if (hasCompleteLanes && !hasMissingReferees)
+                            {
+                                continue;
+                            }
+
+                            var recentlyWarned = await context.Notifications.AsNoTracking()
+                                .AnyAsync(n => n.ReferenceId == (int)tournament.TournamentId &&
+                                               n.Title == "Tournament Readiness Warning" &&
+                                               n.CreatedAt >= DateTime.UtcNow.AddHours(-12), stoppingToken);
+                            if (recentlyWarned || notificationService == null)
+                            {
+                                continue;
+                            }
+
+                            var missingItems = new List<string>();
+                            if (!hasCompleteLanes) missingItems.Add("lane assignments");
+                            if (hasMissingReferees) missingItems.Add("referee assignments");
+                            var missingText = string.Join(" and ", missingItems);
+                            var adminIds = await context.Users.AsNoTracking()
+                                .Where(user => user.RoleId == 1)
+                                .Select(user => user.UserId)
+                                .ToListAsync(stoppingToken);
+
+                            foreach (var adminId in adminIds)
+                            {
+                                await notificationService.SendNotificationToUserAsync(
+                                    adminId,
+                                    "Tournament Readiness Warning",
+                                    $"Tournament '{tournament.Name}' starts within 24 hours but is missing {missingText}. It cannot become Active until these issues are resolved.",
+                                    "System",
+                                    referenceId: (int)tournament.TournamentId,
+                                    actionUrl: "/admin/races"
+                                );
                             }
                         }
                     }

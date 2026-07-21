@@ -209,4 +209,10 @@ public class MedicalCheckRepository : IMedicalCheckRepository
             .Where(m => m.RegistrationId == null && m.HorseId == horseId && m.MedicalResult == "Pending")
             .FirstOrDefaultAsync();
     }
+
+    public async Task<HorseRacing.Application.Features.FinancialRewards.Interfaces.IDbTransaction> BeginTransactionAsync()
+    {
+        var tx = await _context.Database.BeginTransactionAsync();
+        return new EfDbTransaction(tx);
+    }
 }

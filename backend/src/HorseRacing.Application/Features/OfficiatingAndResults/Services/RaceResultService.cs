@@ -52,16 +52,25 @@ public class RaceResultService : IRaceResultService
         {
             throw new KeyNotFoundException($"Race with ID {request.RaceId} was not found.");
         }
+        if (race.RaceDate > DateTime.UtcNow)
+            throw new InvalidOperationException("Race results cannot be submitted before the scheduled race time.");
+        var submitAllowedStatuses = new[] { "Scheduled", "Active", "Live", "InProgress", "Running", "AwaitingResults" };
+        if (!submitAllowedStatuses.Contains(race.Status, StringComparer.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Race results cannot be submitted while race status is '{race.Status}'.");
 
-        // 2. Validate referee assignment if RefereeId is provided
-        if (request.RefereeId.HasValue)
+        // 2. Validate referee assignment (always mandatory)
+        if (!request.RefereeId.HasValue)
         {
-            var assignment = await _repository.GetAssignmentAsync(request.RaceId, request.RefereeId.Value);
-            if (assignment == null)
-            {
-                throw new InvalidOperationException("The referee is not assigned to this race.");
-            }
+            throw new ArgumentException("RefereeId is required to submit race results.");
         }
+
+        var refereeAssignment = await _repository.GetAssignmentAsync(request.RaceId, request.RefereeId.Value);
+        if (refereeAssignment == null)
+        {
+            throw new InvalidOperationException("The referee is not assigned to this race.");
+        }
+        if (!string.Equals(refereeAssignment.Status, "Active", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("The referee assignment is no longer active.");
 
         // 3. Validate Winner parameter
         if (string.IsNullOrWhiteSpace(request.Winner))
@@ -108,6 +117,25 @@ public class RaceResultService : IRaceResultService
         {
             if (request.Entries != null && request.Entries.Any())
             {
+                if (request.Entries.Any(item => item.RaceEntryId <= 0 || item.FinishPosition <= 0 || item.FinishTime <= 0))
+                    throw new ArgumentException("Every result entry must have a valid entry ID, positive finish position, and positive finish time.");
+                if (request.Entries.Select(item => item.RaceEntryId).Distinct().Count() != request.Entries.Count)
+                    throw new ArgumentException("The submitted leaderboard contains duplicate race entries.");
+                if (request.Entries.Select(item => item.FinishPosition).Distinct().Count() != request.Entries.Count)
+                    throw new ArgumentException("Finish positions must be unique.");
+
+                var eligibleEntries = entries.Where(item =>
+                    item.Registration?.Horse != null &&
+                    !new[] { "Sick", "Injured" }.Contains(item.Registration.Horse.HealthStatus, StringComparer.OrdinalIgnoreCase) &&
+                    !invalidWinnerStatuses.Contains(item.Status, StringComparer.OrdinalIgnoreCase)).ToList();
+                var submittedIds = request.Entries.Select(item => item.RaceEntryId).OrderBy(id => id).ToList();
+                var eligibleIds = eligibleEntries.Select(item => item.RaceEntryId).OrderBy(id => id).ToList();
+                if (!submittedIds.SequenceEqual(eligibleIds))
+                    throw new ArgumentException("The leaderboard must contain every eligible horse in this race exactly once.");
+                var winningInput = request.Entries.SingleOrDefault(item => item.FinishPosition == 1);
+                if (winningInput == null || winningInput.RaceEntryId != entry.RaceEntryId)
+                    throw new ArgumentException("Winner must match the race entry in finish position 1.");
+
                 foreach (var manualEntry in request.Entries)
                 {
                     var match = entries.FirstOrDefault(re => re.RaceEntryId == manualEntry.RaceEntryId);
@@ -189,6 +217,55 @@ public class RaceResultService : IRaceResultService
 
         await _repository.AddResultAsync(result);
         await _repository.SaveChangesAsync();
+
+        // Dispatch notifications
+        try
+        {
+            // 1. Notify assigned referees
+            var assignments = await _repository.GetAssignmentsForRaceAsync(race.RaceId);
+            var tournamentName = race.Round?.Tournament?.Name ?? "Giải đấu";
+            foreach (var assignment in assignments)
+            {
+                if (assignment.RefereeProfile != null)
+                {
+                    await _notificationService.SendNotificationToUserAsync(
+                        assignment.RefereeProfile.UserId,
+                        "Giải đấu được phân công đã kết thúc",
+                        $"Giải đấu '{tournamentName}' mà bạn được phân công đã kết thúc, hãy gửi vi phạm và kết quả cho admin.",
+                        "System",
+                        referenceId: (int)race.RaceId,
+                        actionUrl: "/referee/schedule"
+                    );
+                }
+            }
+
+            // 2. Notify admins
+            var adminIds = await _repository.GetAdminUserIdsAsync();
+            foreach (var adminId in adminIds)
+            {
+                await _notificationService.SendNotificationToUserAsync(
+                    adminId,
+                    "Race Results Submitted",
+                    $"The results for race '{race.Name}' have been submitted and are pending review.",
+                    "Race",
+                    referenceId: (int)race.RaceId,
+                    actionUrl: "/admin/results"
+                );
+            }
+
+            // 3. Broadcast to all users
+            await _notificationService.BroadcastNotificationAsync(
+                "Race Completed",
+                $"Race '{race.Name}' has completed. Results are pending review.",
+                "Race",
+                referenceId: (int)race.RaceId,
+                actionUrl: "/spectator/live"
+            );
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[NOTIFICATION ERROR] Failed to dispatch notifications on race completion: {ex.Message}");
+        }
 
         // Auto-trigger Final Race generation if all Pre-round races are completed
         await TryAutoGenerateFinalRaceAsync(race);
@@ -307,6 +384,25 @@ public class RaceResultService : IRaceResultService
         catch (Exception ex)
         {
             Console.WriteLine($"[Notification Error] Failed to broadcast race result publication: {ex.Message}");
+        }
+
+        try
+        {
+            var refereeAssignments = await _repository.GetAssignmentsForRaceAsync(race.RaceId);
+            foreach (var assignment in refereeAssignments.Where(a => a.RefereeProfile != null))
+            {
+                await _notificationService.SendNotificationToUserAsync(
+                    assignment.RefereeProfile!.UserId,
+                    "Race results approved",
+                    $"Admin approved and published the results for race '{race.Name}'.",
+                    "Result",
+                    referenceId: (int)race.RaceId,
+                    actionUrl: "/referee/confirm-results");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Notification Error] Failed to notify referees about result publication: {ex.Message}");
         }
 
         return new RaceResultResponse

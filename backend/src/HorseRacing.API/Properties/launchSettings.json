@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "HorseRacing.API": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:55445;http://localhost:55446"
+    }
+  }
+}

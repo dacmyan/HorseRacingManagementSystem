@@ -35,7 +35,7 @@ public class ResultRepository : IResultRepository
     public async Task<RaceRefereeAssignment?> GetAssignmentAsync(long raceId, int refereeId)
     {
         return await _context.RaceRefereeAssignments
-            .FirstOrDefaultAsync(rra => rra.RaceId == raceId && rra.RefereeId == refereeId);
+            .FirstOrDefaultAsync(rra => rra.RaceId == raceId && rra.RefereeId == refereeId && rra.Status == "Active");
     }
 
     public async Task<Horse?> GetHorseByIdOrNameAsync(string identifier)
@@ -118,6 +118,23 @@ public class ResultRepository : IResultRepository
     {
         return await _context.Races
             .Where(r => r.RoundId == roundId)
+            .ToListAsync();
+    }
+
+    public async Task<List<int>> GetAdminUserIdsAsync()
+    {
+        return await _context.Users.AsNoTracking()
+            .Where(u => u.RoleId == 1)
+            .Select(u => u.UserId)
+            .ToListAsync();
+    }
+
+    public async Task<List<RaceRefereeAssignment>> GetAssignmentsForRaceAsync(long raceId)
+    {
+        return await _context.RaceRefereeAssignments
+            .Include(a => a.RefereeProfile)
+                .ThenInclude(p => p!.User)
+            .Where(a => a.RaceId == raceId)
             .ToListAsync();
     }
 }

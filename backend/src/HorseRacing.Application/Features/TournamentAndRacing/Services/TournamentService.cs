@@ -7,6 +7,7 @@ using HorseRacing.Application.Features.TournamentAndRacing.Interfaces;
 using HorseRacing.Domain.Entities.Tournaments;
 using HorseRacing.Domain.Entities;
 using HorseRacing.Application.Features.BettingEngine.Interfaces;
+using HorseRacing.Application.Features.FinancialRewards.Interfaces;
 
 using HorseRacing.Application.Features.Notifications.Interfaces;
 
@@ -17,28 +18,76 @@ public class TournamentService : ITournamentService
     private readonly ITournamentRepository _tournamentRepository;
     private readonly IBettingService? _bettingService;
     private readonly INotificationService _notificationService;
+    private readonly IWalletRepository? _walletRepository;
 
     public TournamentService(
         ITournamentRepository tournamentRepository,
         INotificationService notificationService,
-        IBettingService? bettingService = null)
+        IBettingService? bettingService = null,
+        IWalletRepository? walletRepository = null)
     {
         _tournamentRepository = tournamentRepository;
         _notificationService = notificationService;
         _bettingService = bettingService;
+        _walletRepository = walletRepository;
     }
 
-    public async Task<TournamentResponse> CreateTournamentAsync(CreateTournamentRequest request)
+    public async Task<TournamentResponse> CreateTournamentAsync(CreateTournamentRequest request, int adminUserId = 0)
     {
         if (request == null)
         {
             throw new ArgumentNullException(nameof(request));
         }
 
+        request.Name = request.Name?.Trim() ?? string.Empty;
+        request.Description = request.Description?.Trim() ?? string.Empty;
+
         if (string.IsNullOrWhiteSpace(request.Name))
         {
             throw new ArgumentException("Tournament name cannot be empty.", nameof(request.Name));
         }
+
+        if (request.Name.Length > 150)
+            throw new ArgumentException("Tournament name cannot exceed 150 characters.", nameof(request.Name));
+        if (request.Description.Length > 2000)
+            throw new ArgumentException("Tournament description cannot exceed 2000 characters.", nameof(request.Description));
+        if (await _tournamentRepository.NameExistsAsync(request.Name))
+            throw new ArgumentException($"A tournament named '{request.Name}' already exists.", nameof(request.Name));
+        if (request.NumberOfRounds != 2)
+            throw new ArgumentException("This workflow requires exactly 2 rounds (Pre Round and Final Round).", nameof(request.NumberOfRounds));
+
+        if (request.Prizes == null || request.Prizes.Count != 3)
+            throw new ArgumentException("Please enter all three prize amounts: first, second, and third place.", nameof(request.Prizes));
+
+        var prizesByRank = request.Prizes.GroupBy(p => p.RankPosition).ToDictionary(g => g.Key, g => g.ToList());
+        if (!new[] { 1, 2, 3 }.All(rank => prizesByRank.TryGetValue(rank, out var entries) && entries.Count == 1))
+            throw new ArgumentException("Prize ranks must contain exactly one entry for first, second, and third place.", nameof(request.Prizes));
+
+        var firstAmount = prizesByRank[1][0].Amount;
+        var secondAmount = prizesByRank[2][0].Amount;
+        var thirdAmount = prizesByRank[3][0].Amount;
+        if (firstAmount <= 0 || secondAmount <= 0 || thirdAmount <= 0)
+            throw new ArgumentException("All prize amounts must be greater than zero.", nameof(request.Prizes));
+        if (!(firstAmount > secondAmount && secondAmount > thirdAmount))
+            throw new ArgumentException("Prize amounts must follow: first place > second place > third place.", nameof(request.Prizes));
+        foreach (var prize in request.Prizes)
+        {
+            if (prize.OwnerPercentage == 0 && prize.JockeyPercentage == 0)
+                prize.OwnerPercentage = 100;
+            if (prize.OwnerPercentage < 0 || prize.OwnerPercentage > 100 ||
+                prize.JockeyPercentage < 0 || prize.JockeyPercentage > 100 ||
+                prize.OwnerPercentage + prize.JockeyPercentage != 100)
+                throw new ArgumentException($"Prize rank {prize.RankPosition} percentages must total exactly 100%.", nameof(request.Prizes));
+        }
+
+        var totalPrizePool = firstAmount + secondAmount + thirdAmount;
+        if (adminUserId <= 0 || _walletRepository == null)
+            throw new ArgumentException("Unable to verify the Admin wallet for this tournament.");
+
+        var adminWallet = await _walletRepository.GetByUserIdAsync(adminUserId);
+        var adminBalance = adminWallet?.Balance ?? 0m;
+        if (adminBalance < totalPrizePool)
+            throw new ArgumentException($"Insufficient Admin wallet balance. Current balance: {adminBalance:N0} VND; required prize pool: {totalPrizePool:N0} VND. Please enter lower prize amounts or deposit more funds.");
 
         await ValidateTournamentDatesAsync(
             request.RegistrationStartDate, 
@@ -76,31 +125,14 @@ public class TournamentService : ITournamentService
                 await _tournamentRepository.AddPrizeAsync(prize);
             }
         }
-        else
-        {
-            // Create default prizes (Champion, Runner-up, Third Place)
-            var defaultPrizes = new List<HorseRacing.Domain.Entities.Financials.Prize>
-            {
-                new() { TournamentId = tournament.TournamentId, RankPosition = 1, Amount = 10000m, OwnerPercentage = 70m, JockeyPercentage = 30m },
-                new() { TournamentId = tournament.TournamentId, RankPosition = 2, Amount = 5000m, OwnerPercentage = 70m, JockeyPercentage = 30m },
-                new() { TournamentId = tournament.TournamentId, RankPosition = 3, Amount = 2500m, OwnerPercentage = 70m, JockeyPercentage = 30m }
-            };
-            foreach (var prize in defaultPrizes)
-            {
-                await _tournamentRepository.AddPrizeAsync(prize);
-            }
-        }
         await _tournamentRepository.SaveChangesAsync();
 
         try
         {
-            await _notificationService.BroadcastNotificationAsync(
-                "New Tournament Scheduled",
-                $"Tournament '{tournament.Name}' starting on {tournament.StartDate:dd/MM/yyyy} has been scheduled. Registration will open on {tournament.RegistrationStartDate:dd/MM/yyyy HH:mm} (Vietnam Time).",
-                "Tournament",
-                referenceId: (int)tournament.TournamentId,
-                actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
-            );
+            var msg = $"Giải đấu '{tournament.Name}' đã được tạo thành công. Thời gian mở đăng ký bắt đầu từ {tournament.RegistrationStartDate:dd/MM/yyyy HH:mm}.";
+            await _notificationService.SendNotificationToRoleAsync("HorseOwner", "Giải đấu mới được tạo", msg, "Tournament", (int)tournament.TournamentId, actionUrl: "/owner/tournaments");
+            await _notificationService.SendNotificationToRoleAsync("Jockey", "Giải đấu mới được tạo", msg, "Tournament", (int)tournament.TournamentId, actionUrl: "/jockey/schedule");
+            await _notificationService.SendNotificationToRoleAsync("Spectator", "Giải đấu mới được tạo", msg, "Tournament", (int)tournament.TournamentId, actionUrl: $"/spectator/tournaments/{tournament.TournamentId}");
         }
         catch (Exception ex)
         {
@@ -123,10 +155,26 @@ public class TournamentService : ITournamentService
             return null;
         }
 
+        request.Name = request.Name?.Trim() ?? string.Empty;
+        request.Description = request.Description?.Trim() ?? string.Empty;
+        request.Status = request.Status?.Trim() ?? string.Empty;
+
         if (string.IsNullOrWhiteSpace(request.Name))
         {
             throw new ArgumentException("Tournament name cannot be empty.", nameof(request.Name));
         }
+
+        if (request.Name.Length > 150)
+            throw new ArgumentException("Tournament name cannot exceed 150 characters.", nameof(request.Name));
+        if (request.Description.Length > 2000)
+            throw new ArgumentException("Tournament description cannot exceed 2000 characters.", nameof(request.Description));
+        if (request.NumberOfRounds != 2)
+            throw new ArgumentException("This workflow requires exactly 2 rounds (Pre Round and Final Round).", nameof(request.NumberOfRounds));
+        if (await _tournamentRepository.NameExistsAsync(request.Name, id))
+            throw new ArgumentException($"A tournament named '{request.Name}' already exists.", nameof(request.Name));
+        if (string.Equals(tournament.Status, "Completed", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(tournament.Status, "Cancelled", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"A {tournament.Status} tournament cannot be edited.");
 
         await ValidateTournamentDatesAsync(
             request.RegistrationStartDate, 
@@ -144,6 +192,37 @@ public class TournamentService : ITournamentService
         tournament.EndDate = request.EndDate;
         if (!string.IsNullOrEmpty(request.Status))
         {
+            var allowedTransitions = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["PendingRegistration"] = ["Registration Open", "Cancelled"],
+                ["Registration Open"] = ["PendingScheduling", "Cancelled"],
+                ["PendingScheduling"] = ["Upcoming", "Cancelled"],
+                ["PendingAdminAttention"] = ["Upcoming", "Cancelled"],
+                ["Upcoming"] = ["Active", "Cancelled"],
+                ["Active"] = ["AwaitingResults"],
+                ["AwaitingResults"] = ["Completed"]
+            };
+            if (!string.Equals(tournament.Status, request.Status, StringComparison.OrdinalIgnoreCase) &&
+                (!allowedTransitions.TryGetValue(tournament.Status, out var nextStatuses) ||
+                 !nextStatuses.Contains(request.Status, StringComparer.OrdinalIgnoreCase)))
+                throw new InvalidOperationException($"Tournament status cannot change from '{tournament.Status}' to '{request.Status}'.");
+
+            if (string.Equals(request.Status, "Active", StringComparison.OrdinalIgnoreCase))
+            {
+                if (VietnamNow < request.StartDate)
+                {
+                    throw new InvalidOperationException("Tournament cannot become Active before its start date.");
+                }
+
+                if (!await _tournamentRepository.HasCompleteLaneAssignmentsAsync(id))
+                {
+                    throw new InvalidOperationException("Tournament cannot become Active before lanes are assigned for every race.");
+                }
+                if (await _tournamentRepository.HasRacesMissingRefereesAsync(id))
+                {
+                    throw new InvalidOperationException("Tournament cannot become Active before every race has a referee.");
+                }
+            }
             tournament.Status = request.Status;
         }
 
@@ -152,13 +231,23 @@ public class TournamentService : ITournamentService
 
         try
         {
-            await _notificationService.BroadcastNotificationAsync(
-                "Tournament Updated",
-                $"Tournament '{tournament.Name}' has updated its information and status changed to '{tournament.Status}'.",
-                "Tournament",
-                referenceId: (int)tournament.TournamentId,
-                actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
-            );
+            if (string.Equals(tournament.Status, "Cancelled", StringComparison.OrdinalIgnoreCase))
+            {
+                var cancelMsg = $"Giải đấu '{tournament.Name}' đã bị hủy.";
+                await _notificationService.SendNotificationToRoleAsync("HorseOwner", "Giải đấu bị hủy", cancelMsg, "Tournament", (int)tournament.TournamentId);
+                await _notificationService.SendNotificationToRoleAsync("Jockey", "Giải đấu bị hủy", cancelMsg, "Tournament", (int)tournament.TournamentId);
+                await _notificationService.SendNotificationToRoleAsync("Spectator", "Giải đấu bị hủy", cancelMsg, "Tournament", (int)tournament.TournamentId);
+            }
+            else
+            {
+                await _notificationService.BroadcastNotificationAsync(
+                    "Cập nhật giải đấu",
+                    $"Giải đấu '{tournament.Name}' đã được cập nhật thông tin.",
+                    "Tournament",
+                    referenceId: (int)tournament.TournamentId,
+                    actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
+                );
+            }
         }
         catch (Exception ex)
         {
@@ -175,8 +264,23 @@ public class TournamentService : ITournamentService
         bool anyChanged = false;
         var closedRegistrationTournamentIds = new List<long>();
         DateTime vietnamNow = VietnamNow;
+        var readinessByTournament = await _tournamentRepository.GetReadinessByTournamentIdsAsync(
+            tournaments.Select(t => t.TournamentId));
         foreach (var t in tournaments)
         {
+            var readiness = readinessByTournament[t.TournamentId];
+            var hasCompleteLanes = readiness.HasCompleteLaneAssignments;
+            if (t.Status == "Active" && !hasCompleteLanes)
+            {
+                t.Status = "PendingScheduling";
+                anyChanged = true;
+            }
+            else if (t.Status == "Active" && t.StartDate.HasValue && vietnamNow < t.StartDate.Value)
+            {
+                t.Status = "Upcoming";
+                anyChanged = true;
+            }
+
             if ((t.Status == "PendingRegistration" || t.Status == "Registration Open") && 
                 t.RegistrationEndDate.HasValue && 
                 vietnamNow >= t.RegistrationEndDate.Value)
@@ -196,7 +300,30 @@ public class TournamentService : ITournamentService
                 t.StartDate.HasValue && 
                 vietnamNow >= t.StartDate.Value)
             {
-                if (await _tournamentRepository.HasRacesMissingRefereesAsync(t.TournamentId))
+                if (!hasCompleteLanes)
+                {
+                    t.Status = "PendingScheduling";
+                    try
+                    {
+                        var adminIds = await _tournamentRepository.GetAdminUserIdsAsync();
+                        foreach (var adminId in adminIds)
+                        {
+                            await _notificationService.SendNotificationToUserAsync(
+                                adminId,
+                                "Lane Assignment Required",
+                                $"Tournament '{t.Name}' has reached its start date but lanes have not been assigned for every race. The tournament remains pending scheduling.",
+                                "System",
+                                (int)t.TournamentId,
+                                actionUrl: "/admin/races"
+                            );
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[NOTIFICATION ERROR] Failed to notify admins: {ex.Message}");
+                    }
+                }
+                else if (readiness.HasMissingReferees)
                 {
                     t.Status = "PendingAdminAttention";
                     try
@@ -206,8 +333,8 @@ public class TournamentService : ITournamentService
                         {
                             await _notificationService.SendNotificationToUserAsync(
                                 adminId,
-                                "Giải đấu cần phân công trọng tài",
-                                $"Giải đấu '{t.Name}' chưa được phân công trọng tài đầy đủ cho tất cả cuộc đua. Vui lòng phân công để giải đấu có thể bắt đầu.",
+                                "Referees Assignment Required",
+                                $"Tournament '{t.Name}' does not have full referees assigned for all races. Please assign referees so the tournament can start.",
                                 "System",
                                 (int)t.TournamentId
                             );
@@ -221,6 +348,20 @@ public class TournamentService : ITournamentService
                 else
                 {
                     t.Status = "Active";
+                    try
+                    {
+                        await _notificationService.BroadcastNotificationAsync(
+                            "Tournament Started",
+                            $"Tournament '{t.Name}' has officially started. Let the races begin!",
+                            "Tournament",
+                            referenceId: (int)t.TournamentId,
+                            actionUrl: $"/spectator/tournaments/{t.TournamentId}"
+                        );
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[NOTIFICATION ERROR] Failed to broadcast tournament start: {ex.Message}");
+                    }
                 }
                 anyChanged = true;
             }
@@ -270,7 +411,9 @@ public class TournamentService : ITournamentService
         var responses = tournaments.Select(MapToResponse).ToList();
         foreach (var r in responses)
         {
-            r.HasMissingReferees = await _tournamentRepository.HasRacesMissingRefereesAsync(r.TournamentId);
+            var readiness = readinessByTournament[r.TournamentId];
+            r.HasMissingReferees = readiness.HasMissingReferees;
+            r.HasCompleteLaneAssignments = readiness.HasCompleteLaneAssignments;
         }
         return responses;
     }
@@ -286,6 +429,19 @@ public class TournamentService : ITournamentService
         DateTime vietnamNow = VietnamNow;
         bool changed = false;
         bool registrationJustClosed = false;
+        var hasCompleteLanes = await _tournamentRepository.HasCompleteLaneAssignmentsAsync(tournament.TournamentId);
+        if (tournament.Status == "Active" && !hasCompleteLanes)
+        {
+            tournament.Status = "PendingScheduling";
+            changed = true;
+        }
+        else if (tournament.Status == "Active" &&
+                 tournament.StartDate.HasValue &&
+                 vietnamNow < tournament.StartDate.Value)
+        {
+            tournament.Status = "Upcoming";
+            changed = true;
+        }
         if ((tournament.Status == "PendingRegistration" || tournament.Status == "Registration Open") && 
             tournament.RegistrationEndDate.HasValue && 
             vietnamNow >= tournament.RegistrationEndDate.Value)
@@ -305,7 +461,30 @@ public class TournamentService : ITournamentService
             tournament.StartDate.HasValue && 
             vietnamNow >= tournament.StartDate.Value)
         {
-            if (await _tournamentRepository.HasRacesMissingRefereesAsync(tournament.TournamentId))
+            if (!hasCompleteLanes)
+            {
+                tournament.Status = "PendingScheduling";
+                try
+                {
+                    var adminIds = await _tournamentRepository.GetAdminUserIdsAsync();
+                    foreach (var adminId in adminIds)
+                    {
+                        await _notificationService.SendNotificationToUserAsync(
+                            adminId,
+                            "Lane Assignment Required",
+                            $"Tournament '{tournament.Name}' has reached its start date but lanes have not been assigned for every race. The tournament remains pending scheduling.",
+                            "System",
+                            (int)tournament.TournamentId,
+                            actionUrl: "/admin/races"
+                        );
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[NOTIFICATION ERROR] Failed to notify admins: {ex.Message}");
+                }
+            }
+            else if (await _tournamentRepository.HasRacesMissingRefereesAsync(tournament.TournamentId))
             {
                 tournament.Status = "PendingAdminAttention";
                 try
@@ -315,8 +494,8 @@ public class TournamentService : ITournamentService
                     {
                         await _notificationService.SendNotificationToUserAsync(
                             adminId,
-                            "Giải đấu cần phân công trọng tài",
-                            $"Giải đấu '{tournament.Name}' chưa được phân công trọng tài đầy đủ cho tất cả cuộc đua. Vui lòng phân công để giải đấu có thể bắt đầu.",
+                            "Referees Assignment Required",
+                            $"Tournament '{tournament.Name}' does not have full referees assigned for all races. Please assign referees so the tournament can start.",
                             "System",
                             (int)tournament.TournamentId
                         );
@@ -330,6 +509,20 @@ public class TournamentService : ITournamentService
             else
             {
                 tournament.Status = "Active";
+                try
+                {
+                    await _notificationService.BroadcastNotificationAsync(
+                        "Tournament Started",
+                        $"Tournament '{tournament.Name}' has officially started. Let the races begin!",
+                        "Tournament",
+                        referenceId: (int)tournament.TournamentId,
+                        actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
+                    );
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[NOTIFICATION ERROR] Failed to broadcast tournament start: {ex.Message}");
+                }
             }
             changed = true;
         }
@@ -378,6 +571,7 @@ public class TournamentService : ITournamentService
 
         var response = MapToResponse(tournament);
         response.HasMissingReferees = await _tournamentRepository.HasRacesMissingRefereesAsync(id);
+        response.HasCompleteLaneAssignments = await _tournamentRepository.HasCompleteLaneAssignmentsAsync(id);
         return response;
     }
 
@@ -396,23 +590,15 @@ public class TournamentService : ITournamentService
             throw new InvalidOperationException("Registration period has not ended yet.");
         }
 
-        // Validation 2: Tournament must not have already generated races
-        if (string.Equals(tournament.Status, "Upcoming", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(tournament.Status, "Active", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(tournament.Status, "PendingAdminAttention", StringComparison.OrdinalIgnoreCase) ||
+        // Validation 2: Prevent generating races if the tournament status is Ongoing, Finished, or Completed
+        if (string.Equals(tournament.Status, "Ongoing", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(tournament.Status, "Finished", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(tournament.Status, "Completed", StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException("Races have already been generated for this tournament.");
+            throw new InvalidOperationException("Giải đấu đã hoặc đang diễn ra hoặc đã kết thúc. Không được phép gán lại làn đua!");
         }
 
-        // Validation 2b: Prevent generating races if the tournament status is Ongoing, Finished, or Completed
-        if (string.Equals(tournament.Status, "Ongoing", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(tournament.Status, "Finished", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException("Giải đấu đã hoặc đang diễn ra. Không được phép gán lại làn đua!");
-        }
-
-        // Validation 2c: Prevent generating races if lanes are already assigned or any race is Live/InProgress/Finished/Completed
+        // Validation 2b: Prevent generating races if any race is Live/InProgress/Finished/Completed
         var existingRounds = tournament.Rounds.ToList();
         foreach (var round in existingRounds)
         {
@@ -425,12 +611,6 @@ public class TournamentService : ITournamentService
                     string.Equals(race.Status, "Completed", StringComparison.OrdinalIgnoreCase))
                 {
                     throw new InvalidOperationException("Lượt đua này đã hoặc đang bắt đầu diễn ra. Không được phép gán lại làn đua!");
-                }
-
-                var entries = await _tournamentRepository.GetRaceEntriesByRaceIdAsync(race.RaceId);
-                if (entries.Any(re => re.LaneNo > 0))
-                {
-                    throw new InvalidOperationException("Lượt đua này đã được xếp làn. Không được phép gán lại làn đua!");
                 }
             }
         }
@@ -615,6 +795,56 @@ public class TournamentService : ITournamentService
         _tournamentRepository.Update(tournament);
         await _tournamentRepository.SaveChangesAsync();
 
+        // Send notifications for scheduled races
+        try
+        {
+            // 2. Notify Spectators
+            await _notificationService.SendNotificationToRoleAsync(
+                "Spectator",
+                "Giải đấu đã được xếp lịch",
+                $"Hãy đặt cược với giải đấu '{tournament.Name}' đã được xếp lịch.",
+                "Tournament",
+                referenceId: (int)tournament.TournamentId,
+                actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
+            );
+
+            // 3. Notify qualified Owners
+            var approvedOwners = qualifiedRegistrations
+                .Select(r => r.Horse.OwnerId)
+                .Distinct()
+                .ToList();
+
+            foreach (var ownerId in approvedOwners)
+            {
+                await _notificationService.SendNotificationToUserAsync(
+                    ownerId,
+                    "Giải đấu đã được xếp lịch",
+                    $"Lịch đua cho giải đấu '{tournament.Name}' đã được xếp thành công. Giải đấu bắt đầu vào {tournament.StartDate:dd/MM/yyyy}.",
+                    "Tournament",
+                    referenceId: (int)tournament.TournamentId,
+                    actionUrl: "/owner/registrations"
+                );
+            }
+
+            // 4. Notify active Jockeys assigned to qualified horses
+            var activeJockeyUserIds = activeJockeys.Values.Distinct().ToList();
+            foreach (var jockeyUserId in activeJockeyUserIds)
+            {
+                await _notificationService.SendNotificationToUserAsync(
+                    jockeyUserId,
+                    "Giải đấu đã được xếp lịch",
+                    $"Giải đấu '{tournament.Name}' mà bạn nài ngựa đã được xếp lịch thi đấu.",
+                    "Tournament",
+                    referenceId: (int)tournament.TournamentId,
+                    actionUrl: "/jockey/schedule"
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[NOTIFICATION ERROR] Failed to send race scheduling notifications: {ex.Message}");
+        }
+
         return resultRaces;
     }
 
@@ -726,11 +956,26 @@ public class TournamentService : ITournamentService
         List<HorseRacing.Domain.Entities.Registration> registrations,
         int maxHorsePerRace)
     {
-        return registrations
-            .Select((reg, index) => new { reg, index })
-            .GroupBy(x => x.index / maxHorsePerRace)
-            .Select(g => g.Select(x => x.reg).ToList())
-            .ToList();
+        if (registrations == null || registrations.Count == 0)
+            return new List<List<HorseRacing.Domain.Entities.Registration>>();
+
+        int total = registrations.Count;
+        int numGroups = (total + maxHorsePerRace - 1) / maxHorsePerRace;
+        int baseSize = total / numGroups;
+        int remainder = total % numGroups;
+
+        var groups = new List<List<HorseRacing.Domain.Entities.Registration>>();
+        int currentIndex = 0;
+
+        for (int i = 0; i < numGroups; i++)
+        {
+            int currentGroupSize = baseSize + (i < remainder ? 1 : 0);
+            var group = registrations.GetRange(currentIndex, currentGroupSize);
+            groups.Add(group);
+            currentIndex += currentGroupSize;
+        }
+
+        return groups;
     }
 
     private static List<HorseRacing.Domain.Entities.RaceEntry> CreateRaceEntriesForRegistrations(
@@ -954,6 +1199,39 @@ public class TournamentService : ITournamentService
         // 6. Recalculate odds for the Final Race
         await _bettingService.RecalculateRaceOddsAsync(finalRace.RaceId);
 
+        // Send notifications for final race scheduling
+        try
+        {
+            var approvedOwners = top12Finalists
+                .Select(f => f.Registration!.Horse.OwnerId)
+                .Distinct()
+                .ToList();
+
+            foreach (var ownerId in approvedOwners)
+            {
+                await _notificationService.SendNotificationToUserAsync(
+                    ownerId,
+                    "Races Scheduled",
+                    $"The Final Race for tournament '{tournament.Name}' has been scheduled. Good luck!",
+                    "Tournament",
+                    referenceId: (int)tournament.TournamentId,
+                    actionUrl: "/owner/registrations"
+                );
+            }
+
+            await _notificationService.BroadcastNotificationAsync(
+                "Races Scheduled",
+                $"The Final Race for tournament '{tournament.Name}' has been scheduled. Place your bets now to win exciting rewards!",
+                "Tournament",
+                referenceId: (int)tournament.TournamentId,
+                actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
+            );
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[NOTIFICATION ERROR] Failed to send final race notifications: {ex.Message}");
+        }
+
         return new RaceScheduleResponse
         {
             RaceId = finalRace.RaceId,
@@ -1014,9 +1292,10 @@ public class TournamentService : ITournamentService
         }
 
         // Ngày bắt đầu giải đấu phải cách ngày đóng đăng ký ít nhất 48 giờ
-        if (startDate < registrationEndDate.AddHours(48))
+        if (startDate < registrationEndDate.AddHours(120))
         {
-            throw new ArgumentException("Tournament start date must be at least 48 hours after registration end date to allow for scheduling and referee assignment.");
+            var earliestStartDate = registrationEndDate.AddDays(5);
+            throw new ArgumentException($"The tournament must start at least 5 days after registration closes. Earliest allowed start: {earliestStartDate:dd/MM/yyyy HH:mm}.");
         }
 
         if (endDate <= startDate)

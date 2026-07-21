@@ -18,6 +18,7 @@ using System.Threading.Tasks;
 using HorseRacing.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
+using System.Security.Claims;
 
 namespace HorseRacing.API.Controllers;
 
@@ -53,6 +54,16 @@ public class AdminController : ControllerBase
         _refereeAssignmentService = refereeAssignmentService;
         _resultService = resultService;
         _registrationService = registrationService;
+    }
+
+    private int GetCurrentUserId()
+    {
+        var nameIdentifier = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(nameIdentifier))
+        {
+            nameIdentifier = User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
+        }
+        return int.Parse(nameIdentifier ?? "0");
     }
 
     [HttpGet("test")]
@@ -220,6 +231,82 @@ public class AdminController : ControllerBase
         }
     }
 
+    [HttpGet("wallet/balance")]
+    public async Task<IActionResult> GetWalletBalance([FromServices] IWalletService walletService)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var response = await walletService.GetBalanceAsync(userId);
+            return Ok(new { message = "Admin wallet balance retrieved successfully", result = response });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WALLET BALANCE ERROR]: {ex}");
+            return StatusCode(500, new { message = "An error occurred retrieving admin wallet balance", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("wallet/history")]
+    public async Task<IActionResult> GetWalletHistory([FromServices] IWalletService walletService)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var response = await walletService.GetTransactionHistoryAsync(userId);
+            return Ok(new { message = "Admin wallet history retrieved successfully", result = response });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WALLET HISTORY ERROR]: {ex}");
+            return StatusCode(500, new { message = "An error occurred retrieving admin wallet history", detail = ex.Message });
+        }
+    }
+
+    [HttpPost("wallet/deposit")]
+    public async Task<IActionResult> DepositWallet([FromBody] DepositRequest request, [FromServices] IWalletService walletService)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var response = await walletService.DepositAsync(userId, request);
+            return Ok(new { message = "Treasury deposit successful", result = response });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WALLET DEPOSIT ERROR]: {ex}");
+            return StatusCode(500, new { message = "An error occurred during treasury deposit", detail = ex.Message });
+        }
+    }
+
+    [HttpPost("wallet/withdraw")]
+    public async Task<IActionResult> WithdrawWallet([FromBody] WithdrawRequest request, [FromServices] IWalletService walletService)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var response = await walletService.WithdrawAsync(userId, request);
+            return Ok(new { message = "Treasury withdrawal successful", result = response });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WALLET WITHDRAW ERROR]: {ex}");
+            return StatusCode(500, new { message = "An error occurred during treasury withdrawal", detail = ex.Message });
+        }
+    }
+
     [HttpPost("payouts/trigger/{raceId}")]
     public async Task<IActionResult> TriggerBetPayout(long raceId)
     {
@@ -248,7 +335,11 @@ public class AdminController : ControllerBase
     {
         try
         {
-            var response = await _tournamentService.CreateTournamentAsync(request);
+            var adminUserIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(adminUserIdValue, out var adminUserId))
+                return Unauthorized(new { message = "Unable to identify the Admin wallet." });
+
+            var response = await _tournamentService.CreateTournamentAsync(request, adminUserId);
             return StatusCode(StatusCodes.Status201Created, response);
         }
         catch (ArgumentException ex)
@@ -297,6 +388,8 @@ public class AdminController : ControllerBase
             {
                 return NotFound(new { message = $"Tournament with ID {id} was not found." });
             }
+            if (!new[] { "PendingRegistration", "Registration Open" }.Contains(tournament.Status, StringComparer.OrdinalIgnoreCase))
+                return BadRequest(new { message = $"Registration cannot be closed while tournament status is '{tournament.Status}'." });
 
             tournament.RegistrationEndDate = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
             tournament.Status = "PendingScheduling";
@@ -408,6 +501,10 @@ public class AdminController : ControllerBase
         {
             return NotFound(new { message = ex.Message });
         }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
         catch (Exception ex)
         {
             return StatusCode(500, new { message = "An error occurred during race deletion", detail = ex.Message });
@@ -469,6 +566,10 @@ public class AdminController : ControllerBase
         catch (KeyNotFoundException ex)
         {
             return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
         }
         catch (Exception ex)
         {
@@ -543,7 +644,12 @@ public class AdminController : ControllerBase
                         .Where(jc => jc.TournamentId == r.TournamentId && jc.HorseId == r.HorseId)
                         .OrderByDescending(jc => jc.CreatedAt)
                         .Select(jc => jc.Status)
-                        .FirstOrDefault() ?? "NoContract"
+                        .FirstOrDefault() ?? "NoContract",
+                    JockeyName = context.JockeyContracts
+                        .Where(jc => jc.TournamentId == r.TournamentId && jc.HorseId == r.HorseId)
+                        .OrderByDescending(jc => jc.CreatedAt)
+                        .Select(jc => jc.Jockey != null ? jc.Jockey.FullName : null)
+                        .FirstOrDefault()
                 })
                 .ToListAsync();
             return Ok(new { message = "Registrations retrieved successfully", result = registrations });
@@ -555,17 +661,25 @@ public class AdminController : ControllerBase
     }
 
     [HttpPut("registrations/{id}/status")]
-    public async Task<IActionResult> ReviewRegistration(int id, [FromBody] ReviewRegistrationRequest request, [FromServices] AppDbContext context)
+    public async Task<IActionResult> ReviewRegistration(int id, [FromBody] ReviewRegistrationRequest request, [FromServices] AppDbContext context, [FromServices] INotificationService notificationService)
     {
         try
         {
-            var registration = await context.Registrations.FindAsync((long)id);
+            var registration = await context.Registrations
+                .Include(r => r.Horse)
+                .Include(r => r.Tournament)
+                .FirstOrDefaultAsync(r => r.RegistrationId == id);
             if (registration == null)
                 return NotFound(new { message = $"Registration #{id} not found." });
 
             var validStatuses = new[] { "Approved", "Rejected" };
-            if (!validStatuses.Contains(request.Status))
+            request.Status = request.Status?.Trim() ?? string.Empty;
+            if (!validStatuses.Contains(request.Status, StringComparer.OrdinalIgnoreCase))
                 return BadRequest(new { message = "Status must be 'Approved' or 'Rejected'." });
+            request.Status = validStatuses.First(s => s.Equals(request.Status, StringComparison.OrdinalIgnoreCase));
+
+            if (!string.Equals(registration.Status, "Pending", StringComparison.OrdinalIgnoreCase))
+                return BadRequest(new { message = "Only Pending registrations can be reviewed." });
 
             if (request.Status == "Approved")
             {
@@ -588,6 +702,33 @@ public class AdminController : ControllerBase
 
             registration.Status = request.Status;
             await context.SaveChangesAsync();
+
+            if (registration.Horse != null)
+            {
+                var approved = request.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase);
+                var title = approved ? "Registration approved" : "Registration rejected";
+                var content = approved
+                    ? $"Your horse '{registration.Horse.Name}' has been approved for tournament '{registration.Tournament?.Name}'."
+                    : $"Your horse '{registration.Horse.Name}' was not approved for tournament '{registration.Tournament?.Name}'.";
+                await notificationService.SendNotificationToUserAsync(
+                    registration.Horse.OwnerId, title, content, "Tournament", (int)registration.TournamentId,
+                    actionUrl: "/owner/registrations");
+
+                if (approved)
+                {
+                    var jockeyUserIds = await context.JockeyContracts
+                        .Where(c => c.TournamentId == registration.TournamentId && c.HorseId == registration.HorseId &&
+                                    (c.Status == "Accepted" || c.Status == "Active"))
+                        .Select(c => c.JockeyId)
+                        .Distinct()
+                        .ToListAsync();
+                    foreach (var userId in jockeyUserIds)
+                        await notificationService.SendNotificationToUserAsync(
+                            userId, title,
+                            $"Horse '{registration.Horse.Name}' that you ride has been approved for tournament '{registration.Tournament?.Name}'.",
+                            "Tournament", (int)registration.TournamentId, actionUrl: "/jockey/schedule");
+                }
+            }
 
             return Ok(new { message = $"Registration #{id} has been {request.Status.ToLower()}.", result = new { registrationId = id, status = registration.Status } });
         }
@@ -706,6 +847,71 @@ public class AdminController : ControllerBase
         }
     }
 
+    [HttpGet("bets/stats")]
+    public async Task<IActionResult> GetBetStats([FromServices] AppDbContext context)
+    {
+        try
+        {
+            var bets = await context.Bets.ToListAsync();
+            var totalBets = bets.Count;
+            var totalAmount = bets.Sum(b => b.Amount);
+            var wonBets = bets.Count(b => b.Status == "Won" || b.Status == "PaidOut");
+            var pendingBets = bets.Count(b => b.Status == "Pending");
+            var lostBets = bets.Count(b => b.Status == "Lost");
+
+            var payouts = await context.Payouts.ToListAsync();
+            var totalPayoutsPaid = payouts.Sum(p => p.Amount);
+            var houseProfit = totalAmount - totalPayoutsPaid;
+
+            var stats = new {
+                TotalBets = totalBets,
+                TotalAmount = totalAmount,
+                WonBets = wonBets,
+                PendingBets = pendingBets,
+                LostBets = lostBets,
+                TotalPayoutsPaid = totalPayoutsPaid,
+                HouseProfit = houseProfit
+            };
+
+            return Ok(new { message = "Bet stats retrieved successfully", result = stats });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving bet stats", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("bets")]
+    public async Task<IActionResult> GetBets([FromServices] AppDbContext context)
+    {
+        try
+        {
+            var bets = await context.Bets
+                .Include(b => b.User)
+                .Include(b => b.Race)
+                .Include(b => b.Horse)
+                .OrderByDescending(b => b.CreatedAt)
+                .Select(b => new {
+                    BetId = b.Id,
+                    SpectatorName = b.User != null ? b.User.FullName : "Unknown",
+                    RaceName = b.Race != null ? b.Race.Name : "Unknown Race",
+                    HorseName = b.Horse != null ? b.Horse.Name : "Unknown Horse",
+                    Amount = b.Amount,
+                    Odds = b.Odds,
+                    PotentialPayout = b.Amount * b.Odds,
+                    Status = b.Status,
+                    CreatedAt = b.CreatedAt
+                })
+                .ToListAsync();
+
+            return Ok(new { message = "Bets retrieved successfully", result = bets });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving bets", detail = ex.Message });
+        }
+    }
+
     [HttpPut("registrations/{id}/approve")]
     public async Task<IActionResult> ApproveRegistration([FromRoute] long id)
     {
@@ -816,6 +1022,46 @@ public class AdminController : ControllerBase
         }
     }
 
+    [HttpGet("referee-reports")]
+    public async Task<IActionResult> GetRefereeReports([FromServices] AppDbContext context)
+    {
+        try
+        {
+            var reports = await context.RefereeReports
+                .AsNoTracking()
+                .OrderByDescending(report => report.CreatedAt)
+                .Select(report => new
+                {
+                    reportId = report.ReportId,
+                    assignmentId = report.AssignmentId,
+                    raceId = report.Assignment != null ? report.Assignment.RaceId : 0,
+                    raceName = report.Assignment != null && report.Assignment.Race != null
+                        ? report.Assignment.Race.Name : string.Empty,
+                    tournamentId = report.Assignment != null && report.Assignment.Race != null && report.Assignment.Race.Round != null
+                        ? report.Assignment.Race.Round.TournamentId : 0,
+                    tournamentName = report.Assignment != null && report.Assignment.Race != null && report.Assignment.Race.Round != null && report.Assignment.Race.Round.Tournament != null
+                        ? report.Assignment.Race.Round.Tournament.Name : string.Empty,
+                    refereeId = report.Assignment != null ? report.Assignment.RefereeId : 0,
+                    refereeName = report.Assignment != null && report.Assignment.RefereeProfile != null && report.Assignment.RefereeProfile.User != null
+                        ? report.Assignment.RefereeProfile.User.FullName : "Unknown Referee",
+                    report.Content,
+                    report.ViolationNote,
+                    report.ReportedUserId,
+                    reportedUserName = report.ReportedUser != null ? report.ReportedUser.FullName : null,
+                    report.ReportedHorseId,
+                    reportedHorseName = report.ReportedHorse != null ? report.ReportedHorse.Name : null,
+                    report.CreatedAt
+                })
+                .ToListAsync();
+
+            return Ok(new { message = "Referee reports retrieved successfully", result = reports });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred retrieving referee reports", detail = ex.Message });
+        }
+    }
+
     [HttpGet("users/options")]
     public async Task<IActionResult> GetUserOptions([FromServices] AppDbContext context)
     {
@@ -874,7 +1120,18 @@ public class AdminController : ControllerBase
                 return NotFound(new { message = $"User with ID {id} was not found." });
             }
 
-            user.Status = user.Status == "Active" ? "Inactive" : "Active";
+            var currentAdminId = GetCurrentUserId();
+            if (id == currentAdminId && string.Equals(user.Status, "Active", StringComparison.OrdinalIgnoreCase))
+                return BadRequest(new { message = "Administrators cannot deactivate their own account." });
+            var isAdmin = await context.Entry(user).Reference(u => u.Role).Query().AnyAsync(r => r.Name == "Admin");
+            if (isAdmin && string.Equals(user.Status, "Active", StringComparison.OrdinalIgnoreCase))
+            {
+                var activeAdminCount = await context.Users.CountAsync(u => u.Role != null && u.Role.Name == "Admin" && u.Status == "Active");
+                if (activeAdminCount <= 1)
+                    return BadRequest(new { message = "The last active administrator cannot be deactivated." });
+            }
+
+            user.Status = string.Equals(user.Status, "Active", StringComparison.OrdinalIgnoreCase) ? "Inactive" : "Active";
             await context.SaveChangesAsync();
 
             return Ok(new { message = "User status updated successfully", result = user });
@@ -918,7 +1175,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPut("violations/{id}/status")]
-    public async Task<IActionResult> UpdateViolationStatus(int id, [FromBody] UpdateViolationStatusRequest request, [FromServices] AppDbContext context)
+    public async Task<IActionResult> UpdateViolationStatus(int id, [FromBody] UpdateViolationStatusRequest request, [FromServices] AppDbContext context, [FromServices] INotificationService notificationService)
     {
         try
         {
@@ -928,13 +1185,34 @@ public class AdminController : ControllerBase
                 return NotFound(new { message = $"Violation with ID {id} was not found." });
             }
 
-            if (request.Status != "Pending" && request.Status != "Confirmed" && request.Status != "Rejected")
+            var requestedStatus = request.Status?.Trim();
+            var validViolationStatuses = new[] { "Pending", "Confirmed", "Rejected" };
+            if (requestedStatus == null || !validViolationStatuses.Contains(requestedStatus, StringComparer.OrdinalIgnoreCase))
             {
                 return BadRequest(new { message = "Invalid status. Must be 'Pending', 'Confirmed', or 'Rejected'." });
             }
 
-            violation.Status = request.Status;
+            requestedStatus = validViolationStatuses.First(s => s.Equals(requestedStatus, StringComparison.OrdinalIgnoreCase));
+            if (!string.Equals(violation.Status, "Pending", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(violation.Status, requestedStatus, StringComparison.OrdinalIgnoreCase))
+                return BadRequest(new { message = $"A {violation.Status} violation cannot be changed to {requestedStatus}." });
+
+            violation.Status = requestedStatus;
             await context.SaveChangesAsync();
+
+            var refereeUserIds = await context.RaceRefereeAssignments
+                .Where(a => a.RaceId == violation.RaceId && a.RefereeProfile != null)
+                .Select(a => a.RefereeProfile!.UserId)
+                .Distinct()
+                .ToListAsync();
+            foreach (var userId in refereeUserIds)
+                await notificationService.SendNotificationToUserAsync(
+                    userId,
+                    "Violation report reviewed",
+                    $"Violation #{violation.Id} for race #{violation.RaceId} has been {violation.Status.ToLowerInvariant()} by Admin.",
+                    "Race",
+                    referenceId: (int)violation.RaceId,
+                    actionUrl: "/referee/violations");
 
             return Ok(new { message = "Violation status updated successfully", result = violation });
         }
@@ -983,7 +1261,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("races/entries/{raceEntryId}/withdraw")]
-    public async Task<IActionResult> WithdrawRaceEntry([FromRoute] long raceEntryId, [FromBody] WithdrawEntryRequest request, [FromServices] AppDbContext context)
+    public async Task<IActionResult> WithdrawRaceEntry([FromRoute] long raceEntryId, [FromBody] WithdrawEntryRequest request, [FromServices] AppDbContext context, [FromServices] INotificationService notificationService)
     {
         try
         {
@@ -1007,7 +1285,12 @@ public class AdminController : ControllerBase
             var alreadyFinalStatuses = new[] { "Withdrawn", "Scratch", "DNF", "Disqualified", "Finished", "Completed" };
             if (alreadyFinalStatuses.Any(s => string.Equals(entry.Status, s, StringComparison.OrdinalIgnoreCase)))
             {
-                return BadRequest(new { message = $"Race entry is already in a final status '{entry.Status}'." });
+                var horseName = entry.Registration?.Horse?.Name ?? "This horse";
+                if (string.Equals(entry.Status, "Withdrawn", StringComparison.OrdinalIgnoreCase))
+                {
+                    return BadRequest(new { message = $"Horse '{horseName}' has medical/health issues and has been automatically withdrawn from the race." });
+                }
+                return BadRequest(new { message = $"Race entry for horse '{horseName}' is already in final status '{entry.Status}'." });
             }
 
             if (string.Equals(race.Status, "Finished", StringComparison.OrdinalIgnoreCase) ||
@@ -1025,7 +1308,9 @@ public class AdminController : ControllerBase
                 return BadRequest(new { message = "Cannot disqualify this horse. Only horses diagnosed by the veterinarian as Sick or Injured can be disqualified." });
             }
 
-            var reason = request?.Reason ?? "AdminDecision";
+            var reason = string.IsNullOrWhiteSpace(request?.Reason) ? "AdminDecision" : request.Reason.Trim();
+            if (reason.Length > 500)
+                return BadRequest(new { message = "Withdrawal reason cannot exceed 500 characters." });
 
             // Set status
             if (string.Equals(race.Status, "InProgress", StringComparison.OrdinalIgnoreCase))
@@ -1043,13 +1328,39 @@ public class AdminController : ControllerBase
             if (entry.Registration != null)
             {
                 entry.Registration.Status = "Disqualified";
-                if (entry.Registration.Horse != null)
-                {
-                    entry.Registration.Horse.HealthStatus = "Injured";
-                }
             }
 
             await context.SaveChangesAsync();
+
+            if (entry.Registration?.Horse != null)
+            {
+                var horse = entry.Registration.Horse;
+                var notice = $"Horse '{horse.Name}' has been {entry.Status.ToLowerInvariant()} from race '{race.Name}'. Reason: {reason}.";
+                await notificationService.SendNotificationToUserAsync(
+                    horse.OwnerId, "Race entry withdrawn", notice, "Race", (int)race.RaceId,
+                    actionUrl: "/owner/registrations");
+
+                var jockeyUserIds = await context.JockeyContracts
+                    .Where(c => c.TournamentId == entry.Registration.TournamentId && c.HorseId == entry.Registration.HorseId &&
+                                (c.Status == "Accepted" || c.Status == "Active"))
+                    .Select(c => c.JockeyId)
+                    .Distinct()
+                    .ToListAsync();
+                foreach (var userId in jockeyUserIds)
+                    await notificationService.SendNotificationToUserAsync(
+                        userId, "Race entry withdrawn", notice, "Race", (int)race.RaceId,
+                        actionUrl: "/jockey/schedule");
+
+                var refereeUserIds = await context.RaceRefereeAssignments
+                    .Where(a => a.RaceId == race.RaceId && a.RefereeProfile != null)
+                    .Select(a => a.RefereeProfile!.UserId)
+                    .Distinct()
+                    .ToListAsync();
+                foreach (var userId in refereeUserIds)
+                    await notificationService.SendNotificationToUserAsync(
+                        userId, "Race entry withdrawn", notice, "Race", (int)race.RaceId,
+                        actionUrl: "/referee/schedule");
+            }
 
             return Ok(new { 
                 message = "Race entry has been successfully withdrawn/disqualified", 
@@ -1085,6 +1396,12 @@ public class AdminController : ControllerBase
             {
                 return BadRequest(new { message = $"Tournament is not in Active status. Current status: {tournament.Status}." });
             }
+            var allRaces = tournament.Rounds.SelectMany(r => r.Races).ToList();
+            if (allRaces.Count == 0 || allRaces.Any(r => !new[] { "Finished", "Completed" }.Contains(r.Status, StringComparer.OrdinalIgnoreCase)))
+                return BadRequest(new { message = "All tournament races must be finished before completing the racing phase." });
+            var finalRoundForValidation = tournament.Rounds.FirstOrDefault(r => r.RoundNumber == 2);
+            if (finalRoundForValidation == null || finalRoundForValidation.Races.Count != 1)
+                return BadRequest(new { message = "Tournament must have exactly one final race." });
 
             // 1. Update tournament status
             tournament.Status = "AwaitingResults";
@@ -1121,7 +1438,7 @@ public class AdminController : ControllerBase
                                 $"Giải đấu '{tournament.Name}' đã kết thúc. Vui lòng gửi kết quả vi phạm và ghi kết quả xếp hạng ngựa gửi đến admin.",
                                 "System",
                                 referenceId: (int)tournament.TournamentId,
-                                actionUrl: $"/referee/races/{finalRace.RaceId}"
+                                actionUrl: "/referee/confirm-results"
                             );
                         }
                     }
@@ -1151,7 +1468,7 @@ public class AdminController : ControllerBase
                 return NotFound(new { message = $"Tournament with ID {tournamentId} not found." });
             }
 
-            if (tournament.Status != "AwaitingResults" && tournament.Status != "Active")
+            if (tournament.Status != "AwaitingResults")
             {
                 return BadRequest(new { message = $"Tournament is in status '{tournament.Status}' and cannot be completed." });
             }

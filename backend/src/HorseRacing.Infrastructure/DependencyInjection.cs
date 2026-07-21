@@ -50,6 +50,7 @@ public static class DependencyInjection
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
         services.AddScoped<IGoogleTokenVerifier, GoogleTokenVerifier>();
         services.AddScoped<IEmailService, EmailService>();
+        services.AddScoped<IVnPayService, VnPayService>();
         services.AddScoped<DataSeeder>();
         services.AddScoped<DemoDataSeeder>();
 

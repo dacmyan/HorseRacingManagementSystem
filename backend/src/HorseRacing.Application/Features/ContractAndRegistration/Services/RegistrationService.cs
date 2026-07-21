@@ -7,6 +7,7 @@ using HorseRacing.Application.Features.ContractAndRegistration.Interfaces;
 using HorseRacing.Application.Features.HorseManagement.Interfaces;
 using HorseRacing.Application.Features.BettingEngine.Interfaces;
 using HorseRacing.Domain.Entities;
+using HorseRacing.Application.Features.Notifications.Interfaces;
 
 namespace HorseRacing.Application.Features.ContractAndRegistration.Services;
 
@@ -18,17 +19,20 @@ public class RegistrationService : IRegistrationService
     private readonly IHorseRepository _horseRepository;
     private readonly IBetRepository _betRepository;
     private readonly IJockeyContractRepository _contractRepository;
+    private readonly INotificationService _notificationService;
 
     public RegistrationService(
         IRegistrationRepository registrationRepository,
         IHorseRepository horseRepository,
         IBetRepository betRepository,
-        IJockeyContractRepository contractRepository)
+        IJockeyContractRepository contractRepository,
+        INotificationService notificationService)
     {
         _registrationRepository = registrationRepository;
         _horseRepository = horseRepository;
         _betRepository = betRepository;
         _contractRepository = contractRepository;
+        _notificationService = notificationService;
     }
 
     private RegistrationResponse MapToResponse(Registration reg, JockeyContract? contract = null)
@@ -114,6 +118,28 @@ public class RegistrationService : IRegistrationService
         await _registrationRepository.SaveChangesAsync();
 
         var populated = await _registrationRepository.GetByIdAsync(registration.RegistrationId);
+
+        if (populated != null)
+        {
+            try
+            {
+                var horseName = populated.Horse?.Name ?? "Ngựa";
+                var tournamentName = populated.Tournament?.Name ?? "Giải đấu";
+                await _notificationService.SendNotificationToRoleAsync(
+                    "Veterinarian",
+                    "Yêu cầu khám sức khỏe mới",
+                    $"Ngựa '{horseName}' đã đăng ký tham gia giải đấu '{tournamentName}' và đang chờ khám sức khỏe.",
+                    "MedicalCheck",
+                    referenceId: (int)populated.TournamentId,
+                    actionUrl: "/vet/medical-check"
+                );
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[NOTIFICATION ERROR] Failed to send notification to Veterinarian: {ex.Message}");
+            }
+        }
+
         return MapToResponse(populated ?? registration);
     }
 
@@ -156,7 +182,73 @@ public class RegistrationService : IRegistrationService
         registration.Status = request.Status;
         await _registrationRepository.SaveChangesAsync();
 
+        // Load fully populated registration for owner notifications
         var populated = await _registrationRepository.GetByIdAsync(id);
-        return MapToResponse(populated ?? registration);
+        var notifyReg = populated ?? registration;
+
+        if (notifyReg.Horse != null)
+        {
+            var horseName = notifyReg.Horse.Name;
+            var tournamentName = notifyReg.Tournament?.Name ?? "the tournament";
+            var ownerId = notifyReg.Horse.OwnerId;
+
+            if (request.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    await _notificationService.SendNotificationToUserAsync(
+                        ownerId,
+                        "Duyệt ngựa tham gia giải đấu",
+                        $"Ngựa '{horseName}' của bạn đã được duyệt tham gia giải đấu '{tournamentName}'.",
+                        "Tournament",
+                        referenceId: (int)notifyReg.TournamentId,
+                        actionUrl: "/owner/registrations"
+                    );
+
+                    // If the horse has an accepted/active jockey contract, notify the Jockey
+                    var contracts = await _contractRepository.GetByOwnerIdAsync(ownerId);
+                    var activeContract = contracts.FirstOrDefault(c =>
+                        c.HorseId == notifyReg.HorseId &&
+                        c.TournamentId == notifyReg.TournamentId &&
+                        (c.Status == "Accepted" || c.Status == "Active"));
+
+                    if (activeContract != null)
+                    {
+                        await _notificationService.SendNotificationToUserAsync(
+                            activeContract.JockeyId,
+                            "Ngựa nài đã được duyệt",
+                            $"Ngựa '{horseName}' mà bạn nài đã được duyệt vào giải đấu '{tournamentName}'.",
+                            "Tournament",
+                            referenceId: (int)notifyReg.TournamentId,
+                            actionUrl: "/jockey/schedule"
+                        );
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[NOTIFICATION ERROR] Failed to send approval notification: {ex.Message}");
+                }
+            }
+            else if (request.Status.Equals("Rejected", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    await _notificationService.SendNotificationToUserAsync(
+                        ownerId,
+                        "Từ chối đăng ký ngựa",
+                        $"Đơn đăng ký cho ngựa '{horseName}' tại giải đấu '{tournamentName}' đã bị từ chối. Vui lòng kiểm tra lại thông tin.",
+                        "Tournament",
+                        referenceId: (int)notifyReg.TournamentId,
+                        actionUrl: "/owner/registrations"
+                    );
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[NOTIFICATION ERROR] Failed to send rejection notification to owner {ownerId}: {ex.Message}");
+                }
+            }
+        }
+
+        return MapToResponse(notifyReg);
     }
 }

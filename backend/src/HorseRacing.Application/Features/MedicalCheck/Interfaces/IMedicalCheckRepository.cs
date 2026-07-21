@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using HorseRacing.Domain.Entities;
 using HorseRacing.Domain.Entities.Tournaments;
+using HorseRacing.Application.Features.FinancialRewards.Interfaces;
 
 namespace HorseRacing.Application.Features.MedicalCheck.Interfaces;
 
@@ -34,4 +35,5 @@ public interface IMedicalCheckRepository
     Task<List<int>> GetVeterinarianUserIdsAsync();
     Task<IEnumerable<MedicalCheckRecord>> GetPendingGeneralChecksAsync();
     Task<MedicalCheckRecord?> GetPendingGeneralCheckByHorseIdAsync(long horseId);
+    Task<HorseRacing.Application.Features.FinancialRewards.Interfaces.IDbTransaction> BeginTransactionAsync();
 }
