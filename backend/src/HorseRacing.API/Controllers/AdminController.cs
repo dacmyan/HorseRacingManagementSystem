@@ -753,7 +753,7 @@ public class AdminController : ControllerBase
                     Email = rp.User != null ? rp.User.Email : "",
                     LicenseNumber = rp.LicenseNumber,
                     ExperienceYears = rp.ExperienceYears,
-                    Status = rp.Status
+                    Status = string.IsNullOrWhiteSpace(rp.Status) ? (rp.User != null ? rp.User.Status : "Active") : rp.Status
                 })
                 .ToListAsync();
             return Ok(new { message = "Referees retrieved successfully", result = referees });
