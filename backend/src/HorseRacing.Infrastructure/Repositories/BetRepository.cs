@@ -146,6 +146,7 @@ public class BetRepository : IBetRepository
     public async Task<IEnumerable<RaceEntry>> GetRaceEntriesWithHorseAsync(long raceId)
     {
         return await _context.RaceEntries
+            .Where(re => re.RaceId == raceId)
             .Include(re => re.Registration)
                 .ThenInclude(reg => reg!.Horse)
             .Include(re => re.JockeyProfile)
