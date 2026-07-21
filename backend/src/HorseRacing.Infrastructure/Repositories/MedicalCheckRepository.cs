@@ -160,7 +160,8 @@ public class MedicalCheckRepository : IMedicalCheckRepository
                 .ThenInclude(r => r!.MedicalCheckRecords)
             .Include(re => re.JockeyProfile)
                 .ThenInclude(j => j!.User)
-            .Where(re => !excludedStatuses.Contains(re.Status))
+            .Where(re => !excludedStatuses.Contains(re.Status) && 
+                         (re.Registration.Status == "Approved" || re.Registration.Status == "Qualified"))
             .OrderBy(re => re.Race!.RaceDate)
             .ToListAsync();
     }
