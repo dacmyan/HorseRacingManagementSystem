@@ -86,11 +86,11 @@ public class BettingService : IBettingService
             throw new ArgumentException("Cannot place bet because tournament has ended.");
         }
 
-        var validRaceStatuses = new[] { "upcoming", "scheduled", "ongoing", "running" };
+        var validRaceStatuses = new[] { "upcoming", "scheduled" };
         var raceStatus = race.Status?.ToLower() ?? "";
         if (!validRaceStatuses.Contains(raceStatus))
         {
-            throw new ArgumentException("Betting is only allowed for upcoming or ongoing races.");
+            throw new ArgumentException("Betting is only allowed for upcoming or scheduled races.");
         }
 
         // Check if race results already exist
@@ -279,7 +279,7 @@ public class BettingService : IBettingService
         var tournamentStatus = race.Round?.Tournament?.Status?.ToLower() ?? "";
         var isTournamentEnded = invalidTournamentStatuses.Contains(tournamentStatus);
 
-        var validRaceStatuses = new[] { "upcoming", "scheduled", "ongoing", "running" };
+        var validRaceStatuses = new[] { "upcoming", "scheduled" };
         var raceStatus = race.Status?.ToLower() ?? "";
         var isRaceActive = validRaceStatuses.Contains(raceStatus);
 
