@@ -653,11 +653,14 @@ public class AdminController : ControllerBase
     }
 
     [HttpPut("registrations/{id}/status")]
-    public async Task<IActionResult> ReviewRegistration(int id, [FromBody] ReviewRegistrationRequest request, [FromServices] AppDbContext context)
+    public async Task<IActionResult> ReviewRegistration(int id, [FromBody] ReviewRegistrationRequest request, [FromServices] AppDbContext context, [FromServices] INotificationService notificationService)
     {
         try
         {
-            var registration = await context.Registrations.FindAsync((long)id);
+            var registration = await context.Registrations
+                .Include(r => r.Horse)
+                .Include(r => r.Tournament)
+                .FirstOrDefaultAsync(r => r.RegistrationId == id);
             if (registration == null)
                 return NotFound(new { message = $"Registration #{id} not found." });
 
@@ -691,6 +694,33 @@ public class AdminController : ControllerBase
 
             registration.Status = request.Status;
             await context.SaveChangesAsync();
+
+            if (registration.Horse != null)
+            {
+                var approved = request.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase);
+                var title = approved ? "Registration approved" : "Registration rejected";
+                var content = approved
+                    ? $"Your horse '{registration.Horse.Name}' has been approved for tournament '{registration.Tournament?.Name}'."
+                    : $"Your horse '{registration.Horse.Name}' was not approved for tournament '{registration.Tournament?.Name}'.";
+                await notificationService.SendNotificationToUserAsync(
+                    registration.Horse.OwnerId, title, content, "Tournament", (int)registration.TournamentId,
+                    actionUrl: "/owner/registrations");
+
+                if (approved)
+                {
+                    var jockeyUserIds = await context.JockeyContracts
+                        .Where(c => c.TournamentId == registration.TournamentId && c.HorseId == registration.HorseId &&
+                                    (c.Status == "Accepted" || c.Status == "Active"))
+                        .Select(c => c.JockeyId)
+                        .Distinct()
+                        .ToListAsync();
+                    foreach (var userId in jockeyUserIds)
+                        await notificationService.SendNotificationToUserAsync(
+                            userId, title,
+                            $"Horse '{registration.Horse.Name}' that you ride has been approved for tournament '{registration.Tournament?.Name}'.",
+                            "Tournament", (int)registration.TournamentId, actionUrl: "/jockey/schedule");
+                }
+            }
 
             return Ok(new { message = $"Registration #{id} has been {request.Status.ToLower()}.", result = new { registrationId = id, status = registration.Status } });
         }
@@ -1097,7 +1127,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPut("violations/{id}/status")]
-    public async Task<IActionResult> UpdateViolationStatus(int id, [FromBody] UpdateViolationStatusRequest request, [FromServices] AppDbContext context)
+    public async Task<IActionResult> UpdateViolationStatus(int id, [FromBody] UpdateViolationStatusRequest request, [FromServices] AppDbContext context, [FromServices] INotificationService notificationService)
     {
         try
         {
@@ -1121,6 +1151,20 @@ public class AdminController : ControllerBase
 
             violation.Status = requestedStatus;
             await context.SaveChangesAsync();
+
+            var refereeUserIds = await context.RaceRefereeAssignments
+                .Where(a => a.RaceId == violation.RaceId && a.RefereeProfile != null)
+                .Select(a => a.RefereeProfile!.UserId)
+                .Distinct()
+                .ToListAsync();
+            foreach (var userId in refereeUserIds)
+                await notificationService.SendNotificationToUserAsync(
+                    userId,
+                    "Violation report reviewed",
+                    $"Violation #{violation.Id} for race #{violation.RaceId} has been {violation.Status.ToLowerInvariant()} by Admin.",
+                    "Race",
+                    referenceId: (int)violation.RaceId,
+                    actionUrl: $"/referee/races/{violation.RaceId}");
 
             return Ok(new { message = "Violation status updated successfully", result = violation });
         }
@@ -1169,7 +1213,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("races/entries/{raceEntryId}/withdraw")]
-    public async Task<IActionResult> WithdrawRaceEntry([FromRoute] long raceEntryId, [FromBody] WithdrawEntryRequest request, [FromServices] AppDbContext context)
+    public async Task<IActionResult> WithdrawRaceEntry([FromRoute] long raceEntryId, [FromBody] WithdrawEntryRequest request, [FromServices] AppDbContext context, [FromServices] INotificationService notificationService)
     {
         try
         {
@@ -1239,6 +1283,36 @@ public class AdminController : ControllerBase
             }
 
             await context.SaveChangesAsync();
+
+            if (entry.Registration?.Horse != null)
+            {
+                var horse = entry.Registration.Horse;
+                var notice = $"Horse '{horse.Name}' has been {entry.Status.ToLowerInvariant()} from race '{race.Name}'. Reason: {reason}.";
+                await notificationService.SendNotificationToUserAsync(
+                    horse.OwnerId, "Race entry withdrawn", notice, "Race", (int)race.RaceId,
+                    actionUrl: "/owner/registrations");
+
+                var jockeyUserIds = await context.JockeyContracts
+                    .Where(c => c.TournamentId == entry.Registration.TournamentId && c.HorseId == entry.Registration.HorseId &&
+                                (c.Status == "Accepted" || c.Status == "Active"))
+                    .Select(c => c.JockeyId)
+                    .Distinct()
+                    .ToListAsync();
+                foreach (var userId in jockeyUserIds)
+                    await notificationService.SendNotificationToUserAsync(
+                        userId, "Race entry withdrawn", notice, "Race", (int)race.RaceId,
+                        actionUrl: "/jockey/schedule");
+
+                var refereeUserIds = await context.RaceRefereeAssignments
+                    .Where(a => a.RaceId == race.RaceId && a.RefereeProfile != null)
+                    .Select(a => a.RefereeProfile!.UserId)
+                    .Distinct()
+                    .ToListAsync();
+                foreach (var userId in refereeUserIds)
+                    await notificationService.SendNotificationToUserAsync(
+                        userId, "Race entry withdrawn", notice, "Race", (int)race.RaceId,
+                        actionUrl: $"/referee/races/{race.RaceId}");
+            }
 
             return Ok(new { 
                 message = "Race entry has been successfully withdrawn/disqualified", 

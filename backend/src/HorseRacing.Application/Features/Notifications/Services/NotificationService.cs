@@ -44,6 +44,7 @@ public class NotificationService : INotificationService
 
     public async Task SendNotificationAsync(SendNotificationRequest request)
     {
+        ArgumentNullException.ThrowIfNull(request);
         await SendNotificationToUserAsync(
             request.UserId,
             "Notification",
@@ -73,6 +74,7 @@ public class NotificationService : INotificationService
         string? thumbnail = null, 
         string? actionUrl = null)
     {
+        ValidateNotification(userId, title, content, type, actionUrl);
         var isUserActive = await _notificationRepository.IsUserActiveAsync(userId);
         if (!isUserActive)
         {
@@ -98,7 +100,14 @@ public class NotificationService : INotificationService
         await _notificationRepository.SaveChangesAsync();
 
         // Push via SignalR
-        await _notificationPusher.PushToUserAsync(userId, MapToResponse(notification));
+        try
+        {
+            await _notificationPusher.PushToUserAsync(userId, MapToResponse(notification));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[NOTIFICATION PUSH ERROR] User {userId}: {ex.Message}");
+        }
     }
 
     public async Task SendNotificationToRoleAsync(
@@ -110,6 +119,10 @@ public class NotificationService : INotificationService
         string? thumbnail = null, 
         string? actionUrl = null)
     {
+        ValidateNotification(null, title, content, type, actionUrl);
+        if (string.IsNullOrWhiteSpace(roleName) || roleName.Length > 50)
+            throw new ArgumentException("Role name is required and cannot exceed 50 characters.", nameof(roleName));
+        roleName = roleName.Trim();
         var activeUserIds = await _notificationRepository.GetActiveUserIdsByRoleAsync(roleName);
         if (!activeUserIds.Any()) return;
 
@@ -147,7 +160,14 @@ public class NotificationService : INotificationService
                 IsRead = false,
                 CreatedAt = DateTime.UtcNow
             };
-            await _notificationPusher.PushToUserAsync(userId, notificationResponse);
+            try
+            {
+                await _notificationPusher.PushToUserAsync(userId, notificationResponse);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[NOTIFICATION PUSH ERROR] User {userId}: {ex.Message}");
+            }
         }
     }
 
@@ -159,7 +179,9 @@ public class NotificationService : INotificationService
         string? thumbnail = null, 
         string? actionUrl = null)
     {
+        ValidateNotification(null, title, content, type, actionUrl);
         var activeUserIds = await _notificationRepository.GetActiveUserIdsAsync();
+        var savedNotifications = new List<Notification>();
         foreach (var userId in activeUserIds)
         {
             var notification = new Notification
@@ -176,25 +198,22 @@ public class NotificationService : INotificationService
                 IsDeleted = false
             };
             await _notificationRepository.AddAsync(notification);
+            savedNotifications.Add(notification);
         }
         await _notificationRepository.SaveChangesAsync();
 
-        // Broadcast a generic real-time response so client context gets updated
-        var genericResponse = new NotificationResponse
+        // Push only to active recipients, with each user's real persisted notification ID.
+        foreach (var notification in savedNotifications)
         {
-            Id = 0,
-            UserId = 0,
-            Title = title,
-            Content = content,
-            Message = content,
-            Type = type,
-            ReferenceId = referenceId,
-            Thumbnail = thumbnail,
-            ActionUrl = actionUrl,
-            IsRead = false,
-            CreatedAt = DateTime.UtcNow
-        };
-        await _notificationPusher.PushToAllAsync(genericResponse);
+            try
+            {
+                await _notificationPusher.PushToUserAsync(notification.UserId, MapToResponse(notification));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[NOTIFICATION PUSH ERROR] User {notification.UserId}: {ex.Message}");
+            }
+        }
     }
 
     public async Task DeleteNotificationAsync(int id, int userId)
@@ -222,6 +241,22 @@ public class NotificationService : INotificationService
     public async Task<List<int>> GetActiveUserIdsByRoleAsync(string roleName)
     {
         return await _notificationRepository.GetActiveUserIdsByRoleAsync(roleName);
+    }
+
+    private static void ValidateNotification(int? userId, string title, string content, string type, string? actionUrl)
+    {
+        if (userId.HasValue && userId.Value <= 0)
+            throw new ArgumentException("User ID must be greater than zero.", nameof(userId));
+        if (string.IsNullOrWhiteSpace(title) || title.Trim().Length > 150)
+            throw new ArgumentException("Notification title is required and cannot exceed 150 characters.", nameof(title));
+        if (string.IsNullOrWhiteSpace(content) || content.Trim().Length > 2000)
+            throw new ArgumentException("Notification content is required and cannot exceed 2000 characters.", nameof(content));
+        var allowedTypes = new[] { "Tournament", "Race", "Bet", "Wallet", "System", "Medical", "Contract", "Prediction", "Result", "Violation", "Registration", "Payout" };
+        if (string.IsNullOrWhiteSpace(type) || !allowedTypes.Contains(type.Trim(), StringComparer.OrdinalIgnoreCase))
+            throw new ArgumentException($"Notification type must be one of: {string.Join(", ", allowedTypes)}.", nameof(type));
+        if (!string.IsNullOrWhiteSpace(actionUrl) &&
+            (!actionUrl.StartsWith('/') || actionUrl.Length > 500 || actionUrl.StartsWith("//")))
+            throw new ArgumentException("Action URL must be a local application path no longer than 500 characters.", nameof(actionUrl));
     }
 
     private static NotificationResponse MapToResponse(Notification n)
