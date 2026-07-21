@@ -186,6 +186,7 @@ public class AdminController : ControllerBase
     {
         try
         {
+            request.TriggeredByUserId = GetCurrentUserId();
             await _prizePayoutService.ProcessPrizePayoutAsync(request);
             return Ok(new { message = "Tournament prizes distributed successfully" });
         }
@@ -1536,7 +1537,8 @@ public class AdminController : ControllerBase
                 TournamentId = (int)tournamentId,
                 FirstPlacePrize = p1,
                 SecondPlacePrize = p2,
-                ThirdPlacePrize = p3
+                ThirdPlacePrize = p3,
+                TriggeredByUserId = GetCurrentUserId()
             };
 
             await _prizePayoutService.ProcessPrizePayoutAsync(request);
