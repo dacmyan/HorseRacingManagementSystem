@@ -243,11 +243,11 @@ public class MedicalCheckService : IMedicalCheckService
         {
             var ownerId = registration.Horse.OwnerId;
             var horseName = registration.Horse.Name;
-            var tournamentName = registration.Tournament?.Name ?? "Giải đấu";
+            var tournamentName = registration.Tournament?.Name ?? "Tournament";
             if (request.MedicalResult == "Fail")
             {
-                var failTitle = "Khám sức khỏe không đạt";
-                var failContent = $"Ngựa {horseName} của bạn không đạt yêu cầu khám sức khỏe cho giải đấu {tournamentName} vì lý do: {request.FailReason}.";
+                var failTitle = "Medical check failed";
+                var failContent = $"Your horse {horseName} did not meet the medical requirements for tournament {tournamentName}. Reason: {request.FailReason}.";
                 await _notificationService.SendNotificationToUserAsync(
                     ownerId, failTitle, failContent, "Medical", (int?)registration.RegistrationId, null, "/owner/registrations");
 
@@ -255,20 +255,20 @@ public class MedicalCheckService : IMedicalCheckService
                 if (!string.IsNullOrWhiteSpace(ownerEmail))
                 {
                     var emailBody = $@"
-                        <h2>Thông báo kết quả khám sức khỏe</h2>
-                        <p>Xin chào,</p>
-                        <p>Chúng tôi rất tiếc phải thông báo rằng ngựa <strong>{horseName}</strong> của bạn đã <strong>không đạt</strong> yêu cầu khám sức khỏe cho giải đấu <strong>{tournamentName}</strong>.</p>
-                        <p><strong>Lý do:</strong> {request.FailReason}</p>
-                        <p><strong>Ghi chú từ bác sĩ thú y:</strong> {request.Notes ?? "Không có"}</p>
+                        <h2>Medical Check Result Notification</h2>
+                        <p>Hello,</p>
+                        <p>We regret to inform you that your horse <strong>{horseName}</strong> did <strong>not pass</strong> the medical examination for tournament <strong>{tournamentName}</strong>.</p>
+                        <p><strong>Reason:</strong> {request.FailReason}</p>
+                        <p><strong>Veterinarian Notes:</strong> {request.Notes ?? "None"}</p>
                         <br/>
-                        <p>Trân trọng,<br/>Ban Tổ Chức Giải Đua Ngựa</p>";
+                        <p>Best regards,<br/>Horse Racing Organizing Committee</p>";
                     await _emailService.SendEmailAsync(ownerEmail, failTitle, emailBody);
                 }
             }
             else
             {
-                var passTitle = "Khám sức khỏe đạt (Pass)";
-                var passContent = $"Ngựa {horseName} của bạn đã đạt (pass) yêu cầu khám sức khỏe cho giải đấu {tournamentName}.";
+                var passTitle = "Medical check passed";
+                var passContent = $"Your horse {horseName} has passed the medical check for tournament {tournamentName}.";
                 await _notificationService.SendNotificationToUserAsync(
                     ownerId, passTitle, passContent, "Medical", (int?)registration.RegistrationId, null, "/owner/registrations");
 
@@ -276,14 +276,14 @@ public class MedicalCheckService : IMedicalCheckService
                 {
                     var ownerName = registration.Horse.Owner != null
                         ? (registration.Horse.Owner.FullName ?? registration.Horse.Owner.Username)
-                        : "Chủ ngựa";
+                        : "Owner";
                     var adminIds = await _registrationRepository.GetAdminUserIdsAsync();
                     foreach (var adminId in adminIds)
                     {
                         await _notificationService.SendNotificationToUserAsync(
                             adminId,
-                            "Ngựa đủ điều kiện đăng ký giải",
-                            $"Ngựa '{horseName}' của chủ ngựa '{ownerName}' đã đủ điều kiện đăng ký giải đấu '{tournamentName}'.",
+                            "Horse eligible for tournament",
+                            $"Horse '{horseName}' owned by '{ownerName}' is eligible for tournament '{tournamentName}'.",
                             "Medical",
                             (int?)registration.RegistrationId,
                             null,
@@ -552,14 +552,14 @@ public class MedicalCheckService : IMedicalCheckService
             if (!string.IsNullOrWhiteSpace(ownerEmail))
             {
                 var emailBody = $@"
-                    <h2>Thông báo kết quả tái khám (Re-Check)</h2>
-                    <p>Xin chào,</p>
-                    <p>Chúng tôi rất tiếc phải thông báo rằng ngựa <strong>{horseName}</strong> của bạn đã <strong>không đạt</strong> yêu cầu trong đợt tái khám cho giải đấu <strong>{tournamentName}</strong>.</p>
-                    <p><strong>Kết quả:</strong> {withdrawReason}</p>
-                    <p><strong>Ghi chú từ bác sĩ:</strong> {request.Notes ?? "Không có"}</p>
-                    <p>Ngựa của bạn đã bị <strong>loại khỏi cuộc đua (Withdrawn/DNF)</strong> theo quy định.</p>
+                    <h2>Medical Re-Check Result Notification</h2>
+                    <p>Hello,</p>
+                    <p>We regret to inform you that your horse <strong>{horseName}</strong> did <strong>not pass</strong> the medical re-examination for tournament <strong>{tournamentName}</strong>.</p>
+                    <p><strong>Result:</strong> {withdrawReason}</p>
+                    <p><strong>Veterinarian Notes:</strong> {request.Notes ?? "None"}</p>
+                    <p>Your horse has been <strong>withdrawn/marked as DNF</strong> from the race according to regulations.</p>
                     <br/>
-                    <p>Trân trọng,<br/>Ban Tổ Chức Giải Đua Ngựa</p>";
+                    <p>Best regards,<br/>Horse Racing Organizing Committee</p>";
                 await _emailService.SendEmailAsync(ownerEmail, failTitle, emailBody);
             }
 
