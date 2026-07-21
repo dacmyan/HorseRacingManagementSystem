@@ -171,7 +171,7 @@ public class MedicalCheckService : IMedicalCheckService
                 var failTitle = "Khám sức khỏe không đạt";
                 var failContent = $"Ngựa {horseName} của bạn không đạt yêu cầu khám sức khỏe cho giải đấu {tournamentName} vì lý do: {request.FailReason}.";
                 await _notificationService.SendNotificationToUserAsync(
-                    ownerId, failTitle, failContent, "MedicalCheck", (int?)registration.RegistrationId, null, "/owner/registrations");
+                    ownerId, failTitle, failContent, "Medical", (int?)registration.RegistrationId, null, "/owner/registrations");
 
                 var ownerEmail = registration.Horse.Owner?.Email;
                 if (!string.IsNullOrWhiteSpace(ownerEmail))
@@ -192,7 +192,7 @@ public class MedicalCheckService : IMedicalCheckService
                 var passTitle = "Khám sức khỏe đạt (Pass)";
                 var passContent = $"Ngựa {horseName} của bạn đã đạt (pass) yêu cầu khám sức khỏe cho giải đấu {tournamentName}.";
                 await _notificationService.SendNotificationToUserAsync(
-                    ownerId, passTitle, passContent, "MedicalCheck", (int?)registration.RegistrationId, null, "/owner/registrations");
+                    ownerId, passTitle, passContent, "Medical", (int?)registration.RegistrationId, null, "/owner/registrations");
 
                 try
                 {
@@ -206,7 +206,7 @@ public class MedicalCheckService : IMedicalCheckService
                             adminId,
                             "Ngựa đủ điều kiện đăng ký giải",
                             $"Ngựa '{horseName}' của chủ ngựa '{ownerName}' đã đủ điều kiện đăng ký giải đấu '{tournamentName}'.",
-                            "MedicalCheck",
+                            "Medical",
                             (int?)registration.RegistrationId,
                             null,
                             "/admin/registrations"
@@ -435,7 +435,7 @@ public class MedicalCheckService : IMedicalCheckService
         var ownerId = await _repository.GetOwnerUserIdByRegistrationAsync(request.RegistrationId);
         if (ownerId.HasValue)
             await _notificationService.SendNotificationToUserAsync(
-                ownerId.Value, failTitle, failContent, "MedicalWithdrawal", (int?)raceEntry?.RaceEntryId);
+                ownerId.Value, failTitle, failContent, "Medical", (int?)raceEntry?.RaceEntryId);
 
         var ownerEmail = registration.Horse?.Owner?.Email;
         if (!string.IsNullOrWhiteSpace(ownerEmail))
@@ -460,12 +460,12 @@ public class MedicalCheckService : IMedicalCheckService
                 await _notificationService.SendNotificationToUserAsync(
                     jockeyId.Value, failTitle,
                     $"Horse {horseName} in tournament {tournamentName} has been withdrawn due to failed medical check. Your contract has been affected.",
-                    "MedicalWithdrawal", (int?)raceEntry.RaceEntryId);
+                    "Medical", (int?)raceEntry.RaceEntryId);
 
             var refereeIds = await _repository.GetRefereeUserIdsByRaceIdAsync(raceEntry.RaceId);
             foreach (var refereeId in refereeIds)
                 await _notificationService.SendNotificationToUserAsync(
-                    refereeId, failTitle, failContent, "MedicalWithdrawal", (int?)raceEntry.RaceEntryId);
+                    refereeId, failTitle, failContent, "Medical", (int?)raceEntry.RaceEntryId);
 
             var bettorIds = await _repository.GetBettorUserIdsByRaceIdAsync(raceEntry.RaceId);
             foreach (var bettorId in bettorIds)
@@ -473,7 +473,7 @@ public class MedicalCheckService : IMedicalCheckService
                     bettorId,
                     "⚠️ Bet Update — Horse withdrawn from race",
                     $"Horse {horseName} has been withdrawn from the race in tournament {tournamentName} due to failing the medical check. Please check your bet status.",
-                    "BettingUpdate", (int?)raceEntry.RaceId);
+                    "Bet", (int?)raceEntry.RaceId);
         }
 
         var populated = await _repository.GetByIdAsync(newRecord.Id);
