@@ -731,12 +731,12 @@ public class MedicalCheckService : IMedicalCheckService
         var vetIds = await _repository.GetVeterinarianUserIdsAsync();
         if (vetIds.Any())
         {
-            var title = "Yêu cầu khám phục hồi sức khỏe";
-            var content = $"Chủ ngựa {horse.Owner?.FullName ?? horse.Owner?.Username ?? "Owner"} đã gửi yêu cầu khám phục hồi sức khỏe cho ngựa {horse.Name} (Trạng thái hiện tại: {horse.HealthStatus}).";
+            var title = "Recovery Inspection Request";
+            var content = $"Owner {horse.Owner?.FullName ?? horse.Owner?.Username ?? "Owner"} requested a health recovery check for horse {horse.Name} (Current status: {horse.HealthStatus}).";
             foreach (var vetId in vetIds)
             {
                 await _notificationService.SendNotificationToUserAsync(
-                    vetId, title, content, "MedicalCheck", null, null, "/vet/medical-check");
+                    vetId, title, content, "Medical", null, null, "/vet/medical-check");
             }
         }
 
