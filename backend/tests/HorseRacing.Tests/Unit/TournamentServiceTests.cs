@@ -139,6 +139,53 @@ public class TournamentServiceTests
     }
 
     [Fact]
+    public async Task GenerateRacesForTournamentAsync_ShouldSplitHorsesEvenly_WhenRegistrationsCountIs13()
+    {
+        // Arrange
+        var tournament = BuildTournament();
+        var registrations = BuildRegistrations(13);
+        var createdRaces = new List<Race>();
+        var createdEntries = new List<HorseRacing.Domain.Entities.RaceEntry>();
+
+        _tournamentRepoMock.Setup(r => r.ClearRoundsAndRacesAsync(tournament.TournamentId))
+            .Returns(Task.CompletedTask);
+        _tournamentRepoMock.Setup(r => r.GetByIdWithRoundsAsync(tournament.TournamentId))
+            .ReturnsAsync(tournament);
+        _tournamentRepoMock.Setup(r => r.GetApprovedRegistrationsAsync(tournament.TournamentId))
+            .ReturnsAsync(registrations);
+        _tournamentRepoMock.Setup(r => r.GetActiveJockeyProfileIdsByHorseAsync(tournament.TournamentId, It.IsAny<IEnumerable<long>>()))
+            .ReturnsAsync(new Dictionary<long, int>());
+        _tournamentRepoMock.Setup(r => r.AddRoundAsync(It.IsAny<Round>()))
+            .Returns(Task.CompletedTask);
+        _tournamentRepoMock.Setup(r => r.AddRacesAsync(It.IsAny<IEnumerable<Race>>()))
+            .Callback<IEnumerable<Race>>(races =>
+            {
+                var list = races.ToList();
+                for (int i = 0; i < list.Count; i++)
+                {
+                    list[i].RaceId = i + 1;
+                }
+                createdRaces = list;
+            })
+            .Returns(Task.CompletedTask);
+        _tournamentRepoMock.Setup(r => r.AddRaceEntriesAsync(It.IsAny<IEnumerable<HorseRacing.Domain.Entities.RaceEntry>>()))
+            .Callback<IEnumerable<HorseRacing.Domain.Entities.RaceEntry>>(entries => createdEntries = entries.ToList())
+            .Returns(Task.CompletedTask);
+        _tournamentRepoMock.Setup(r => r.SaveChangesAsync()).Returns(Task.CompletedTask);
+
+        // Act
+        var response = await _service.GenerateRacesForTournamentAsync(tournament.TournamentId);
+
+        // Assert
+        response.Should().HaveCount(2);
+        createdRaces.Should().HaveCount(2);
+
+        // 13 horses split into 2 races -> 7 and 6
+        createdEntries.GroupBy(e => e.RaceId).Select(g => g.Count())
+            .Should().Equal(7, 6);
+    }
+
+    [Fact]
     public async Task GenerateRacesForTournamentAsync_ShouldCreateFinalRaceDirectly_WhenApprovedRegistrationsAreAtMost12()
     {
         // Arrange

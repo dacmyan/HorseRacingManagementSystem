@@ -237,8 +237,6 @@ public class PrizePayoutService : IPrizePayoutService
                     await _transactionRepository.AddAsync(adminTransaction);
                 }
 
-
-
                 var ownerDescription = $"Received Top {rank} prize for tournament '{tournament.Name}' from horse '{horse.Name}'";
                 var ownerTransaction = new WalletTransaction
                 {
@@ -314,12 +312,12 @@ public class PrizePayoutService : IPrizePayoutService
                     if (prize == null) continue;
 
                     var horseName = entry.Registration?.Horse?.Name ?? "Unknown";
-                    
+
                     decimal bonusAmount = 0m;
                     if (rank == 1) bonusAmount = bonusPool * 0.50m;
                     else if (rank == 2) bonusAmount = bonusPool * 0.30m;
                     else if (rank == 3) bonusAmount = bonusPool * 0.20m;
-                    
+
                     decimal totalPrize = prize.Amount + bonusAmount;
 
                     topHorsesHtml += $"<li><strong>Top {rank}:</strong> {horseName} - Prize: {totalPrize:N2}$</li>";
