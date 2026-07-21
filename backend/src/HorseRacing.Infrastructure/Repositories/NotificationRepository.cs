@@ -49,12 +49,23 @@ public class NotificationRepository : INotificationRepository
 
     public async Task<(IEnumerable<Notification> Items, int TotalCount)> GetPagedByUserIdAsync(int userId, string? type, bool? isRead, int page, int pageSize)
     {
+        var user = await _context.Users
+            .Include(u => u.Role)
+            .FirstOrDefaultAsync(u => u.UserId == userId);
+
         var query = _context.Notifications
             .Where(n => n.UserId == userId && !n.IsDeleted);
 
-        if (!string.IsNullOrEmpty(type) && !type.Equals("all", StringComparison.OrdinalIgnoreCase))
+        if (user != null && user.Role != null && string.Equals(user.Role.Name, "Veterinarian", StringComparison.OrdinalIgnoreCase))
         {
-            query = query.Where(n => n.Type == type);
+            query = query.Where(n => n.Type == "Medical");
+        }
+        else
+        {
+            if (!string.IsNullOrEmpty(type) && !type.Equals("all", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(n => n.Type == type);
+            }
         }
 
         if (isRead.HasValue)
