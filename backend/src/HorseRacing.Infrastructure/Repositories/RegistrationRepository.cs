@@ -38,6 +38,7 @@ public class RegistrationRepository : IRegistrationRepository
         return await _context.Registrations
             .Include(r => r.Horse)
             .Include(r => r.Tournament)
+            .Include(r => r.MedicalCheckRecords)
             .Where(r => r.Horse != null && r.Horse.OwnerId == ownerUserId)
             .ToListAsync();
     }

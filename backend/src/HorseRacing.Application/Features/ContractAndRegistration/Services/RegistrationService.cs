@@ -37,6 +37,13 @@ public class RegistrationService : IRegistrationService
 
     private RegistrationResponse MapToResponse(Registration reg, JockeyContract? contract = null)
     {
+        string? rejectionSource = null;
+        if (reg.Status == "Rejected")
+        {
+            var hasFailedCheck = reg.MedicalCheckRecords != null && reg.MedicalCheckRecords.Any(m => m.MedicalResult == "Fail");
+            rejectionSource = hasFailedCheck ? "Vet" : "Admin";
+        }
+
         return new RegistrationResponse
         {
             RegistrationId = reg.RegistrationId,
@@ -47,7 +54,8 @@ public class RegistrationService : IRegistrationService
             Status = reg.Status,
             RegisteredAt = reg.RegisteredAt,
             JockeyId = contract?.JockeyId,
-            JockeyName = contract?.Jockey?.FullName ?? contract?.Jockey?.Email
+            JockeyName = contract?.Jockey?.FullName ?? contract?.Jockey?.Email,
+            RejectionSource = rejectionSource
         };
     }
 
