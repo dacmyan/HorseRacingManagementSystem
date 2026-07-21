@@ -132,7 +132,6 @@ public class TournamentService : ITournamentService
             var msg = $"Giải đấu '{tournament.Name}' đã được tạo thành công. Thời gian mở đăng ký bắt đầu từ {tournament.RegistrationStartDate:dd/MM/yyyy HH:mm}.";
             await _notificationService.SendNotificationToRoleAsync("HorseOwner", "Giải đấu mới được tạo", msg, "Tournament", (int)tournament.TournamentId, actionUrl: "/owner/tournaments");
             await _notificationService.SendNotificationToRoleAsync("Jockey", "Giải đấu mới được tạo", msg, "Tournament", (int)tournament.TournamentId, actionUrl: "/jockey/schedule");
-            await _notificationService.SendNotificationToRoleAsync("Referee", "Giải đấu mới được tạo", msg, "Tournament", (int)tournament.TournamentId, actionUrl: "/referee/schedule");
             await _notificationService.SendNotificationToRoleAsync("Spectator", "Giải đấu mới được tạo", msg, "Tournament", (int)tournament.TournamentId, actionUrl: $"/spectator/tournaments/{tournament.TournamentId}");
         }
         catch (Exception ex)
