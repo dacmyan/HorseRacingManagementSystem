@@ -99,8 +99,9 @@ public class BetRepository : IBetRepository
 
     public async Task<Race?> GetFinalRaceInTournamentAsync(long tournamentId)
     {
+        var finishedStatuses = new[] { "finished", "completed", "resultpublished", "closed" };
         return await _context.Races
-            .Where(r => r.Round != null && r.Round.TournamentId == tournamentId && r.Status == "Finished")
+            .Where(r => r.Round != null && r.Round.TournamentId == tournamentId && finishedStatuses.Contains(r.Status.ToLower()))
             .OrderByDescending(r => r.RaceDate)
             .FirstOrDefaultAsync();
     }

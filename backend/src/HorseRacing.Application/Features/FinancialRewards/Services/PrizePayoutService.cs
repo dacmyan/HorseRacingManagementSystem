@@ -158,19 +158,17 @@ public class PrizePayoutService : IPrizePayoutService
 
         await _prizeRepository.SaveChangesAsync();
 
-        // 2. Try to get finished final race and published result. If not ready, just exit with configurations saved.
+        // 2. Try to get finished final race and published result.
         var finalRace = await _betRepository.GetFinalRaceInTournamentAsync(request.TournamentId);
         if (finalRace == null)
         {
-            // Prizes saved, but no finished races to process payouts for. Return gracefully.
-            return;
+            throw new InvalidOperationException($"No completed final race found for tournament ID {request.TournamentId}. Please ensure the final race has been completed.");
         }
 
         var result = await _betRepository.GetRaceResultAsync(finalRace.RaceId);
         if (result == null || string.IsNullOrWhiteSpace(result.Winner))
         {
-            // Prizes saved, but winner result not published. Return gracefully.
-            return;
+            throw new InvalidOperationException($"Official winner results for final race #{finalRace.RaceId} have not been published yet.");
         }
 
         // 3. Process payouts for all top 3 ranks — wrapped in a DB transaction for atomicity
@@ -238,6 +236,10 @@ public class PrizePayoutService : IPrizePayoutService
                 if (prize == null) continue;
 
                 var horse = entry.Registration?.Horse;
+                if (horse == null && entry.Registration != null && entry.Registration.HorseId > 0)
+                {
+                    horse = await _betRepository.GetHorseByIdAsync(entry.Registration.HorseId);
+                }
                 if (horse == null) continue;
 
                 // Calculate rank bonus

@@ -1517,13 +1517,26 @@ public class AdminController : ControllerBase
                 return BadRequest(new { message = $"Final race results must be published before completing the tournament. Current final race status: {finalRace.Status}." });
             }
 
-            // Trigger prize payout
+            // Load configured prizes
+            var configuredPrizes = await context.Prizes
+                .Where(p => p.TournamentId == tournamentId)
+                .ToListAsync();
+
+            var p1 = configuredPrizes.FirstOrDefault(p => p.RankPosition == 1)?.Amount ?? 0m;
+            var p2 = configuredPrizes.FirstOrDefault(p => p.RankPosition == 2)?.Amount ?? 0m;
+            var p3 = configuredPrizes.FirstOrDefault(p => p.RankPosition == 3)?.Amount ?? 0m;
+
+            if (p1 <= 0 || p2 <= 0 || p3 <= 0)
+            {
+                return BadRequest(new { message = "Tournament prize structure has not been configured yet. Please configure 1st, 2nd, and 3rd place prizes first." });
+            }
+
             var request = new PrizePayoutRequest
             {
                 TournamentId = (int)tournamentId,
-                FirstPlacePrize = 0m,
-                SecondPlacePrize = 0m,
-                ThirdPlacePrize = 0m
+                FirstPlacePrize = p1,
+                SecondPlacePrize = p2,
+                ThirdPlacePrize = p3
             };
 
             await _prizePayoutService.ProcessPrizePayoutAsync(request);
