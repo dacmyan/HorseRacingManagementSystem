@@ -511,6 +511,32 @@ public class AdminController : ControllerBase
         }
     }
 
+    [HttpPut("races/{id}")]
+    public async Task<IActionResult> UpdateRace([FromRoute] long id, [FromBody] UpdateRaceRequest request)
+    {
+        try
+        {
+            var response = await _raceService.UpdateRaceAsync(id, request);
+            if (response == null)
+            {
+                return NotFound(new { message = $"Race with ID {id} not found." });
+            }
+            return Ok(new { message = "Race updated successfully", result = response });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred during race update", detail = ex.Message });
+        }
+    }
+
     [HttpPost("races/{raceId}/referees")]
     public async Task<IActionResult> AssignReferee([FromRoute] long raceId, [FromBody] AssignRefereeRequest request)
     {

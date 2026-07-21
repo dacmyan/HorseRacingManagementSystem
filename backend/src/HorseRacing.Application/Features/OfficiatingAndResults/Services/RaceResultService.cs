@@ -39,6 +39,8 @@ public class RaceResultService : IRaceResultService
         _tournamentService = tournamentService;
     }
 
+    private static DateTime VietnamNow => TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
+
     public async Task<RaceResultResponse> SubmitResultAsync(SubmitRaceResultRequest request)
     {
         if (request == null)
@@ -52,7 +54,7 @@ public class RaceResultService : IRaceResultService
         {
             throw new KeyNotFoundException($"Race with ID {request.RaceId} was not found.");
         }
-        if (race.RaceDate > DateTime.UtcNow)
+        if (race.RaceDate > VietnamNow)
             throw new InvalidOperationException("Race results cannot be submitted before the scheduled race time.");
         var submitAllowedStatuses = new[] { "Scheduled", "Active", "Live", "InProgress", "Running", "AwaitingResults" };
         if (!submitAllowedStatuses.Contains(race.Status, StringComparer.OrdinalIgnoreCase))

@@ -12,4 +12,5 @@ public interface IRaceService
     Task<RaceScheduleResponse?> GetRaceByIdAsync(long raceId);
     Task<List<RaceEntryResponse>?> GetRaceEntriesByRaceIdAsync(long raceId);
     Task DeleteRaceAsync(long raceId);
+    Task<RaceScheduleResponse?> UpdateRaceAsync(long raceId, UpdateRaceRequest request);
 }
