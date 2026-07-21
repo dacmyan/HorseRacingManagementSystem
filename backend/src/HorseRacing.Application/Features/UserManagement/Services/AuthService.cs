@@ -3,6 +3,7 @@ using HorseRacing.Application.Features.UserManagement.Interfaces;
 using HorseRacing.Application.Common.Interfaces;
 using HorseRacing.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Configuration;
 
 namespace HorseRacing.Application.Features.UserManagement.Services;
 
@@ -13,13 +14,15 @@ public class AuthService : IAuthService
     private readonly IGoogleTokenVerifier _googleTokenVerifier;
     private readonly IEmailService _emailService;
     private readonly PasswordHasher<AppUser> _passwordHasher;
+    private readonly IConfiguration _configuration;
 
-    public AuthService(IUserRepository userRepository, IJwtTokenGenerator jwtTokenGenerator, IGoogleTokenVerifier googleTokenVerifier, IEmailService emailService)
+    public AuthService(IUserRepository userRepository, IJwtTokenGenerator jwtTokenGenerator, IGoogleTokenVerifier googleTokenVerifier, IEmailService emailService, IConfiguration configuration)
     {
         _userRepository = userRepository;
         _jwtTokenGenerator = jwtTokenGenerator;
         _googleTokenVerifier = googleTokenVerifier;
         _emailService = emailService;
+        _configuration = configuration;
         _passwordHasher = new PasswordHasher<AppUser>();
     }
 
@@ -108,7 +111,8 @@ public class AuthService : IAuthService
 
         try
         {
-            var verificationLink = $"https://localhost:55445/api/auth/verify-email?email={Uri.EscapeDataString(newUser.Email)}&token={Uri.EscapeDataString(verificationToken)}";
+            var baseUrl = _configuration["BaseUrl"]?.TrimEnd('/') ?? "https://localhost:55445";
+            var verificationLink = $"{baseUrl}/api/auth/verify-email?email={Uri.EscapeDataString(newUser.Email)}&token={Uri.EscapeDataString(verificationToken)}";
             var htmlBody = $@"
 <div style=""font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;"">
     <h2 style=""color: #333; text-align: center;"">Xác Thực Tài Khoản Đăng Ký</h2>
