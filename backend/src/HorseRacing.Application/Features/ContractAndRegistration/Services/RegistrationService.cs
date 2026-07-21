@@ -206,8 +206,8 @@ public class RegistrationService : IRegistrationService
                 {
                     await _notificationService.SendNotificationToUserAsync(
                         ownerId,
-                        "Duyệt ngựa tham gia giải đấu",
-                        $"Ngựa '{horseName}' của bạn đã được duyệt tham gia giải đấu '{tournamentName}'.",
+                        "Tournament Registration Approved",
+                        $"Your horse '{horseName}' has been approved to participate in tournament '{tournamentName}'.",
                         "Tournament",
                         referenceId: (int)notifyReg.TournamentId,
                         actionUrl: "/owner/registrations"
@@ -224,8 +224,8 @@ public class RegistrationService : IRegistrationService
                     {
                         await _notificationService.SendNotificationToUserAsync(
                             activeContract.JockeyId,
-                            "Ngựa nài đã được duyệt",
-                            $"Ngựa '{horseName}' mà bạn nài đã được duyệt vào giải đấu '{tournamentName}'.",
+                            "Assigned Horse Approved",
+                            $"Horse '{horseName}', which you are assigned to ride, has been approved for tournament '{tournamentName}'.",
                             "Tournament",
                             referenceId: (int)notifyReg.TournamentId,
                             actionUrl: "/jockey/schedule"
@@ -243,8 +243,8 @@ public class RegistrationService : IRegistrationService
                 {
                     await _notificationService.SendNotificationToUserAsync(
                         ownerId,
-                        "Từ chối đăng ký ngựa",
-                        $"Đơn đăng ký cho ngựa '{horseName}' tại giải đấu '{tournamentName}' đã bị từ chối. Vui lòng kiểm tra lại thông tin.",
+                        "Tournament Registration Rejected",
+                        $"The registration for horse '{horseName}' in tournament '{tournamentName}' was rejected. Please review the registration details.",
                         "Tournament",
                         referenceId: (int)notifyReg.TournamentId,
                         actionUrl: "/owner/registrations"
