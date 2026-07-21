@@ -605,11 +605,50 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("races/{raceId}/publish")]
-    public async Task<IActionResult> PublishResult([FromRoute] long raceId)
+    public async Task<IActionResult> PublishResult([FromRoute] long raceId, [FromServices] AppDbContext context)
     {
         try
         {
+            var race = await context.Races
+                .AsNoTracking()
+                .Include(r => r.Round)
+                .FirstOrDefaultAsync(r => r.RaceId == raceId);
+
+            if (race == null)
+            {
+                return NotFound(new { message = $"Race with ID {raceId} was not found." });
+            }
+
             var response = await _resultService.PublishResultAsync(raceId);
+
+            var isFinalRace = race.Round?.RoundNumber == 2;
+            if (isFinalRace)
+            {
+                var tournamentId = race.Round!.TournamentId;
+                var alreadyPaid = await context.TournamentPrizePayouts
+                    .AnyAsync(p => p.TournamentId == tournamentId);
+
+                if (!alreadyPaid)
+                {
+                    await _prizePayoutService.ProcessPrizePayoutAsync(new PrizePayoutRequest
+                    {
+                        TournamentId = (int)tournamentId,
+                        FirstPlacePrize = 0m,
+                        SecondPlacePrize = 0m,
+                        ThirdPlacePrize = 0m,
+                        TriggeredByUserId = GetCurrentUserId()
+                    });
+                }
+
+                return Ok(new
+                {
+                    message = alreadyPaid
+                        ? "Final race result published successfully. Tournament prizes had already been distributed."
+                        : "Final race result published successfully. Prizes were deducted from the Admin wallet and credited to the Top 1, Top 2, and Top 3 horse owners.",
+                    result = response
+                });
+            }
+
             return Ok(new { message = "Race result published successfully", result = response });
         }
         catch (ArgumentException ex)
