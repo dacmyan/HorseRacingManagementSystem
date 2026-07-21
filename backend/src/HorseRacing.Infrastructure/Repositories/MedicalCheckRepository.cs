@@ -195,4 +195,10 @@ public class MedicalCheckRepository : IMedicalCheckRepository
             .Select(u => u.UserId)
             .ToListAsync();
     }
+
+    public async Task<HorseRacing.Application.Features.FinancialRewards.Interfaces.IDbTransaction> BeginTransactionAsync()
+    {
+        var tx = await _context.Database.BeginTransactionAsync();
+        return new EfDbTransaction(tx);
+    }
 }

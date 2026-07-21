@@ -7,6 +7,7 @@ using HorseRacing.Application.Features.MedicalCheck.DTOs;
 using HorseRacing.Application.Features.MedicalCheck.Interfaces;
 using HorseRacing.Application.Features.ContractAndRegistration.Interfaces;
 using HorseRacing.Application.Features.Notifications.Interfaces;
+using HorseRacing.Application.Features.FinancialRewards.Interfaces;
 using HorseRacing.Domain.Entities;
 
 namespace HorseRacing.Application.Features.MedicalCheck.Services;
@@ -344,149 +345,162 @@ public class MedicalCheckService : IMedicalCheckService
         if (!eligibleStatuses.Any(s => string.Equals(registration.Status, s, StringComparison.OrdinalIgnoreCase)))
             throw new ArgumentException($"Registration status '{registration.Status}' is not eligible for re-examination. Must be Approved or Qualified.");
 
-        // 3. Create a NEW MedicalCheckRecord (NEVER overwrite previous records)
-        var newRecord = new MedicalCheckRecord
+        await using var transaction = await _repository.BeginTransactionAsync();
+        try
         {
-            RegistrationId = request.RegistrationId,
-            UserId         = vetUserId,
-            CheckType      = "ReCheck",
-            Weight         = request.Weight,
-            Temperature    = request.Temperature,
-            HeartRate      = request.HeartRate,
-            DopingResult   = request.DopingResult,
-            MedicalResult  = request.MedicalResult,
-            FailReason     = request.FailReason,
-            Notes          = request.Notes,
-            CheckedAt      = DateTime.UtcNow,
-        };
+            // 3. Create a NEW MedicalCheckRecord (NEVER overwrite previous records)
+            var newRecord = new MedicalCheckRecord
+            {
+                RegistrationId = request.RegistrationId,
+                UserId         = vetUserId,
+                CheckType      = "ReCheck",
+                Weight         = request.Weight,
+                Temperature    = request.Temperature,
+                HeartRate      = request.HeartRate,
+                DopingResult   = request.DopingResult,
+                MedicalResult  = request.MedicalResult,
+                FailReason     = request.FailReason,
+                Notes          = request.Notes,
+                CheckedAt      = DateTime.UtcNow,
+            };
 
-        await _repository.AddAsync(newRecord);
+            await _repository.AddAsync(newRecord);
 
-        // 4. If horse PASSED → no withdrawal needed
-        if (request.MedicalResult == "Pass")
-        {
+            // 4. If horse PASSED → no withdrawal needed
+            if (request.MedicalResult == "Pass")
+            {
+                if (registration.Horse != null)
+                {
+                    registration.Horse.HealthStatus = "Healthy";
+                }
+                await _repository.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                var passRecord = await _repository.GetByIdAsync(newRecord.Id);
+                return new RecheckResultResponse
+                {
+                    MedicalRecord      = Map(passRecord ?? newRecord),
+                    HorseWithdrawn     = false,
+                    RegistrationStatus = registration.Status,
+                    Message            = $"Re-inspection passed. Horse '{registration.Horse?.Name}' continues to compete."
+                };
+            }
+
+            // 5. Horse FAILED → withdrawal workflow
             if (registration.Horse != null)
             {
-                registration.Horse.HealthStatus = "Healthy";
+                registration.Horse.HealthStatus = request.DopingResult == "Positive" ? "Sick" : "Injured";
             }
+
+            // 5a. Update Registration → Disqualified
+            registration.Status = "Disqualified";
+            _repository.UpdateRegistration(registration);
+
+            // 5b. Find active RaceEntry
+            var raceEntry = await _repository.GetActiveRaceEntryByRegistrationIdAsync(request.RegistrationId);
+            var withdrawStatus = "None";
+            var withdrawReason = request.FailReason ?? "FailedMedicalReCheck";
+
+            if (raceEntry != null)
+            {
+                var race = await _repository.GetRaceByRaceEntryIdAsync(raceEntry.RaceEntryId);
+                var alreadyFinalStatuses = new[] { "Withdrawn", "Scratch", "DNF", "Disqualified", "Finished" };
+
+                if (race != null && !alreadyFinalStatuses.Any(s => string.Equals(raceEntry.Status, s, StringComparison.OrdinalIgnoreCase)))
+                {
+                    if (string.Equals(race.Status, "InProgress", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Race in progress → DNF
+                        raceEntry.Status         = "DNF";
+                        raceEntry.WithdrawReason = withdrawReason;
+                        raceEntry.WithdrawTime   = DateTime.UtcNow;
+                        withdrawStatus = "DNF";
+                    }
+                    else
+                    {
+                        // Race not started → Withdrawn
+                        raceEntry.Status         = "Withdrawn";
+                        raceEntry.WithdrawReason = withdrawReason;
+                        raceEntry.WithdrawTime   = DateTime.UtcNow;
+                        withdrawStatus = "Withdrawn";
+                    }
+
+                    _repository.UpdateRaceEntry(raceEntry);
+                }
+            }
+
             await _repository.SaveChangesAsync();
-            var passRecord = await _repository.GetByIdAsync(newRecord.Id);
+
+            // 6. Send notifications
+            var horseName      = registration.Horse?.Name ?? $"RegistrationId #{registration.RegistrationId}";
+            var tournamentName = registration.Tournament?.Name ?? string.Empty;
+            var failTitle      = "⚠️ Horse disqualified due to medical check";
+            var failContent    = $"Horse {horseName} failed the medical re-inspection in tournament {tournamentName}. Reason: {withdrawReason}.";
+
+            // Notify owner
+            var ownerId = await _repository.GetOwnerUserIdByRegistrationAsync(request.RegistrationId);
+            if (ownerId.HasValue)
+                await _notificationService.SendNotificationToUserAsync(
+                    ownerId.Value, failTitle, failContent, "Medical", (int?)raceEntry?.RaceEntryId);
+
+            var ownerEmail = registration.Horse?.Owner?.Email;
+            if (!string.IsNullOrWhiteSpace(ownerEmail))
+            {
+                var emailBody = $@"
+                    <h2>Thông báo kết quả tái khám (Re-Check)</h2>
+                    <p>Xin chào,</p>
+                    <p>Chúng tôi rất tiếc phải thông báo rằng ngựa <strong>{horseName}</strong> của bạn đã <strong>không đạt</strong> yêu cầu trong đợt tái khám cho giải đấu <strong>{tournamentName}</strong>.</p>
+                    <p><strong>Kết quả:</strong> {withdrawReason}</p>
+                    <p><strong>Ghi chú từ bác sĩ:</strong> {request.Notes ?? "Không có"}</p>
+                    <p>Ngựa của bạn đã bị <strong>loại khỏi cuộc đua (Withdrawn/DNF)</strong> theo quy định.</p>
+                    <br/>
+                    <p>Trân trọng,<br/>Ban Tổ Chức Giải Đua Ngựa</p>";
+                await _emailService.SendEmailAsync(ownerEmail, failTitle, emailBody);
+            }
+
+            // Notify jockey & referees & bettors (if race entry exists)
+            if (raceEntry != null)
+            {
+                var jockeyId = await _repository.GetJockeyUserIdByRaceEntryAsync(raceEntry.RaceEntryId);
+                if (jockeyId.HasValue)
+                    await _notificationService.SendNotificationToUserAsync(
+                        jockeyId.Value, failTitle,
+                        $"Horse {horseName} in tournament {tournamentName} has been withdrawn due to failed medical check. Your contract has been affected.",
+                        "Medical", (int?)raceEntry.RaceEntryId);
+
+                var refereeIds = await _repository.GetRefereeUserIdsByRaceIdAsync(raceEntry.RaceId);
+                foreach (var refereeId in refereeIds)
+                    await _notificationService.SendNotificationToUserAsync(
+                        refereeId, failTitle, failContent, "Medical", (int?)raceEntry.RaceEntryId);
+
+                var bettorIds = await _repository.GetBettorUserIdsByRaceIdAsync(raceEntry.RaceId);
+                foreach (var bettorId in bettorIds)
+                    await _notificationService.SendNotificationToUserAsync(
+                        bettorId,
+                        "⚠️ Bet Update — Horse withdrawn from race",
+                        $"Horse {horseName} has been withdrawn from the race in tournament {tournamentName} due to failing the medical check. Please check your bet status.",
+                        "Bet", (int?)raceEntry.RaceId);
+            }
+
+            await transaction.CommitAsync();
+
+            var populated = await _repository.GetByIdAsync(newRecord.Id);
+            var actionText = withdrawStatus == "DNF" ? "marked as DNF" : "withdrawn from the race";
             return new RecheckResultResponse
             {
-                MedicalRecord      = Map(passRecord ?? newRecord),
-                HorseWithdrawn     = false,
-                RegistrationStatus = registration.Status,
-                Message            = $"Re-inspection passed. Horse '{registration.Horse?.Name}' continues to compete."
+                MedicalRecord      = Map(populated ?? newRecord),
+                HorseWithdrawn     = true,
+                WithdrawStatus     = withdrawStatus == "None" ? null : withdrawStatus,
+                WithdrawReason     = withdrawReason,
+                RegistrationStatus = "Disqualified",
+                Message            = $"Re-inspection failed. Horse '{horseName}' has been {actionText}."
             };
         }
-
-        // 5. Horse FAILED → withdrawal workflow
-        if (registration.Horse != null)
+        catch (Exception)
         {
-            registration.Horse.HealthStatus = request.DopingResult == "Positive" ? "Sick" : "Injured";
+            await transaction.RollbackAsync();
+            throw;
         }
-
-        // 5a. Update Registration → Disqualified
-        registration.Status = "Disqualified";
-        _repository.UpdateRegistration(registration);
-
-        // 5b. Find active RaceEntry
-        var raceEntry = await _repository.GetActiveRaceEntryByRegistrationIdAsync(request.RegistrationId);
-        var withdrawStatus = "None";
-        var withdrawReason = request.FailReason ?? "FailedMedicalReCheck";
-
-        if (raceEntry != null)
-        {
-            var race = await _repository.GetRaceByRaceEntryIdAsync(raceEntry.RaceEntryId);
-            var alreadyFinalStatuses = new[] { "Withdrawn", "Scratch", "DNF", "Disqualified", "Finished" };
-
-            if (race != null && !alreadyFinalStatuses.Any(s => string.Equals(raceEntry.Status, s, StringComparison.OrdinalIgnoreCase)))
-            {
-                if (string.Equals(race.Status, "InProgress", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Race in progress → DNF
-                    raceEntry.Status         = "DNF";
-                    raceEntry.WithdrawReason = withdrawReason;
-                    raceEntry.WithdrawTime   = DateTime.UtcNow;
-                    withdrawStatus = "DNF";
-                }
-                else
-                {
-                    // Race not started → Withdrawn
-                    raceEntry.Status         = "Withdrawn";
-                    raceEntry.WithdrawReason = withdrawReason;
-                    raceEntry.WithdrawTime   = DateTime.UtcNow;
-                    withdrawStatus = "Withdrawn";
-                }
-
-                _repository.UpdateRaceEntry(raceEntry);
-            }
-        }
-
-        await _repository.SaveChangesAsync();
-
-        // 6. Send notifications
-        var horseName      = registration.Horse?.Name ?? $"RegistrationId #{registration.RegistrationId}";
-        var tournamentName = registration.Tournament?.Name ?? string.Empty;
-        var failTitle      = "⚠️ Horse disqualified due to medical check";
-        var failContent    = $"Horse {horseName} failed the medical re-inspection in tournament {tournamentName}. Reason: {withdrawReason}.";
-
-        // Notify owner
-        var ownerId = await _repository.GetOwnerUserIdByRegistrationAsync(request.RegistrationId);
-        if (ownerId.HasValue)
-            await _notificationService.SendNotificationToUserAsync(
-                ownerId.Value, failTitle, failContent, "Medical", (int?)raceEntry?.RaceEntryId);
-
-        var ownerEmail = registration.Horse?.Owner?.Email;
-        if (!string.IsNullOrWhiteSpace(ownerEmail))
-        {
-            var emailBody = $@"
-                <h2>Thông báo kết quả tái khám (Re-Check)</h2>
-                <p>Xin chào,</p>
-                <p>Chúng tôi rất tiếc phải thông báo rằng ngựa <strong>{horseName}</strong> của bạn đã <strong>không đạt</strong> yêu cầu trong đợt tái khám cho giải đấu <strong>{tournamentName}</strong>.</p>
-                <p><strong>Kết quả:</strong> {withdrawReason}</p>
-                <p><strong>Ghi chú từ bác sĩ:</strong> {request.Notes ?? "Không có"}</p>
-                <p>Ngựa của bạn đã bị <strong>loại khỏi cuộc đua (Withdrawn/DNF)</strong> theo quy định.</p>
-                <br/>
-                <p>Trân trọng,<br/>Ban Tổ Chức Giải Đua Ngựa</p>";
-            await _emailService.SendEmailAsync(ownerEmail, failTitle, emailBody);
-        }
-
-        // Notify jockey & referees & bettors (if race entry exists)
-        if (raceEntry != null)
-        {
-            var jockeyId = await _repository.GetJockeyUserIdByRaceEntryAsync(raceEntry.RaceEntryId);
-            if (jockeyId.HasValue)
-                await _notificationService.SendNotificationToUserAsync(
-                    jockeyId.Value, failTitle,
-                    $"Horse {horseName} in tournament {tournamentName} has been withdrawn due to failed medical check. Your contract has been affected.",
-                    "Medical", (int?)raceEntry.RaceEntryId);
-
-            var refereeIds = await _repository.GetRefereeUserIdsByRaceIdAsync(raceEntry.RaceId);
-            foreach (var refereeId in refereeIds)
-                await _notificationService.SendNotificationToUserAsync(
-                    refereeId, failTitle, failContent, "Medical", (int?)raceEntry.RaceEntryId);
-
-            var bettorIds = await _repository.GetBettorUserIdsByRaceIdAsync(raceEntry.RaceId);
-            foreach (var bettorId in bettorIds)
-                await _notificationService.SendNotificationToUserAsync(
-                    bettorId,
-                    "⚠️ Bet Update — Horse withdrawn from race",
-                    $"Horse {horseName} has been withdrawn from the race in tournament {tournamentName} due to failing the medical check. Please check your bet status.",
-                    "Bet", (int?)raceEntry.RaceId);
-        }
-
-        var populated = await _repository.GetByIdAsync(newRecord.Id);
-        var actionText = withdrawStatus == "DNF" ? "marked as DNF" : "withdrawn from the race";
-        return new RecheckResultResponse
-        {
-            MedicalRecord      = Map(populated ?? newRecord),
-            HorseWithdrawn     = true,
-            WithdrawStatus     = withdrawStatus == "None" ? null : withdrawStatus,
-            WithdrawReason     = withdrawReason,
-            RegistrationStatus = "Disqualified",
-            Message            = $"Re-inspection failed. Horse '{horseName}' has been {actionText}."
-        };
     }
 
     // ─── Assigned Race Entries ────────────────────────────────────────────────
