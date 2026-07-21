@@ -10,6 +10,7 @@ using HorseRacing.Domain.Entities.Financials;
 using HorseRacing.Application.Features.UserManagement.Interfaces;
 using HorseRacing.Application.Common.Interfaces;
 using System.Linq;
+using System.Collections.Generic;
 
 namespace HorseRacing.Application.Features.FinancialRewards.Services;
 
@@ -85,18 +86,25 @@ public class PrizePayoutService : IPrizePayoutService
 
         decimal totalConfiguredPrizePool = firstAmount + secondAmount + thirdAmount;
 
-        var adminUserIds = await _notificationService.GetActiveUserIdsByRoleAsync("Admin");
-        int adminUserId = adminUserIds.FirstOrDefault();
-        if (adminUserId > 0)
+        int adminUserId = request.TriggeredByUserId ?? 0;
+        if (adminUserId <= 0)
+            throw new InvalidOperationException("The authenticated Admin account is required for prize payout.");
+
+        var adminWalletForValidation = await GetOrCreateWalletAsync(adminUserId);
+        if (adminWalletForValidation.Balance < totalConfiguredPrizePool)
         {
-            var adminWallet = await GetOrCreateWalletAsync(adminUserId);
-            if (adminWallet.Balance < totalConfiguredPrizePool)
-            {
-                throw new InvalidOperationException(
-                    $"Insufficient system treasury balance. Required prize pool: {totalConfiguredPrizePool:N2} VND, Current Treasury Balance: {adminWallet.Balance:N2} VND."
-                );
-            }
+            throw new InvalidOperationException(
+                $"Insufficient system treasury balance. Required prize pool: {totalConfiguredPrizePool:N2} VND, Current Treasury Balance: {adminWalletForValidation.Balance:N2} VND."
+            );
         }
+
+        var finalRace = await _betRepository.GetFinalRaceInTournamentAsync(request.TournamentId);
+        if (finalRace == null)
+            throw new InvalidOperationException("The finished Final Round race was not found. Tournament prizes cannot be paid.");
+
+        var result = await _betRepository.GetRaceResultAsync(finalRace.RaceId);
+        if (result == null || string.IsNullOrWhiteSpace(result.Winner))
+            throw new InvalidOperationException("The published Final Round result and winner are required before prize payout.");
 
         // 2. Configure and save First, Second, Third place prizes
         if (firstPrize == null)
@@ -158,20 +166,11 @@ public class PrizePayoutService : IPrizePayoutService
 
         await _prizeRepository.SaveChangesAsync();
 
-        // 2. Try to get finished final race and published result.
-        var finalRace = await _betRepository.GetFinalRaceInTournamentAsync(request.TournamentId);
-        if (finalRace == null)
-        {
-            throw new InvalidOperationException($"No completed final race found for tournament ID {request.TournamentId}. Please ensure the final race has been completed.");
-        }
-
-        var result = await _betRepository.GetRaceResultAsync(finalRace.RaceId);
-        if (result == null || string.IsNullOrWhiteSpace(result.Winner))
-        {
-            throw new InvalidOperationException($"Official winner results for final race #{finalRace.RaceId} have not been published yet.");
-        }
+        // Final race and published winner were validated before any prize data was saved.
 
         // 3. Process payouts for all top 3 ranks — wrapped in a DB transaction for atomicity
+        var ownerNotifications = new List<(int UserId, string HorseName, int Rank, decimal Amount, decimal Balance)>();
+        var jockeyNotifications = new List<(int UserId, string HorseName, int Rank, decimal Amount)>();
         await using var dbTransaction = await _prizeRepository.BeginTransactionAsync();
         try
         {
@@ -291,15 +290,7 @@ public class PrizePayoutService : IPrizePayoutService
                 };
                 await _prizeRepository.AddTournamentPrizePayoutAsync(ownerPayoutRecord);
 
-                // Send notification to Owner with horse name, rank, and prize amount
-                await _notificationService.SendNotificationToUserAsync(
-                    horse.OwnerId,
-                    "Tournament Prize Payout",
-                    $"Congratulations! Your horse '{horse.Name}' successfully achieved Top {rank} in the tournament '{tournament.Name}'. You have received a prize of {totalPrizeAmount:N2}$ in your wallet. Current wallet balance: {ownerWallet.Balance:N2}$.",
-                    "Wallet",
-                    referenceId: (int)tournament.TournamentId,
-                    actionUrl: "/owner/wallet/overview"
-                );
+                ownerNotifications.Add((horse.OwnerId, horse.Name, rank, totalPrizeAmount, ownerWallet.Balance));
 
                 // --- Jockey Notification (No money transferred to Jockey wallet) ---
                 int jockeyUserId = 0;
@@ -310,15 +301,7 @@ public class PrizePayoutService : IPrizePayoutService
 
                 if (jockeyUserId > 0)
                 {
-                    // Only send achievement notification to Jockey whose horse placed in Top 3
-                    await _notificationService.SendNotificationToUserAsync(
-                        jockeyUserId,
-                        "Outstanding Jockey Performance",
-                        $"Congratulations! The horse '{horse.Name}' you rode achieved Top {rank} in the tournament '{tournament.Name}' with a total tournament prize of {totalPrizeAmount:N2}$.",
-                        "Tournament",
-                        referenceId: (int)tournament.TournamentId,
-                        actionUrl: "/jockey/schedule"
-                    );
+                    jockeyNotifications.Add((jockeyUserId, horse.Name, rank, totalPrizeAmount));
                 }
             }
 
@@ -328,6 +311,44 @@ public class PrizePayoutService : IPrizePayoutService
 
             // Commit the DB transaction — all wallet updates are persisted atomically
             await dbTransaction.CommitAsync();
+
+            // Send notifications only after the wallet transfer and payout records
+            // have committed successfully.
+            foreach (var notice in ownerNotifications)
+            {
+                try
+                {
+                    await _notificationService.SendNotificationToUserAsync(
+                        notice.UserId,
+                        "Tournament Prize Payout",
+                        $"Congratulations! Your horse '{notice.HorseName}' achieved Top {notice.Rank} in tournament '{tournament.Name}'. You received {notice.Amount:N2} VND. Current wallet balance: {notice.Balance:N2} VND.",
+                        "Wallet",
+                        referenceId: (int)tournament.TournamentId,
+                        actionUrl: "/owner/results");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[NOTIFICATION ERROR] Failed to notify owner {notice.UserId}: {ex.Message}");
+                }
+            }
+
+            foreach (var notice in jockeyNotifications)
+            {
+                try
+                {
+                    await _notificationService.SendNotificationToUserAsync(
+                        notice.UserId,
+                        "Outstanding Jockey Performance",
+                        $"Congratulations! Horse '{notice.HorseName}', which you rode, achieved Top {notice.Rank} in tournament '{tournament.Name}' with a total prize of {notice.Amount:N2} VND.",
+                        "Tournament",
+                        referenceId: (int)tournament.TournamentId,
+                        actionUrl: "/jockey/schedule");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[NOTIFICATION ERROR] Failed to notify jockey {notice.UserId}: {ex.Message}");
+                }
+            }
 
             // Broadcast email to users
             try

@@ -344,25 +344,8 @@ public class RaceResultService : IRaceResultService
                 Console.WriteLine($"[Prediction Error] Failed to evaluate predictions for race {raceId}: {ex.Message}");
             }
 
-            // Auto Prize Payout for Final Round Race
-            if (race.Round != null && race.Round.RoundNumber == 2)
-            {
-                try
-                {
-                    var payoutRequest = new FinancialRewards.DTOs.PrizePayoutRequest
-                    {
-                        TournamentId = (int)race.Round.TournamentId,
-                        FirstPlacePrize = 0m,
-                        SecondPlacePrize = 0m,
-                        ThirdPlacePrize = 0m
-                    };
-                    await _prizePayoutService.ProcessPrizePayoutAsync(payoutRequest);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[PrizePayout Error] Failed to process auto prize payout: {ex.Message}");
-                }
-            }
+            // Tournament prizes are paid only when Admin explicitly completes the
+            // tournament. Paying here hid failures and could debit a different Admin.
         }
 
         // 4. Resolve winner details

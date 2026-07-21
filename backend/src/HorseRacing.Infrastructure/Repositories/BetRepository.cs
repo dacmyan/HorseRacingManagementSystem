@@ -101,7 +101,10 @@ public class BetRepository : IBetRepository
     {
         var finishedStatuses = new[] { "finished", "completed", "resultpublished", "closed" };
         return await _context.Races
-            .Where(r => r.Round != null && r.Round.TournamentId == tournamentId && finishedStatuses.Contains(r.Status.ToLower()))
+            .Where(r => r.Round != null &&
+                        r.Round.TournamentId == tournamentId &&
+                        r.Round.RoundNumber == 2 &&
+                        finishedStatuses.Contains(r.Status.ToLower()))
             .OrderByDescending(r => r.RaceDate)
             .FirstOrDefaultAsync();
     }
