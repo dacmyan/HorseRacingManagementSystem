@@ -108,14 +108,14 @@ public class WalletService : IWalletService
             var user = await _userRepository.GetByIdAsync(userId);
             if (user != null && !string.IsNullOrEmpty(user.Email))
             {
-                var subject = "Biên lai Nạp Tiền: Nạp tiền thành công";
-                var body = $@"
-                    <h2>Nạp tiền thành công!</h2>
-                    <p>Xin chào {user.FullName},</p>
-                    <p>Bạn đã nạp thành công <strong>{request.Amount:N2}$</strong> vào ví của mình.</p>
-                    <p>Số dư mới của bạn là: <strong>{wallet.Balance:N2}$</strong>.</p>
-                    <p>Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi.</p>
-                ";
+                 var subject = "Deposit Receipt: Deposit successful";
+                 var body = $@"
+                     <h2>Deposit Successful!</h2>
+                     <p>Hello {user.FullName},</p>
+                     <p>You have successfully deposited <strong>{request.Amount:N2}$</strong> into your wallet.</p>
+                     <p>Your new balance is: <strong>{wallet.Balance:N2}$</strong>.</p>
+                     <p>Thank you for using our services.</p>
+                 ";
                 await _emailService.SendEmailAsync(user.Email, subject, body);
             }
         }
@@ -179,14 +179,14 @@ public class WalletService : IWalletService
             var user = await _userRepository.GetByIdAsync(userId);
             if (user != null && !string.IsNullOrEmpty(user.Email))
             {
-                var subject = "Biên lai Rút Tiền: Rút tiền thành công";
-                var body = $@"
-                    <h2>Rút tiền thành công!</h2>
-                    <p>Xin chào {user.FullName},</p>
-                    <p>Bạn đã rút thành công <strong>{request.Amount:N2}$</strong> từ ví của mình.</p>
-                    <p>Số dư mới của bạn là: <strong>{wallet.Balance:N2}$</strong>.</p>
-                    <p>Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi.</p>
-                ";
+                 var subject = "Withdrawal Receipt: Withdrawal successful";
+                 var body = $@"
+                     <h2>Withdrawal Successful!</h2>
+                     <p>Hello {user.FullName},</p>
+                     <p>You have successfully withdrew <strong>{request.Amount:N2}$</strong> from your wallet.</p>
+                     <p>Your new balance is: <strong>{wallet.Balance:N2}$</strong>.</p>
+                     <p>Thank you for using our services.</p>
+                 ";
                 await _emailService.SendEmailAsync(user.Email, subject, body);
             }
         }
