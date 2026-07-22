@@ -1319,7 +1319,23 @@ public class DataSeeder
         // 1. Get default Vet user
         var vetUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == "vet@gmail.com") 
             ?? await _context.Users.FirstOrDefaultAsync(u => u.RoleId == 6);
-        if (vetUser == null) return;
+        if (vetUser == null)
+        {
+            var vetHasher = new PasswordHasher<AppUser>();
+            vetUser = new AppUser
+            {
+                Username = "vet",
+                Email = "vet@gmail.com",
+                FullName = "Default Veterinarian",
+                RoleId = 6,
+                IsEmailConfirmed = true,
+                CreatedAt = DateTime.UtcNow
+            };
+            vetUser.PasswordHash = vetHasher.HashPassword(vetUser, "123456");
+            _context.Users.Add(vetUser);
+            await _context.SaveChangesAsync();
+        }
+
 
         // 2. Ensure owner user exists
         var hasher = new PasswordHasher<AppUser>();
