@@ -186,6 +186,7 @@ public class AdminController : ControllerBase
     {
         try
         {
+            request.TriggeredByUserId = GetCurrentUserId();
             await _prizePayoutService.ProcessPrizePayoutAsync(request);
             return Ok(new { message = "Tournament prizes distributed successfully" });
         }
@@ -379,56 +380,20 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("tournaments/{id}/close-registration")]
-    public async Task<IActionResult> CloseRegistration(long id, [FromServices] AppDbContext context)
+    public async Task<IActionResult> CloseRegistration(long id)
     {
         try
         {
-            var tournament = await context.Tournaments.FindAsync(id);
-            if (tournament == null)
-            {
-                return NotFound(new { message = $"Tournament with ID {id} was not found." });
-            }
-            if (!new[] { "PendingRegistration", "Registration Open" }.Contains(tournament.Status, StringComparer.OrdinalIgnoreCase))
-                return BadRequest(new { message = $"Registration cannot be closed while tournament status is '{tournament.Status}'." });
-
-            tournament.RegistrationEndDate = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
-            tournament.Status = "PendingScheduling";
-            await context.SaveChangesAsync();
-
-            // Auto-cancel registrations without accepted jockey
-            var tournamentRepo = HttpContext.RequestServices.GetRequiredService<ITournamentRepository>();
-            var cancelledRegs = await tournamentRepo.CancelRegistrationsWithoutJockeyAsync(id);
-
-            if (cancelledRegs.Count > 0)
-            {
-                var notificationService = HttpContext.RequestServices.GetService<INotificationService>();
-                if (notificationService != null)
-                {
-                    var ownerGroups = cancelledRegs.GroupBy(c => c.OwnerId);
-                    foreach (var group in ownerGroups)
-                    {
-                        var horseNames = string.Join(", ", group.Select(c => c.HorseName));
-                        var tournamentName = group.First().TournamentName;
-                        try
-                        {
-                            await notificationService.SendNotificationToUserAsync(
-                                group.Key,
-                                "Đăng ký bị hủy tự động",
-                                $"Đăng ký của ngựa [{horseNames}] trong giải đấu '{tournamentName}' đã bị hủy tự động do chưa có jockey được chấp nhận khi đăng ký đóng.",
-                                "System",
-                                (int)id,
-                                actionUrl: "/owner/registrations"
-                            );
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"[NOTIFICATION ERROR] Failed to send auto-cancel notification to owner {group.Key}: {ex.Message}");
-                        }
-                    }
-                }
-            }
-
-            return Ok(new { message = "Registration closed successfully.", cancelledRegistrations = cancelledRegs.Count, result = new { tournamentId = id, registrationEndDate = tournament.RegistrationEndDate } });
+            var result = await _tournamentService.CloseRegistrationAsync(id, manualClose: true);
+            return Ok(new { message = "Registration closed successfully.", result });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
         }
         catch (Exception ex)
         {
@@ -511,6 +476,32 @@ public class AdminController : ControllerBase
         }
     }
 
+    [HttpPut("races/{id}")]
+    public async Task<IActionResult> UpdateRace([FromRoute] long id, [FromBody] UpdateRaceRequest request)
+    {
+        try
+        {
+            var response = await _raceService.UpdateRaceAsync(id, request);
+            if (response == null)
+            {
+                return NotFound(new { message = $"Race with ID {id} not found." });
+            }
+            return Ok(new { message = "Race updated successfully", result = response });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred during race update", detail = ex.Message });
+        }
+    }
+
     [HttpPost("races/{raceId}/referees")]
     public async Task<IActionResult> AssignReferee([FromRoute] long raceId, [FromBody] AssignRefereeRequest request)
     {
@@ -578,11 +569,50 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("races/{raceId}/publish")]
-    public async Task<IActionResult> PublishResult([FromRoute] long raceId)
+    public async Task<IActionResult> PublishResult([FromRoute] long raceId, [FromServices] AppDbContext context)
     {
         try
         {
+            var race = await context.Races
+                .AsNoTracking()
+                .Include(r => r.Round)
+                .FirstOrDefaultAsync(r => r.RaceId == raceId);
+
+            if (race == null)
+            {
+                return NotFound(new { message = $"Race with ID {raceId} was not found." });
+            }
+
             var response = await _resultService.PublishResultAsync(raceId);
+
+            var isFinalRace = race.Round?.RoundNumber == 2;
+            if (isFinalRace)
+            {
+                var tournamentId = race.Round!.TournamentId;
+                var alreadyPaid = await context.TournamentPrizePayouts
+                    .AnyAsync(p => p.TournamentId == tournamentId);
+
+                if (!alreadyPaid)
+                {
+                    await _prizePayoutService.ProcessPrizePayoutAsync(new PrizePayoutRequest
+                    {
+                        TournamentId = (int)tournamentId,
+                        FirstPlacePrize = 0m,
+                        SecondPlacePrize = 0m,
+                        ThirdPlacePrize = 0m,
+                        TriggeredByUserId = GetCurrentUserId()
+                    });
+                }
+
+                return Ok(new
+                {
+                    message = alreadyPaid
+                        ? "Final race result published successfully. Tournament prizes had already been distributed."
+                        : "Final race result published successfully. Prizes were deducted from the Admin wallet and credited to the Top 1, Top 2, and Top 3 horse owners.",
+                    result = response
+                });
+            }
+
             return Ok(new { message = "Race result published successfully", result = response });
         }
         catch (ArgumentException ex)
@@ -661,76 +691,25 @@ public class AdminController : ControllerBase
     }
 
     [HttpPut("registrations/{id}/status")]
-    public async Task<IActionResult> ReviewRegistration(int id, [FromBody] ReviewRegistrationRequest request, [FromServices] AppDbContext context, [FromServices] INotificationService notificationService)
+    public async Task<IActionResult> ReviewRegistration(int id, [FromBody] ReviewRegistrationRequest request)
     {
         try
         {
-            var registration = await context.Registrations
-                .Include(r => r.Horse)
-                .Include(r => r.Tournament)
-                .FirstOrDefaultAsync(r => r.RegistrationId == id);
-            if (registration == null)
-                return NotFound(new { message = $"Registration #{id} not found." });
-
             var validStatuses = new[] { "Approved", "Rejected" };
             request.Status = request.Status?.Trim() ?? string.Empty;
             if (!validStatuses.Contains(request.Status, StringComparer.OrdinalIgnoreCase))
                 return BadRequest(new { message = "Status must be 'Approved' or 'Rejected'." });
             request.Status = validStatuses.First(s => s.Equals(request.Status, StringComparison.OrdinalIgnoreCase));
-
-            if (!string.Equals(registration.Status, "Pending", StringComparison.OrdinalIgnoreCase))
-                return BadRequest(new { message = "Only Pending registrations can be reviewed." });
-
-            if (request.Status == "Approved")
-            {
-                if (registration.Status != "Pending")
-                {
-                    return BadRequest(new { message = "Only Pending registrations can be approved." });
-                }
-
-                var contract = await context.JockeyContracts.FirstOrDefaultAsync(jc => jc.TournamentId == registration.TournamentId && jc.HorseId == registration.HorseId);
-                if (contract == null)
-                {
-                    return BadRequest(new { message = "Cannot approve registration: No jockey contract has been proposed for this horse in this tournament." });
-                }
-
-                if (!contract.Status.Equals("Accepted", StringComparison.OrdinalIgnoreCase))
-                {
-                    return BadRequest(new { message = $"Cannot approve registration: The jockey contract status is '{contract.Status}', but must be 'Accepted'." });
-                }
-            }
-
-            registration.Status = request.Status;
-            await context.SaveChangesAsync();
-
-            if (registration.Horse != null)
-            {
-                var approved = request.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase);
-                var title = approved ? "Registration approved" : "Registration rejected";
-                var content = approved
-                    ? $"Your horse '{registration.Horse.Name}' has been approved for tournament '{registration.Tournament?.Name}'."
-                    : $"Your horse '{registration.Horse.Name}' was not approved for tournament '{registration.Tournament?.Name}'.";
-                await notificationService.SendNotificationToUserAsync(
-                    registration.Horse.OwnerId, title, content, "Tournament", (int)registration.TournamentId,
-                    actionUrl: "/owner/registrations");
-
-                if (approved)
-                {
-                    var jockeyUserIds = await context.JockeyContracts
-                        .Where(c => c.TournamentId == registration.TournamentId && c.HorseId == registration.HorseId &&
-                                    (c.Status == "Accepted" || c.Status == "Active"))
-                        .Select(c => c.JockeyId)
-                        .Distinct()
-                        .ToListAsync();
-                    foreach (var userId in jockeyUserIds)
-                        await notificationService.SendNotificationToUserAsync(
-                            userId, title,
-                            $"Horse '{registration.Horse.Name}' that you ride has been approved for tournament '{registration.Tournament?.Name}'.",
-                            "Tournament", (int)registration.TournamentId, actionUrl: "/jockey/schedule");
-                }
-            }
-
-            return Ok(new { message = $"Registration #{id} has been {request.Status.ToLower()}.", result = new { registrationId = id, status = registration.Status } });
+            var response = await _registrationService.ReviewRegistrationAsync(id, request);
+            return Ok(new { message = $"Registration #{id} has been {request.Status.ToLower()}.", result = response });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
         }
         catch (Exception ex)
         {
@@ -753,7 +732,7 @@ public class AdminController : ControllerBase
                     Email = rp.User != null ? rp.User.Email : "",
                     LicenseNumber = rp.LicenseNumber,
                     ExperienceYears = rp.ExperienceYears,
-                    Status = rp.Status
+                    Status = string.IsNullOrWhiteSpace(rp.Status) ? (rp.User != null ? rp.User.Status : "Active") : rp.Status
                 })
                 .ToListAsync();
             return Ok(new { message = "Referees retrieved successfully", result = referees });
@@ -1409,8 +1388,8 @@ public class AdminController : ControllerBase
 
             // 2. Notify all active users
             await notificationService.BroadcastNotificationAsync(
-                "Giải đấu kết thúc thi đấu",
-                $"Giải đấu '{tournament.Name}' đã kết thúc thi đấu. Ban tổ chức đang tổng hợp kết quả chính thức.",
+                "Tournament Racing Completed",
+                $"Racing for tournament '{tournament.Name}' has ended. The organizers are compiling the official results.",
                 "Tournament",
                 referenceId: (int)tournament.TournamentId,
                 actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
@@ -1434,8 +1413,8 @@ public class AdminController : ControllerBase
                         {
                             await notificationService.SendNotificationToUserAsync(
                                 assignment.RefereeProfile.UserId,
-                                "Yêu cầu nộp kết quả giải đấu",
-                                $"Giải đấu '{tournament.Name}' đã kết thúc. Vui lòng gửi kết quả vi phạm và ghi kết quả xếp hạng ngựa gửi đến admin.",
+                                "Tournament Results Submission Required",
+                                $"Tournament '{tournament.Name}' has ended. Please submit all violation reports and record the horse rankings for Admin review.",
                                 "System",
                                 referenceId: (int)tournament.TournamentId,
                                 actionUrl: "/referee/confirm-results"
@@ -1491,21 +1470,35 @@ public class AdminController : ControllerBase
                 return BadRequest(new { message = $"Final race results must be published before completing the tournament. Current final race status: {finalRace.Status}." });
             }
 
-            // Trigger prize payout
+            // Load configured prizes
+            var configuredPrizes = await context.Prizes
+                .Where(p => p.TournamentId == tournamentId)
+                .ToListAsync();
+
+            var p1 = configuredPrizes.FirstOrDefault(p => p.RankPosition == 1)?.Amount ?? 0m;
+            var p2 = configuredPrizes.FirstOrDefault(p => p.RankPosition == 2)?.Amount ?? 0m;
+            var p3 = configuredPrizes.FirstOrDefault(p => p.RankPosition == 3)?.Amount ?? 0m;
+
+            if (p1 <= 0 || p2 <= 0 || p3 <= 0)
+            {
+                return BadRequest(new { message = "Tournament prize structure has not been configured yet. Please configure 1st, 2nd, and 3rd place prizes first." });
+            }
+
             var request = new PrizePayoutRequest
             {
                 TournamentId = (int)tournamentId,
-                FirstPlacePrize = 0m,
-                SecondPlacePrize = 0m,
-                ThirdPlacePrize = 0m
+                FirstPlacePrize = p1,
+                SecondPlacePrize = p2,
+                ThirdPlacePrize = p3,
+                TriggeredByUserId = GetCurrentUserId()
             };
 
             await _prizePayoutService.ProcessPrizePayoutAsync(request);
 
             // Broadcast to all active users
             await notificationService.BroadcastNotificationAsync(
-                "Giải đấu kết thúc & trao giải",
-                $"Giải đấu '{tournament.Name}' đã kết thúc thành công! Tiền thưởng đã được trao cho các chủ ngựa đạt giải.",
+                "Tournament Completed and Prizes Awarded",
+                $"Tournament '{tournament.Name}' has been completed successfully. Prize money has been awarded to the winning horse owners.",
                 "Tournament",
                 referenceId: (int)tournament.TournamentId,
                 actionUrl: $"/spectator/tournaments/{tournament.TournamentId}"
@@ -1518,7 +1511,22 @@ public class AdminController : ControllerBase
             return StatusCode(500, new { message = "An error occurred during tournament completion", detail = ex.Message });
         }
     }
+
+    [HttpPost("seed-su-tournaments")]
+    public async Task<IActionResult> SeedSUTournaments([FromServices] HorseRacing.Infrastructure.Persistence.DataSeeder seeder)
+    {
+        try
+        {
+            await seeder.SeedSUTournamentsAsync();
+            return Ok(new { message = "SU test tournaments seeded successfully (SU_48_HORSE: 50, SU_14_HORSE: 14, SU_11_HORSE: 11)." });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Error seeding SU tournaments", detail = ex.Message });
+        }
+    }
 }
+
 
 public class UpdateViolationStatusRequest
 {

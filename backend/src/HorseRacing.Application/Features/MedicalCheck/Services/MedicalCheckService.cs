@@ -178,14 +178,14 @@ public class MedicalCheckService : IMedicalCheckService
                 var failTitle = "Khám sức khỏe định kỳ không đạt";
                 var failContent = $"Ngựa {horseName} của bạn không đạt yêu cầu khám lại sức khỏe định kỳ vì lý do: {request.FailReason}.";
                 await _notificationService.SendNotificationToUserAsync(
-                    ownerId, failTitle, failContent, "MedicalCheck", (int?)horse.HorseId, null, "/owner/horses");
+                    ownerId, failTitle, failContent, "Medical", (int?)horse.HorseId, null, "/owner/horses");
             }
             else
             {
                 var passTitle = "Khám sức khỏe đạt (Healthy)";
                 var passContent = $"Ngựa {horseName} của bạn đã đạt yêu cầu khám sức khỏe định kỳ và đã hồi phục (Healthy).";
                 await _notificationService.SendNotificationToUserAsync(
-                    ownerId, passTitle, passContent, "MedicalCheck", (int?)horse.HorseId, null, "/owner/horses");
+                    ownerId, passTitle, passContent, "Medical", (int?)horse.HorseId, null, "/owner/horses");
             }
 
             var populatedRecord = await _repository.GetByIdAsync(record.Id);
@@ -254,15 +254,22 @@ public class MedicalCheckService : IMedicalCheckService
                 var ownerEmail = registration.Horse.Owner?.Email;
                 if (!string.IsNullOrWhiteSpace(ownerEmail))
                 {
-                    var emailBody = $@"
-                        <h2>Medical Check Result Notification</h2>
-                        <p>Hello,</p>
-                        <p>We regret to inform you that your horse <strong>{horseName}</strong> did <strong>not pass</strong> the medical examination for tournament <strong>{tournamentName}</strong>.</p>
-                        <p><strong>Reason:</strong> {request.FailReason}</p>
-                        <p><strong>Veterinarian Notes:</strong> {request.Notes ?? "None"}</p>
-                        <br/>
-                        <p>Best regards,<br/>Horse Racing Organizing Committee</p>";
-                    await _emailService.SendEmailAsync(ownerEmail, failTitle, emailBody);
+                    try
+                    {
+                        var emailBody = $@"
+                            <h2>Thông báo kết quả khám sức khỏe</h2>
+                            <p>Xin chào,</p>
+                            <p>Chúng tôi rất tiếc phải thông báo rằng ngựa <strong>{horseName}</strong> của bạn đã <strong>không đạt</strong> yêu cầu khám sức khỏe cho giải đấu <strong>{tournamentName}</strong>.</p>
+                            <p><strong>Lý do:</strong> {request.FailReason}</p>
+                            <p><strong>Ghi chú từ bác sĩ thú y:</strong> {request.Notes ?? "Không có"}</p>
+                            <br/>
+                            <p>Trân trọng,<br/>Ban Tổ Chức Giải Đua Ngựa</p>";
+                        await _emailService.SendEmailAsync(ownerEmail, failTitle, emailBody);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[EMAIL ERROR] Failed to send email to {ownerEmail}: {ex.Message}");
+                    }
                 }
             }
             else
@@ -276,14 +283,14 @@ public class MedicalCheckService : IMedicalCheckService
                 {
                     var ownerName = registration.Horse.Owner != null
                         ? (registration.Horse.Owner.FullName ?? registration.Horse.Owner.Username)
-                        : "Owner";
+                        : "Horse Owner";
                     var adminIds = await _registrationRepository.GetAdminUserIdsAsync();
                     foreach (var adminId in adminIds)
                     {
                         await _notificationService.SendNotificationToUserAsync(
                             adminId,
-                            "Horse eligible for tournament",
-                            $"Horse '{horseName}' owned by '{ownerName}' is eligible for tournament '{tournamentName}'.",
+                            "Horse Eligible for Tournament",
+                            $"Horse '{horseName}', owned by '{ownerName}', is now eligible to participate in tournament '{tournamentName}'.",
                             "Medical",
                             (int?)registration.RegistrationId,
                             null,
@@ -356,15 +363,22 @@ public class MedicalCheckService : IMedicalCheckService
             var failReason = record.FailReason ?? "Không có lý do cụ thể";
             var notes = request.Notes ?? record.Notes;
 
-            var emailBody = $@"
-                <h2>Cập nhật kết quả khám sức khỏe</h2>
-                <p>Xin chào,</p>
-                <p>Hồ sơ khám sức khỏe của ngựa <strong>{horseName}</strong> cho giải đấu <strong>{tournamentName}</strong> vừa được bác sĩ thú y cập nhật với kết quả <strong>KHÔNG ĐẠT</strong>.</p>
-                <p><strong>Lý do:</strong> {failReason}</p>
-                <p><strong>Ghi chú:</strong> {notes ?? "Không có"}</p>
-                <br/>
-                <p>Trân trọng,<br/>Ban Tổ Chức Giải Đua Ngựa</p>";
-            await _emailService.SendEmailAsync(record.Registration.Horse.Owner.Email, failTitle, emailBody);
+            try
+            {
+                var emailBody = $@"
+                    <h2>Cập nhật kết quả khám sức khỏe</h2>
+                    <p>Xin chào,</p>
+                    <p>Hồ sơ khám sức khỏe của ngựa <strong>{horseName}</strong> cho giải đấu <strong>{tournamentName}</strong> vừa được bác sĩ thú y cập nhật với kết quả <strong>KHÔNG ĐẠT</strong>.</p>
+                    <p><strong>Lý do:</strong> {failReason}</p>
+                    <p><strong>Ghi chú:</strong> {notes ?? "Không có"}</p>
+                    <br/>
+                    <p>Trân trọng,<br/>Ban Tổ Chức Giải Đua Ngựa</p>";
+                await _emailService.SendEmailAsync(record.Registration.Horse.Owner.Email, failTitle, emailBody);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[EMAIL ERROR] Failed to send update email to {record.Registration.Horse.Owner.Email}: {ex.Message}");
+            }
         }
 
         var populated = await _repository.GetByIdAsync(record.Id);
@@ -551,16 +565,23 @@ public class MedicalCheckService : IMedicalCheckService
             var ownerEmail = registration.Horse?.Owner?.Email;
             if (!string.IsNullOrWhiteSpace(ownerEmail))
             {
-                var emailBody = $@"
-                    <h2>Medical Re-Check Result Notification</h2>
-                    <p>Hello,</p>
-                    <p>We regret to inform you that your horse <strong>{horseName}</strong> did <strong>not pass</strong> the medical re-examination for tournament <strong>{tournamentName}</strong>.</p>
-                    <p><strong>Result:</strong> {withdrawReason}</p>
-                    <p><strong>Veterinarian Notes:</strong> {request.Notes ?? "None"}</p>
-                    <p>Your horse has been <strong>withdrawn/marked as DNF</strong> from the race according to regulations.</p>
-                    <br/>
-                    <p>Best regards,<br/>Horse Racing Organizing Committee</p>";
-                await _emailService.SendEmailAsync(ownerEmail, failTitle, emailBody);
+                try
+                {
+                    var emailBody = $@"
+                        <h2>Thông báo kết quả tái khám (Re-Check)</h2>
+                        <p>Xin chào,</p>
+                        <p>Chúng tôi rất tiếc phải thông báo rằng ngựa <strong>{horseName}</strong> của bạn đã <strong>không đạt</strong> yêu cầu trong đợt tái khám cho giải đấu <strong>{tournamentName}</strong>.</p>
+                        <p><strong>Kết quả:</strong> {withdrawReason}</p>
+                        <p><strong>Ghi chú từ bác sĩ:</strong> {request.Notes ?? "Không có"}</p>
+                        <p>Ngựa của bạn đã bị <strong>loại khỏi cuộc đua (Withdrawn/DNF)</strong> theo quy định.</p>
+                        <br/>
+                        <p>Trân trọng,<br/>Ban Tổ Chức Giải Đua Ngựa</p>";
+                    await _emailService.SendEmailAsync(ownerEmail, failTitle, emailBody);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[EMAIL ERROR] Failed to send recheck email to {ownerEmail}: {ex.Message}");
+                }
             }
 
             // Notify jockey & referees & bettors (if race entry exists)
@@ -686,7 +707,7 @@ public class MedicalCheckService : IMedicalCheckService
         var title = "Ngựa đã hồi phục sức khỏe";
         var content = $"Ngựa {horse.Name} của bạn đã được bác sĩ thú y xác nhận hồi phục (trạng thái: Healthy). Bạn đã có thể đăng ký giải đấu mới cho ngựa.";
         await _notificationService.SendNotificationToUserAsync(
-            horse.OwnerId, title, content, "MedicalCheck", null, null, "/owner/horses");
+            horse.OwnerId, title, content, "Medical", null, null, "/owner/horses");
 
         return true;
     }

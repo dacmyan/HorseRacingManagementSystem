@@ -421,12 +421,13 @@ public class TournamentRepository : ITournamentRepository
 
     public async Task<List<CancelledRegistrationInfo>> CancelRegistrationsWithoutJockeyAsync(long tournamentId)
     {
-        // Find registrations that are still Pending or PendingVet (not yet approved/rejected)
+        // Approved registrations must also be cancelled when their accepted jockey
+        // contract is no longer present at the registration deadline.
         var registrations = await _context.Registrations
             .Include(r => r.Horse)
             .Include(r => r.Tournament)
             .Where(r => r.TournamentId == tournamentId &&
-                       (r.Status == "Pending" || r.Status == "PendingVet"))
+                       (r.Status == "Pending" || r.Status == "PendingVet" || r.Status == "Approved"))
             .ToListAsync();
 
         var cancelledList = new List<CancelledRegistrationInfo>();
@@ -475,5 +476,32 @@ public class TournamentRepository : ITournamentRepository
         }
 
         return cancelledList;
+    }
+
+    public async Task<List<CancelledRegistrationInfo>> CancelPendingRegistrationsAsync(long tournamentId)
+    {
+        var registrations = await _context.Registrations
+            .Include(registration => registration.Horse)
+            .Include(registration => registration.Tournament)
+            .Where(registration => registration.TournamentId == tournamentId &&
+                (registration.Status == "Pending" || registration.Status == "PendingVet"))
+            .ToListAsync();
+
+        var cancelled = registrations.Select(registration => new CancelledRegistrationInfo
+        {
+            RegistrationId = registration.RegistrationId,
+            OwnerId = registration.Horse?.OwnerId ?? 0,
+            HorseName = registration.Horse?.Name ?? "Unknown Horse",
+            TournamentName = registration.Tournament?.Name ?? "Unknown Tournament",
+            TournamentId = tournamentId
+        }).ToList();
+
+        foreach (var registration in registrations)
+            registration.Status = "Cancelled";
+
+        if (registrations.Count > 0)
+            await _context.SaveChangesAsync();
+
+        return cancelled;
     }
 }

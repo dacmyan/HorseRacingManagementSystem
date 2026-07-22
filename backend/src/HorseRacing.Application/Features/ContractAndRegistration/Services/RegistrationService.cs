@@ -37,6 +37,13 @@ public class RegistrationService : IRegistrationService
 
     private RegistrationResponse MapToResponse(Registration reg, JockeyContract? contract = null)
     {
+        string? rejectionSource = null;
+        if (reg.Status == "Rejected")
+        {
+            var hasFailedCheck = reg.MedicalCheckRecords != null && reg.MedicalCheckRecords.Any(m => m.MedicalResult == "Fail");
+            rejectionSource = hasFailedCheck ? "Vet" : "Admin";
+        }
+
         return new RegistrationResponse
         {
             RegistrationId = reg.RegistrationId,
@@ -47,7 +54,8 @@ public class RegistrationService : IRegistrationService
             Status = reg.Status,
             RegisteredAt = reg.RegisteredAt,
             JockeyId = contract?.JockeyId,
-            JockeyName = contract?.Jockey?.FullName ?? contract?.Jockey?.Email
+            JockeyName = contract?.Jockey?.FullName ?? contract?.Jockey?.Email,
+            RejectionSource = rejectionSource
         };
     }
 
@@ -179,8 +187,21 @@ public class RegistrationService : IRegistrationService
             throw new InvalidOperationException($"Registration is already '{registration.Status}'. Only 'Pending' registrations can be reviewed.");
         }
 
-        registration.Status = request.Status;
-        await _registrationRepository.SaveChangesAsync();
+        if (request.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!await _registrationRepository.HasAcceptedJockeyContractAsync(registration.TournamentId, registration.HorseId))
+                throw new InvalidOperationException("Cannot approve registration: An accepted or active jockey contract is required.");
+
+            if (!await _registrationRepository.ApproveWithinCapacityAsync(id, registration.TournamentId, 48))
+                throw new InvalidOperationException("Tournament capacity has been reached. A maximum of 48 horses can be approved; this registration remains pending as a waitlist entry.");
+
+            registration.Status = "Approved";
+        }
+        else
+        {
+            registration.Status = request.Status;
+            await _registrationRepository.SaveChangesAsync();
+        }
 
         // Load fully populated registration for owner notifications
         var populated = await _registrationRepository.GetByIdAsync(id);
@@ -198,8 +219,8 @@ public class RegistrationService : IRegistrationService
                 {
                     await _notificationService.SendNotificationToUserAsync(
                         ownerId,
-                        "Duyệt ngựa tham gia giải đấu",
-                        $"Ngựa '{horseName}' của bạn đã được duyệt tham gia giải đấu '{tournamentName}'.",
+                        "Tournament Registration Approved",
+                        $"Your horse '{horseName}' has been approved to participate in tournament '{tournamentName}'.",
                         "Tournament",
                         referenceId: (int)notifyReg.TournamentId,
                         actionUrl: "/owner/registrations"
@@ -216,8 +237,8 @@ public class RegistrationService : IRegistrationService
                     {
                         await _notificationService.SendNotificationToUserAsync(
                             activeContract.JockeyId,
-                            "Ngựa nài đã được duyệt",
-                            $"Ngựa '{horseName}' mà bạn nài đã được duyệt vào giải đấu '{tournamentName}'.",
+                            "Assigned Horse Approved",
+                            $"Horse '{horseName}', which you are assigned to ride, has been approved for tournament '{tournamentName}'.",
                             "Tournament",
                             referenceId: (int)notifyReg.TournamentId,
                             actionUrl: "/jockey/schedule"
@@ -235,8 +256,8 @@ public class RegistrationService : IRegistrationService
                 {
                     await _notificationService.SendNotificationToUserAsync(
                         ownerId,
-                        "Từ chối đăng ký ngựa",
-                        $"Đơn đăng ký cho ngựa '{horseName}' tại giải đấu '{tournamentName}' đã bị từ chối. Vui lòng kiểm tra lại thông tin.",
+                        "Tournament Registration Rejected",
+                        $"The registration for horse '{horseName}' in tournament '{tournamentName}' was rejected. Please review the registration details.",
                         "Tournament",
                         referenceId: (int)notifyReg.TournamentId,
                         actionUrl: "/owner/registrations"
@@ -251,4 +272,45 @@ public class RegistrationService : IRegistrationService
 
         return MapToResponse(notifyReg);
     }
+
+    public async Task CancelRegistrationByOwnerAsync(int ownerUserId, long registrationId)
+    {
+        var registration = await _registrationRepository.GetByIdAsync(registrationId);
+        if (registration == null)
+        {
+            throw new KeyNotFoundException($"Registration with ID {registrationId} not found.");
+        }
+        if (registration.Horse == null || registration.Horse.OwnerId != ownerUserId)
+        {
+            throw new InvalidOperationException("Access denied. You do not own this horse registration.");
+        }
+        if (registration.Status.Equals("Cancelled", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Registration is already cancelled.");
+        }
+
+        registration.Status = "Cancelled";
+        await _registrationRepository.SaveChangesAsync();
+
+        var horseName = registration.Horse?.Name ?? "Horse";
+        var tournamentName = registration.Tournament?.Name ?? "Tournament";
+        var ownerName = registration.Horse?.Owner?.FullName ?? registration.Horse?.Owner?.Email ?? "Horse Owner";
+
+        try
+        {
+            await _notificationService.SendNotificationToRoleAsync(
+                "Admin",
+                "Tournament Registration Cancelled",
+                $"Owner '{ownerName}' has cancelled the registration for horse '{horseName}' in tournament '{tournamentName}'.",
+                "Registration",
+                referenceId: (int)registration.TournamentId,
+                actionUrl: "/admin/registrations"
+            );
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[NOTIFICATION ERROR] Failed to send cancellation notification to Admin: {ex.Message}");
+        }
+    }
 }
+

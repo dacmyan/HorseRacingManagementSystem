@@ -96,10 +96,9 @@ public class PaymentsController : ControllerBase
         // Build VNPay Payment URL
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
 
-        // Construct dynamic backend return URL based on current request
-        var requestScheme = Request.Scheme;
-        var requestHost = Request.Host;
-        string dynamicReturnUrl = $"{requestScheme}://{requestHost}/api/payments/vnpay/return";
+        // Construct dynamic backend return URL based on config (or fallback to current request)
+        var baseUrl = _configuration["BaseUrl"]?.TrimEnd('/') ?? $"{Request.Scheme}://{Request.Host}";
+        string dynamicReturnUrl = $"{baseUrl}/api/payments/vnpay/return";
 
         string paymentUrl = _vnPayService.CreatePaymentUrl(txnRef, request.Amount, transaction.Description, ipAddress, dynamicReturnUrl);
 

@@ -39,6 +39,8 @@ public class RaceResultService : IRaceResultService
         _tournamentService = tournamentService;
     }
 
+    private static DateTime VietnamNow => TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
+
     public async Task<RaceResultResponse> SubmitResultAsync(SubmitRaceResultRequest request)
     {
         if (request == null)
@@ -52,7 +54,7 @@ public class RaceResultService : IRaceResultService
         {
             throw new KeyNotFoundException($"Race with ID {request.RaceId} was not found.");
         }
-        if (race.RaceDate > DateTime.UtcNow)
+        if (race.RaceDate > VietnamNow)
             throw new InvalidOperationException("Race results cannot be submitted before the scheduled race time.");
         var submitAllowedStatuses = new[] { "Scheduled", "Active", "Live", "InProgress", "Running", "AwaitingResults" };
         if (!submitAllowedStatuses.Contains(race.Status, StringComparer.OrdinalIgnoreCase))
@@ -223,15 +225,15 @@ public class RaceResultService : IRaceResultService
         {
             // 1. Notify assigned referees
             var assignments = await _repository.GetAssignmentsForRaceAsync(race.RaceId);
-            var tournamentName = race.Round?.Tournament?.Name ?? "Giải đấu";
+            var tournamentName = race.Round?.Tournament?.Name ?? "Tournament";
             foreach (var assignment in assignments)
             {
                 if (assignment.RefereeProfile != null)
                 {
                     await _notificationService.SendNotificationToUserAsync(
                         assignment.RefereeProfile.UserId,
-                        "Giải đấu được phân công đã kết thúc",
-                        $"Giải đấu '{tournamentName}' mà bạn được phân công đã kết thúc, hãy gửi vi phạm và kết quả cho admin.",
+                        "Assigned Tournament Has Ended",
+                        $"Tournament '{tournamentName}', which you were assigned to officiate, has ended. Please submit all violation reports and race results for Admin review.",
                         "System",
                         referenceId: (int)race.RaceId,
                         actionUrl: "/referee/schedule"
@@ -342,25 +344,8 @@ public class RaceResultService : IRaceResultService
                 Console.WriteLine($"[Prediction Error] Failed to evaluate predictions for race {raceId}: {ex.Message}");
             }
 
-            // Auto Prize Payout for Final Round Race
-            if (race.Round != null && race.Round.RoundNumber == 2)
-            {
-                try
-                {
-                    var payoutRequest = new FinancialRewards.DTOs.PrizePayoutRequest
-                    {
-                        TournamentId = (int)race.Round.TournamentId,
-                        FirstPlacePrize = 0m,
-                        SecondPlacePrize = 0m,
-                        ThirdPlacePrize = 0m
-                    };
-                    await _prizePayoutService.ProcessPrizePayoutAsync(payoutRequest);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[PrizePayout Error] Failed to process auto prize payout: {ex.Message}");
-                }
-            }
+            // Tournament prizes are paid only when Admin explicitly completes the
+            // tournament. Paying here hid failures and could debit a different Admin.
         }
 
         // 4. Resolve winner details

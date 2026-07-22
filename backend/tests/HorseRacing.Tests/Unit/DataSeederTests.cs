@@ -63,7 +63,7 @@ public class DataSeederTests
         var hasher = new PasswordHasher<AppUser>();
 
         // Act
-        await seeder.SeedAppUsersAsync();
+        await seeder.SeedAsync();
 
         // Assert - Referees: referee-1 .. referee-4
         for (int i = 1; i <= 4; i++)
@@ -132,10 +132,10 @@ public class DataSeederTests
         var seeder = new DataSeeder(context, NullLogger<DataSeeder>.Instance);
 
         // Act
-        await seeder.SeedAppUsersAsync();
+        await seeder.SeedAsync();
         var countFirstRun = await context.Users.CountAsync();
 
-        await seeder.SeedAppUsersAsync();
+        await seeder.SeedAsync();
         var countSecondRun = await context.Users.CountAsync();
 
         // Assert

@@ -234,6 +234,27 @@ public class OwnerController : ControllerBase
         }
     }
 
+    [HttpGet("tournaments/{tournamentId:long}/busy-jockeys")]
+    public async Task<IActionResult> GetBusyJockeysForTournament(long tournamentId, [FromServices] AppDbContext context)
+    {
+        try
+        {
+            var busyJockeyIds = await context.JockeyContracts
+                .Where(jc => jc.TournamentId == tournamentId 
+                    && (jc.Status == "Active" || jc.Status == "Accepted" || jc.Status == "Pending"))
+                .Select(jc => jc.JockeyId)
+                .Distinct()
+                .ToListAsync();
+                    
+            return Ok(new { busyJockeyIds });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Error retrieving busy jockeys", detail = ex.Message });
+        }
+    }
+
+
     [HttpGet("horses/{horseId:int}/check-busy/{tournamentId:long}")]
     public async Task<IActionResult> CheckHorseBusy(int horseId, long tournamentId, [FromServices] AppDbContext context)
     {
@@ -314,6 +335,30 @@ public class OwnerController : ControllerBase
             return StatusCode(500, new { message = "An error occurred retrieving registrations", detail = ex.Message });
         }
     }
+
+    [HttpDelete("registrations/{id:long}")]
+    public async Task<IActionResult> CancelRegistration(long id)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            await _registrationService.CancelRegistrationByOwnerAsync(userId, id);
+            return Ok(new { message = "Registration cancelled successfully" });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred cancelling registration", detail = ex.Message });
+        }
+    }
+
 
     [HttpGet("owner/results")]
     public async Task<IActionResult> GetOwnerResults([FromServices] AppDbContext context)
@@ -405,7 +450,9 @@ public class OwnerController : ControllerBase
                         ? (finishPosition == 1 ? 10 : 5)
                         : 0,
                     PrizeAmount = prizeAmount,
-                    Status = raceStatus
+                    Status = raceStatus,
+                    LaneNo = re.LaneNo,
+                    RaceDate = re.Race != null ? re.Race.RaceDate : (DateTime?)null
                 };
             }).ToList();
 

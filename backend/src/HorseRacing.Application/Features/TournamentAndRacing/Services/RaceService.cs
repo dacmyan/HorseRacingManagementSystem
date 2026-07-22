@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using HorseRacing.Application.Features.TournamentAndRacing.DTOs;
 using HorseRacing.Application.Features.TournamentAndRacing.Interfaces;
+using HorseRacing.Application.Features.BettingEngine.Interfaces;
 using HorseRacing.Domain.Entities;
 using HorseRacing.Domain.Entities.Tournaments;
 
@@ -12,11 +13,15 @@ namespace HorseRacing.Application.Features.TournamentAndRacing.Services;
 public class RaceService : IRaceService
 {
     private readonly IRaceRepository _raceRepository;
+    private readonly IBettingService _bettingService;
 
-    public RaceService(IRaceRepository raceRepository)
+    public RaceService(IRaceRepository raceRepository, IBettingService bettingService)
     {
         _raceRepository = raceRepository;
+        _bettingService = bettingService;
     }
+
+    private static DateTime VietnamNow => TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
 
     public async Task<RaceScheduleResponse> CreateRaceAsync(CreateRaceRequest request)
     {
@@ -58,7 +63,7 @@ public class RaceService : IRaceService
         {
             throw new ArgumentException("Race date is invalid.", nameof(request.RaceDate));
         }
-        if (request.RaceDate < DateTime.UtcNow.AddMinutes(-5))
+        if (request.RaceDate < VietnamNow.AddMinutes(-5))
             throw new ArgumentException("Race date cannot be in the past.", nameof(request.RaceDate));
 
         if (round.StartDate.HasValue && round.EndDate.HasValue)
@@ -308,6 +313,15 @@ public class RaceService : IRaceService
             throw new InvalidOperationException("Race is missing round information.");
         }
 
+        try
+        {
+            await _bettingService.RecalculateRaceOddsAsync(raceId);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ODDS RECALC ERROR] {ex.Message}");
+        }
+
         var entries = await _raceRepository.GetRaceEntriesAsync(raceId);
         var responses = new List<RaceEntryResponse>();
         foreach (var entry in entries.OrderBy(e => e.LaneNo))
@@ -370,5 +384,99 @@ public class RaceService : IRaceService
             throw new InvalidOperationException("Race cannot be deleted after bets or results have been recorded.");
 
         await _raceRepository.DeleteRaceAsync(raceId);
+    }
+
+    public async Task<RaceScheduleResponse?> UpdateRaceAsync(long raceId, UpdateRaceRequest request)
+    {
+        if (request == null)
+        {
+            throw new ArgumentNullException(nameof(request));
+        }
+
+        request.Name = request.Name?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            throw new ArgumentException("Race name cannot be empty.", nameof(request.Name));
+        }
+        if (request.Name.Length > 150)
+            throw new ArgumentException("Race name cannot exceed 150 characters.", nameof(request.Name));
+
+        var race = await _raceRepository.GetByIdWithDetailsAsync(raceId);
+        if (race == null)
+        {
+            return null;
+        }
+
+        if (new[] { "Live", "InProgress", "Running", "Finished", "Completed", "Cancelled" }
+            .Contains(race.Status, StringComparer.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"Race cannot be edited while its status is '{race.Status}'.");
+        }
+
+        if (request.DistanceMeter <= 0)
+        {
+            throw new ArgumentException("Distance must be greater than zero.", nameof(request.DistanceMeter));
+        }
+
+        if (request.MaxLanes <= 0)
+        {
+            throw new ArgumentException("Max lanes must be greater than zero.", nameof(request.MaxLanes));
+        }
+
+        if (request.MaxLanes > 12)
+        {
+            throw new ArgumentException("Max lanes cannot exceed 12.", nameof(request.MaxLanes));
+        }
+
+        if (request.RaceDate == default)
+        {
+            throw new ArgumentException("Race date is invalid.", nameof(request.RaceDate));
+        }
+        if (request.RaceDate < VietnamNow.AddMinutes(-5))
+            throw new ArgumentException("Race date cannot be in the past.", nameof(request.RaceDate));
+
+        var round = await _raceRepository.GetRoundByIdAsync(race.RoundId);
+        if (round != null && round.StartDate.HasValue && round.EndDate.HasValue)
+        {
+            if (request.RaceDate < round.StartDate.Value || request.RaceDate > round.EndDate.Value)
+            {
+                throw new ArgumentException($"Race date must be between {round.StartDate.Value:yyyy-MM-dd} and {round.EndDate.Value:yyyy-MM-dd}.", nameof(request.RaceDate));
+            }
+        }
+
+        var existingEntries = await _raceRepository.GetRaceEntriesAsync(raceId);
+        if (existingEntries != null && existingEntries.Any())
+        {
+            var maxOccupiedLane = existingEntries.Max(e => e.LaneNo);
+            if (request.MaxLanes < maxOccupiedLane)
+            {
+                throw new InvalidOperationException($"Cannot set max lanes to {request.MaxLanes} because lane {maxOccupiedLane} is already occupied.");
+            }
+        }
+
+        race.Name = request.Name;
+        race.RaceDate = request.RaceDate;
+        race.DistanceMeter = request.DistanceMeter;
+        race.MaxLanes = request.MaxLanes;
+
+        await _raceRepository.SaveChangesAsync();
+
+        var issueRaceIds = await _raceRepository.GetRaceIdsWithHealthIssuesAsync(new[] { race.RaceId });
+
+        return new RaceScheduleResponse
+        {
+            RaceId = race.RaceId,
+            RoundId = race.RoundId,
+            Name = race.Name ?? string.Empty,
+            RaceDate = race.RaceDate,
+            DistanceMeter = race.DistanceMeter,
+            MaxLanes = race.MaxLanes,
+            Status = race.Status,
+            RoundName = race.Round?.Name ?? string.Empty,
+            RoundNumber = race.Round?.RoundNumber ?? 0,
+            TournamentId = race.Round?.TournamentId ?? 0,
+            TournamentName = race.Round?.Tournament?.Name ?? string.Empty,
+            HasHealthIssue = issueRaceIds.Contains(race.RaceId)
+        };
     }
 }

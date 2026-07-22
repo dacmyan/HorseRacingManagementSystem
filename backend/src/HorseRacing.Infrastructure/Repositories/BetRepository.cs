@@ -99,8 +99,12 @@ public class BetRepository : IBetRepository
 
     public async Task<Race?> GetFinalRaceInTournamentAsync(long tournamentId)
     {
+        var finishedStatuses = new[] { "finished", "completed", "resultpublished", "closed" };
         return await _context.Races
-            .Where(r => r.Round != null && r.Round.TournamentId == tournamentId && r.Status == "Finished")
+            .Where(r => r.Round != null &&
+                        r.Round.TournamentId == tournamentId &&
+                        r.Round.RoundNumber == 2 &&
+                        finishedStatuses.Contains(r.Status.ToLower()))
             .OrderByDescending(r => r.RaceDate)
             .FirstOrDefaultAsync();
     }
@@ -142,12 +146,17 @@ public class BetRepository : IBetRepository
     public async Task<IEnumerable<RaceEntry>> GetRaceEntriesWithHorseAsync(long raceId)
     {
         return await _context.RaceEntries
+            .Where(re => re.RaceId == raceId)
             .Include(re => re.Registration)
                 .ThenInclude(reg => reg!.Horse)
             .Include(re => re.JockeyProfile)
                 .ThenInclude(jp => jp!.User)
-            .Where(re => re.RaceId == raceId)
             .ToListAsync();
+    }
+
+    public async Task<Horse?> GetHorseByIdAsync(long horseId)
+    {
+        return await _context.Horses.FindAsync(horseId);
     }
 
     public async Task<decimal> GetTotalBetsForRaceAsync(long raceId)

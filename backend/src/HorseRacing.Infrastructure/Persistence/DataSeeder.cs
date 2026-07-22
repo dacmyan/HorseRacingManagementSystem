@@ -20,8 +20,6 @@ public class DataSeeder
         _logger = logger;
     }
 
-    public Task SeedAppUsersAsync() => SeedAsync();
-
     public async Task SeedAsync()
     {
         _logger.LogInformation("Starting mandatory data seeding...");
@@ -29,7 +27,6 @@ public class DataSeeder
         try
         {
             // 1. Seed Roles
-
             var roles = new[]
             {
                 new Role { RoleId = 1, Name = "Admin" },
@@ -134,18 +131,18 @@ public class DataSeeder
                 _logger.LogInformation("Default Referee user ('referee@gmail.com' / '123456') seeded successfully.");
             }
 
-            // 4. Seed 50 Jockey Users (jockey1 .. jockey50)
-            for (int i = 1; i <= 50; i++)
+            // 4. Seed 25 Test Jockey Users
+            for (int i = 1; i <= 25; i++)
             {
-                var jockeyUsername = $"jockey{i}";
-                var jockeyEmail = $"jockey{i}@gmail.com";
+                var jockeyUsername = $"jockeytest{i}";
+                var jockeyEmail = $"jockeytest{i}@gmail.com";
                 if (!await _context.Users.AnyAsync(u => u.Username == jockeyUsername || u.Email == jockeyEmail))
                 {
                     var user = new AppUser
                     {
                         Username = jockeyUsername,
                         Email = jockeyEmail,
-                        FullName = $"Nài Ngựa {i}",
+                        FullName = $"Jockey-Test{i}",
                         RoleId = 3, // Jockey
                         Status = "Active",
                         IsEmailConfirmed = true, // Seeded test account — no email verification needed
@@ -164,7 +161,7 @@ public class DataSeeder
                     _context.Wallets.Add(new Wallet
                     {
                         UserId = user.UserId,
-                        Balance = 5000000m
+                        Balance = 1000m
                     });
                     await _context.SaveChangesAsync();
                     _logger.LogInformation($"Test Jockey user ('{jockeyEmail}' / '123456') seeded successfully.");
@@ -258,234 +255,70 @@ public class DataSeeder
                 }
             }
 
-            // 6. Seed 3 Tournaments (12, 24, 36 horses) with full Registration, Accepted Jockey Contracts, and Passed Medical Checks
-            var mainVetUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == "vet@gmail.com");
-
-            var tourConfigs = new (string Name, int RequiredHorses)[]
+            // 6. Seed Tournament "Giải Test 5" and register Owner-3's 12 horses to it and invite the 12 Jockey-Test Jockeys
+            var t5Name = "Test Tournament 5";
+            var t5 = await _context.Tournaments.FirstOrDefaultAsync(t => t.Name == t5Name);
+            if (t5 == null)
             {
-                ("Giải Đấu 12 Ngựa - Mở Đăng Ký", 12),
-                ("Giải Đấu 24 Ngựa - Mùa Hè 2026", 24),
-                ("Giải Đấu 36 Ngựa - Vô Địch Quốc Gia", 36)
-            };
-
-            foreach (var (tourName, reqCount) in tourConfigs)
-            {
-                var tour = await _context.Tournaments.FirstOrDefaultAsync(t => t.Name == tourName);
-                if (tour == null)
+                t5 = new Tournament
                 {
-                    tour = new Tournament
-                    {
-                        Name = tourName,
-                        Description = $"Giải đấu {reqCount} ngựa - Đã đăng ký đủ {reqCount} ngựa, hợp đồng jockey chấp nhận & đạt khám sức khỏe",
-                        RegistrationStartDate = DateTime.UtcNow.AddDays(-5),
-                        RegistrationEndDate = DateTime.UtcNow.AddDays(5),
-                        StartDate = DateTime.UtcNow.AddDays(7),
-                        EndDate = DateTime.UtcNow.AddDays(15),
-                        Status = "Registration Open"
-                    };
-                    _context.Tournaments.Add(tour);
-                    await _context.SaveChangesAsync();
-                    _logger.LogInformation($"Tournament '{tourName}' seeded successfully.");
-                }
-
-                for (int i = 1; i <= reqCount; i++)
-                {
-                    var horseName = $"Thần Phong {i}";
-                    var jockeyUsername = $"jockey{i}";
-
-                    var horse = await _context.Horses.FirstOrDefaultAsync(h => h.Name == horseName) 
-                                ?? await _context.Horses.FirstOrDefaultAsync(h => h.HorseId == i);
-                    var jockey = await _context.Users.FirstOrDefaultAsync(u => u.Username == jockeyUsername);
-
-                    if (horse != null && jockey != null)
-                    {
-                        // a. Registration
-                        var reg = await _context.Registrations.FirstOrDefaultAsync(r => r.TournamentId == tour.TournamentId && r.HorseId == horse.HorseId);
-                        if (reg == null)
-                        {
-                            reg = new Registration
-                            {
-                                TournamentId = tour.TournamentId,
-                                HorseId = horse.HorseId,
-                                Status = "Approved",
-                                RegisteredAt = DateTime.UtcNow
-                            };
-                            _context.Registrations.Add(reg);
-                            await _context.SaveChangesAsync();
-                        }
-                        else if (reg.Status != "Approved")
-                        {
-                            reg.Status = "Approved";
-                            _context.Registrations.Update(reg);
-                            await _context.SaveChangesAsync();
-                        }
-
-                        // b. Jockey Contract (Accepted)
-                        var contract = await _context.JockeyContracts.FirstOrDefaultAsync(jc => jc.TournamentId == tour.TournamentId && jc.HorseId == horse.HorseId);
-                        if (contract == null)
-                        {
-                            contract = new JockeyContract
-                            {
-                                TournamentId = tour.TournamentId,
-                                HorseId = horse.HorseId,
-                                JockeyId = jockey.UserId,
-                                StartDate = tour.StartDate ?? DateTime.UtcNow.AddDays(7),
-                                EndDate = tour.EndDate ?? DateTime.UtcNow.AddDays(15),
-                                Status = "Accepted",
-                                InvitationExpiredAt = DateTime.UtcNow.AddDays(2),
-                                CreatedAt = DateTime.UtcNow
-                            };
-                            _context.JockeyContracts.Add(contract);
-                            await _context.SaveChangesAsync();
-                        }
-                        else if (contract.Status != "Accepted")
-                        {
-                            contract.Status = "Accepted";
-                            _context.JockeyContracts.Update(contract);
-                            await _context.SaveChangesAsync();
-                        }
-
-                        // c. Medical Check Record (Passed)
-                        if (mainVetUser != null)
-                        {
-                            var medCheck = await _context.MedicalCheckRecords.FirstOrDefaultAsync(mc => mc.RegistrationId == reg.RegistrationId);
-                            if (medCheck == null)
-                            {
-                                medCheck = new MedicalCheckRecord
-                                {
-                                    RegistrationId = reg.RegistrationId,
-                                    HorseId = horse.HorseId,
-                                    UserId = mainVetUser.UserId,
-                                    CheckType = "Initial",
-                                    Weight = 450m + (i % 20),
-                                    Temperature = 37.5m,
-                                    HeartRate = 40 + (i % 5),
-                                    DopingResult = "Negative",
-                                    MedicalResult = "Pass",
-                                    Notes = "Khám sức khỏe ban đầu đạt tiêu chuẩn thi đấu",
-                                    CheckedAt = DateTime.UtcNow
-                                };
-                                _context.MedicalCheckRecords.Add(medCheck);
-                                await _context.SaveChangesAsync();
-                            }
-                        }
-                    }
-                }
-            }
-
-            // 6.1. Seed Dedicated Tournament SU_48_HORSE (48 Horses, Registration Open, Pending Registrations for Admin Approval, Accepted Contracts, Passed Medical Checks)
-            var su48Name = "SU_48_HORSE";
-            var su48 = await _context.Tournaments.FirstOrDefaultAsync(t => t.Name == su48Name);
-            if (su48 == null)
-            {
-                su48 = new Tournament
-                {
-                    Name = su48Name,
-                    Description = "Giải đấu 48 ngựa đang mở đăng ký (chờ Admin duyệt hồ sơ)",
-                    RegistrationStartDate = DateTime.UtcNow.AddDays(-3),
-                    RegistrationEndDate = DateTime.UtcNow.AddDays(2),
-                    StartDate = DateTime.UtcNow.AddDays(5),
-                    EndDate = DateTime.UtcNow.AddDays(8),
-                    Status = "Registration Open",
-                    CancelCount = 0
+                    Name = t5Name,
+                    Description = "Test Tournament 5 Description",
+                    RegistrationStartDate = DateTime.UtcNow.AddDays(-5),
+                    RegistrationEndDate = DateTime.UtcNow.AddDays(5),
+                    StartDate = DateTime.UtcNow.AddDays(6),
+                    EndDate = DateTime.UtcNow.AddDays(15),
+                    Status = "Registration Open"
                 };
-                _context.Tournaments.Add(su48);
+                _context.Tournaments.Add(t5);
                 await _context.SaveChangesAsync();
-                _logger.LogInformation($"Dedicated Tournament '{su48Name}' seeded successfully.");
-            }
-            else
-            {
-                su48.RegistrationStartDate = DateTime.UtcNow.AddDays(-3);
-                su48.RegistrationEndDate = DateTime.UtcNow.AddDays(2);
-                su48.StartDate = DateTime.UtcNow.AddDays(5);
-                su48.EndDate = DateTime.UtcNow.AddDays(8);
-                su48.Status = "Registration Open";
-                su48.CancelCount = 0;
-                _context.Tournaments.Update(su48);
-                await _context.SaveChangesAsync();
+                _logger.LogInformation($"Tournament '{t5Name}' seeded successfully.");
             }
 
-            for (int i = 1; i <= 48; i++)
+            for (int i = 1; i <= 12; i++)
             {
-                var horseName = $"Thần Phong {i}";
-                var jockeyUsername = $"jockey{i}";
+                var horseName = $"Owner3-Horse{i}";
+                var jockeyUsername = $"jockeytest{i}"; // Matching the seeded username jockeytest#
 
-                var horse = await _context.Horses.FirstOrDefaultAsync(h => h.Name == horseName) 
-                            ?? await _context.Horses.FirstOrDefaultAsync(h => h.HorseId == i);
+                var horse = await _context.Horses.FirstOrDefaultAsync(h => h.Name == horseName);
                 var jockey = await _context.Users.FirstOrDefaultAsync(u => u.Username == jockeyUsername);
 
                 if (horse != null && jockey != null)
                 {
-                    // a. Registration (Pending Approval)
-                    var reg = await _context.Registrations.FirstOrDefaultAsync(r => r.TournamentId == su48.TournamentId && r.HorseId == horse.HorseId);
-                    if (reg == null)
+                    // 6a. Seed JockeyContract invitation
+                    var hasContract = await _context.JockeyContracts.AnyAsync(jc => jc.TournamentId == t5.TournamentId && jc.HorseId == horse.HorseId && jc.JockeyId == jockey.UserId);
+                    if (!hasContract)
                     {
-                        reg = new Registration
+                        var contract = new JockeyContract
                         {
-                            TournamentId = su48.TournamentId,
-                            HorseId = horse.HorseId,
-                            Status = "Pending",
-                            RegisteredAt = DateTime.UtcNow.AddDays(-2)
-                        };
-                        _context.Registrations.Add(reg);
-                        await _context.SaveChangesAsync();
-                    }
-                    else
-                    {
-                        reg.Status = "Pending";
-                        _context.Registrations.Update(reg);
-                        await _context.SaveChangesAsync();
-                    }
-
-                    // b. Jockey Contract (Accepted)
-                    var contract = await _context.JockeyContracts.FirstOrDefaultAsync(jc => jc.TournamentId == su48.TournamentId && jc.HorseId == horse.HorseId);
-                    if (contract == null)
-                    {
-                        contract = new JockeyContract
-                        {
-                            TournamentId = su48.TournamentId,
+                            TournamentId = t5.TournamentId,
                             HorseId = horse.HorseId,
                             JockeyId = jockey.UserId,
-                            StartDate = su48.StartDate ?? DateTime.UtcNow.AddDays(5),
-                            EndDate = su48.EndDate ?? DateTime.UtcNow.AddDays(8),
-                            Status = "Accepted",
-                            InvitationExpiredAt = DateTime.UtcNow.AddDays(1),
-                            CreatedAt = DateTime.UtcNow.AddDays(-3)
+                            StartDate = t5.StartDate ?? DateTime.UtcNow.AddDays(6),
+                            EndDate = t5.EndDate ?? DateTime.UtcNow.AddDays(15),
+                            Status = "Pending",
+                            InvitationExpiredAt = DateTime.UtcNow.AddDays(2),
+                            CreatedAt = DateTime.UtcNow
                         };
                         _context.JockeyContracts.Add(contract);
                         await _context.SaveChangesAsync();
-                    }
-                    else
-                    {
-                        contract.Status = "Accepted";
-                        contract.JockeyId = jockey.UserId;
-                        _context.JockeyContracts.Update(contract);
-                        await _context.SaveChangesAsync();
+                        _logger.LogInformation($"JockeyContract invitation from Owner-3 to '{jockeyUsername}' for horse '{horseName}' in '{t5Name}' seeded successfully.");
                     }
 
-                    // c. Medical Check Record (Passed)
-                    if (mainVetUser != null)
+                    // 6b. Seed Tournament Registration
+                    var hasRegistration = await _context.Registrations.AnyAsync(r => r.TournamentId == t5.TournamentId && r.HorseId == horse.HorseId);
+                    if (!hasRegistration)
                     {
-                        var medCheck = await _context.MedicalCheckRecords.FirstOrDefaultAsync(mc => mc.RegistrationId == reg.RegistrationId);
-                        if (medCheck == null)
+                        var registration = new Registration
                         {
-                            medCheck = new MedicalCheckRecord
-                            {
-                                RegistrationId = reg.RegistrationId,
-                                HorseId = horse.HorseId,
-                                UserId = mainVetUser.UserId,
-                                CheckType = "Initial",
-                                Weight = 480.00m,
-                                Temperature = 37.6m,
-                                HeartRate = 36,
-                                DopingResult = "Negative",
-                                MedicalResult = "Pass",
-                                Notes = "Đạt yêu cầu sức khỏe ban đầu cho SU_48_HORSE",
-                                CheckedAt = DateTime.UtcNow.AddDays(-2)
-                            };
-                            _context.MedicalCheckRecords.Add(medCheck);
-                            await _context.SaveChangesAsync();
-                        }
+                            TournamentId = t5.TournamentId,
+                            HorseId = horse.HorseId,
+                            Status = "Pending",
+                            RegisteredAt = DateTime.UtcNow
+                        };
+                        _context.Registrations.Add(registration);
+                        await _context.SaveChangesAsync();
+                        _logger.LogInformation($"Registration for horse '{horseName}' in '{t5Name}' seeded successfully.");
                     }
                 }
             }
@@ -961,7 +794,20 @@ public class DataSeeder
                 await _context.SaveChangesAsync();
             }
 
+            // 7. Auto-accept pending jockey contracts for "Giải Test 5"
+            var pendingContracts = await _context.JockeyContracts
+                .Where(jc => jc.TournamentId == t5.TournamentId && jc.Status == "Pending")
+                .ToListAsync();
 
+            if (pendingContracts.Any())
+            {
+                foreach (var contract in pendingContracts)
+                {
+                    contract.Status = "Accepted";
+                    _logger.LogInformation($"Auto-accepting JockeyContract {contract.ContractId} for horse {contract.HorseId} and jockey {contract.JockeyId} in '{t5Name}'.");
+                }
+                await _context.SaveChangesAsync();
+            }
 
             // 7.5. Auto-accept pending jockey contracts for "Giải Test 6"
             var pendingContracts6 = await _context.JockeyContracts
@@ -1454,6 +1300,9 @@ public class DataSeeder
                 }
             }
 
+            // 7. Seed SU Test Tournaments (SU_48_HORSE, SU_14_HORSE, SU_11_HORSE)
+            await SeedSUTournamentsAsync();
+
             _logger.LogInformation("Mandatory data seeding completed successfully.");
         }
         catch (Exception ex)
@@ -1462,5 +1311,172 @@ public class DataSeeder
             throw;
         }
     }
-}
-
+
+    public async Task SeedSUTournamentsAsync()
+    {
+        _logger.LogInformation("Seeding SU test tournaments (SU_48_HORSE, SU_14_HORSE, SU_11_HORSE)...");
+
+        // 1. Get default Vet user
+        var vetUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == "vet@gmail.com") 
+            ?? await _context.Users.FirstOrDefaultAsync(u => u.RoleId == 6);
+        if (vetUser == null) return;
+
+        // 2. Ensure owner user exists
+        var hasher = new PasswordHasher<AppUser>();
+        var suOwner = await _context.Users.FirstOrDefaultAsync(u => u.Username == "su_owner");
+        if (suOwner == null)
+        {
+            suOwner = new AppUser
+            {
+                Username = "su_owner",
+                Email = "su_owner@gmail.com",
+                FullName = "SU Test Horse Owner",
+                RoleId = 2,
+                IsEmailConfirmed = true,
+                CreatedAt = DateTime.UtcNow
+            };
+            suOwner.PasswordHash = hasher.HashPassword(suOwner, "123456");
+            _context.Users.Add(suOwner);
+            await _context.SaveChangesAsync();
+        }
+
+        // 3. Ensure 55 Jockeys exist (jockeysu1 .. jockeysu55)
+        var suJockeys = new List<AppUser>();
+        for (int i = 1; i <= 55; i++)
+        {
+            var username = $"jockeysu{i}";
+            var jockey = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
+            if (jockey == null)
+            {
+                jockey = new AppUser
+                {
+                    Username = username,
+                    Email = $"{username}@gmail.com",
+                    FullName = $"SU Jockey #{i}",
+                    RoleId = 3,
+                    IsEmailConfirmed = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+                jockey.PasswordHash = hasher.HashPassword(jockey, "123456");
+                _context.Users.Add(jockey);
+                await _context.SaveChangesAsync();
+            }
+            suJockeys.Add(jockey);
+        }
+
+        // 4. Helper function to seed a tournament with N entries
+        async Task SeedSingleSUTournament(string tourName, int count)
+        {
+            var tournament = await _context.Tournaments.FirstOrDefaultAsync(t => t.Name == tourName);
+            if (tournament == null)
+            {
+                tournament = new Tournament
+                {
+                    Name = tourName,
+                    Description = $"Tournament '{tourName}' with {count} registered entries for validation testing",
+                    RegistrationStartDate = DateTime.UtcNow.AddDays(-5),
+                    RegistrationEndDate = DateTime.UtcNow.AddDays(5),
+                    StartDate = DateTime.UtcNow.AddDays(6),
+                    EndDate = DateTime.UtcNow.AddDays(15),
+                    Status = "Registration Open"
+                };
+                _context.Tournaments.Add(tournament);
+                await _context.SaveChangesAsync();
+            }
+
+            for (int i = 1; i <= count; i++)
+            {
+                var horseName = $"SU-{tourName}-Horse{i}";
+                var horse = await _context.Horses.FirstOrDefaultAsync(h => h.Name == horseName && h.OwnerId == suOwner.UserId);
+                if (horse == null)
+                {
+                    horse = new Horse
+                    {
+                        Name = horseName,
+                        OwnerId = suOwner.UserId,
+                        Age = DateTime.UtcNow.AddYears(-4),
+                        Breed = "Thoroughbred",
+                        Gender = i % 2 == 0 ? "Stallion" : "Mare",
+                        HealthStatus = "Healthy"
+                    };
+                    _context.Horses.Add(horse);
+                    await _context.SaveChangesAsync();
+                }
+
+                var jockey = suJockeys[(i - 1) % suJockeys.Count];
+
+                // a. Seed JockeyContract (Accepted)
+                var hasContract = await _context.JockeyContracts.AnyAsync(jc => 
+                    jc.TournamentId == tournament.TournamentId && 
+                    jc.HorseId == horse.HorseId);
+
+                if (!hasContract)
+                {
+                    var contract = new JockeyContract
+                    {
+                        TournamentId = tournament.TournamentId,
+                        HorseId = horse.HorseId,
+                        JockeyId = jockey.UserId,
+                        StartDate = tournament.StartDate ?? DateTime.UtcNow.AddDays(6),
+                        EndDate = tournament.EndDate ?? DateTime.UtcNow.AddDays(15),
+                        Status = "Accepted",
+                        InvitationExpiredAt = DateTime.UtcNow.AddDays(2),
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    _context.JockeyContracts.Add(contract);
+                    await _context.SaveChangesAsync();
+                }
+
+                // b. Seed Tournament Registration (Pending - awaiting Admin approval)
+                var registration = await _context.Registrations.FirstOrDefaultAsync(r => 
+                    r.TournamentId == tournament.TournamentId && 
+                    r.HorseId == horse.HorseId);
+
+                if (registration == null)
+                {
+                    registration = new Registration
+                    {
+                        TournamentId = tournament.TournamentId,
+                        HorseId = horse.HorseId,
+                        Status = "Pending",
+                        RegisteredAt = DateTime.UtcNow.AddHours(-12)
+                    };
+                    _context.Registrations.Add(registration);
+                    await _context.SaveChangesAsync();
+                }
+
+                // c. Seed Medical Check Record (Pass)
+                var hasMedicalCheck = await _context.MedicalCheckRecords.AnyAsync(m => 
+                    m.RegistrationId == registration.RegistrationId && 
+                    m.CheckType == "Initial");
+
+                if (!hasMedicalCheck)
+                {
+                    var medicalCheck = new MedicalCheckRecord
+                    {
+                        RegistrationId = registration.RegistrationId,
+                        HorseId = horse.HorseId,
+                        UserId = vetUser.UserId,
+                        CheckType = "Initial",
+                        Weight = 480 + (i % 40),
+                        Temperature = 38.0m,
+                        HeartRate = 40,
+                        MedicalResult = "Pass",
+                        DopingResult = "Negative",
+                        Notes = "Medical inspection passed. Horse is fit for tournament.",
+                        CheckedAt = DateTime.UtcNow.AddHours(-10)
+                    };
+                    _context.MedicalCheckRecords.Add(medicalCheck);
+                    await _context.SaveChangesAsync();
+                }
+            }
+
+            _logger.LogInformation($"Tournament '{tourName}' seeded successfully with {count} registrations.");
+        }
+
+        await SeedSingleSUTournament("SU_48_HORSE", 50);
+        await SeedSingleSUTournament("SU_14_HORSE", 14);
+        await SeedSingleSUTournament("SU_11_HORSE", 11);
+    }
+
+}
