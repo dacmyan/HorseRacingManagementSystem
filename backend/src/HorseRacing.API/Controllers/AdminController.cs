@@ -380,56 +380,20 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("tournaments/{id}/close-registration")]
-    public async Task<IActionResult> CloseRegistration(long id, [FromServices] AppDbContext context)
+    public async Task<IActionResult> CloseRegistration(long id)
     {
         try
         {
-            var tournament = await context.Tournaments.FindAsync(id);
-            if (tournament == null)
-            {
-                return NotFound(new { message = $"Tournament with ID {id} was not found." });
-            }
-            if (!new[] { "PendingRegistration", "Registration Open" }.Contains(tournament.Status, StringComparer.OrdinalIgnoreCase))
-                return BadRequest(new { message = $"Registration cannot be closed while tournament status is '{tournament.Status}'." });
-
-            tournament.RegistrationEndDate = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
-            tournament.Status = "PendingScheduling";
-            await context.SaveChangesAsync();
-
-            // Auto-cancel registrations without accepted jockey
-            var tournamentRepo = HttpContext.RequestServices.GetRequiredService<ITournamentRepository>();
-            var cancelledRegs = await tournamentRepo.CancelRegistrationsWithoutJockeyAsync(id);
-
-            if (cancelledRegs.Count > 0)
-            {
-                var notificationService = HttpContext.RequestServices.GetService<INotificationService>();
-                if (notificationService != null)
-                {
-                    var ownerGroups = cancelledRegs.GroupBy(c => c.OwnerId);
-                    foreach (var group in ownerGroups)
-                    {
-                        var horseNames = string.Join(", ", group.Select(c => c.HorseName));
-                        var tournamentName = group.First().TournamentName;
-                        try
-                        {
-                            await notificationService.SendNotificationToUserAsync(
-                                group.Key,
-                                "Registration Automatically Cancelled",
-                                $"The registration for horse(s) [{horseNames}] in tournament '{tournamentName}' was automatically cancelled because no accepted jockey contract was in place when registration closed.",
-                                "System",
-                                (int)id,
-                                actionUrl: "/owner/registrations"
-                            );
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"[NOTIFICATION ERROR] Failed to send auto-cancel notification to owner {group.Key}: {ex.Message}");
-                        }
-                    }
-                }
-            }
-
-            return Ok(new { message = "Registration closed successfully.", cancelledRegistrations = cancelledRegs.Count, result = new { tournamentId = id, registrationEndDate = tournament.RegistrationEndDate } });
+            var result = await _tournamentService.CloseRegistrationAsync(id, manualClose: true);
+            return Ok(new { message = "Registration closed successfully.", result });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
         }
         catch (Exception ex)
         {

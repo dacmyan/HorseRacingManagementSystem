@@ -389,6 +389,69 @@ public class TournamentServiceTests
             .WithMessage("*must be at least 1 day apart*");
     }
 
+    [Fact]
+    public async Task CloseRegistrationAsync_ShouldMoveToPendingScheduling_WhenTwelveHorsesRemainQualified()
+    {
+        var tournament = BuildClosableTournament();
+        var registrations = BuildRegistrations(12);
+        _tournamentRepoMock.Setup(r => r.GetByIdAsync(tournament.TournamentId)).ReturnsAsync(tournament);
+        _tournamentRepoMock.Setup(r => r.CancelRegistrationsWithoutJockeyAsync(tournament.TournamentId))
+            .ReturnsAsync(new List<CancelledRegistrationInfo>());
+        _tournamentRepoMock.Setup(r => r.GetApprovedRegistrationsAsync(tournament.TournamentId))
+            .ReturnsAsync(registrations);
+        _tournamentRepoMock.Setup(r => r.GetMedicalCheckRecordsForTournamentAsync(tournament.TournamentId))
+            .ReturnsAsync(BuildPassingMedicalChecks(12));
+
+        var result = await _service.CloseRegistrationAsync(tournament.TournamentId);
+
+        result.Status.Should().Be("PendingScheduling");
+        result.QualifiedHorses.Should().Be(12);
+        result.CanGenerateRaces.Should().BeTrue();
+        tournament.Status.Should().Be("PendingScheduling");
+    }
+
+    [Fact]
+    public async Task CloseRegistrationAsync_ShouldSuspendRegistration_WhenFewerThanTwelveHorsesRemainQualified()
+    {
+        var tournament = BuildClosableTournament();
+        _tournamentRepoMock.Setup(r => r.GetByIdAsync(tournament.TournamentId)).ReturnsAsync(tournament);
+        _tournamentRepoMock.Setup(r => r.CancelRegistrationsWithoutJockeyAsync(tournament.TournamentId))
+            .ReturnsAsync(new List<CancelledRegistrationInfo>
+            {
+                new() { RegistrationId = 11, OwnerId = 10, HorseName = "Horse 11", TournamentId = tournament.TournamentId }
+            });
+        _tournamentRepoMock.Setup(r => r.GetApprovedRegistrationsAsync(tournament.TournamentId))
+            .ReturnsAsync(BuildRegistrations(11));
+        _tournamentRepoMock.Setup(r => r.GetMedicalCheckRecordsForTournamentAsync(tournament.TournamentId))
+            .ReturnsAsync(BuildPassingMedicalChecks(11));
+
+        var result = await _service.CloseRegistrationAsync(tournament.TournamentId);
+
+        result.Status.Should().Be("Registration Suspended");
+        result.QualifiedHorses.Should().Be(11);
+        result.CancelledRegistrations.Should().Be(1);
+        result.CanGenerateRaces.Should().BeFalse();
+        tournament.Status.Should().Be("Registration Suspended");
+    }
+
+    [Fact]
+    public async Task GetAllTournamentsAsync_ShouldNotCloseExpiredRegistration_AsSideEffectOfRead()
+    {
+        var tournament = BuildClosableTournament();
+        _tournamentRepoMock.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<Tournament> { tournament });
+        _tournamentRepoMock.Setup(r => r.GetReadinessByTournamentIdsAsync(It.IsAny<IEnumerable<long>>()))
+            .ReturnsAsync(new Dictionary<long, (bool HasCompleteLaneAssignments, bool HasMissingReferees)>
+            {
+                [tournament.TournamentId] = (false, false)
+            });
+
+        var result = await _service.GetAllTournamentsAsync();
+
+        result.Should().ContainSingle();
+        tournament.Status.Should().Be("Registration Open");
+        _tournamentRepoMock.Verify(r => r.SaveChangesAsync(), Times.Never);
+    }
+
     private static Tournament BuildTournament()
     {
         var startDate = DateTime.UtcNow.AddDays(1);
@@ -423,6 +486,26 @@ public class TournamentServiceTests
             }
         };
     }
+
+    private static Tournament BuildClosableTournament() => new()
+    {
+        TournamentId = 99,
+        Name = "Closable Cup",
+        Status = "Registration Open",
+        RegistrationEndDate = DateTime.UtcNow.AddMinutes(-5),
+        StartDate = DateTime.UtcNow.AddDays(3),
+        EndDate = DateTime.UtcNow.AddDays(5)
+    };
+
+    private static List<MedicalCheckRecord> BuildPassingMedicalChecks(int count) =>
+        Enumerable.Range(1, count)
+            .Select(i => new MedicalCheckRecord
+            {
+                RegistrationId = i,
+                MedicalResult = "Pass",
+                DopingResult = "Negative"
+            })
+            .ToList();
 
     private static List<PrizeConfigRequest> ValidPrizes() => new()
     {
