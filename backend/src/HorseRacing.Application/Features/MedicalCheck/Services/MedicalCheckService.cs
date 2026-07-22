@@ -243,11 +243,11 @@ public class MedicalCheckService : IMedicalCheckService
         {
             var ownerId = registration.Horse.OwnerId;
             var horseName = registration.Horse.Name;
-            var tournamentName = registration.Tournament?.Name ?? "Giải đấu";
+            var tournamentName = registration.Tournament?.Name ?? "Tournament";
             if (request.MedicalResult == "Fail")
             {
-                var failTitle = "Khám sức khỏe không đạt";
-                var failContent = $"Ngựa {horseName} của bạn không đạt yêu cầu khám sức khỏe cho giải đấu {tournamentName} vì lý do: {request.FailReason}.";
+                var failTitle = "Medical check failed";
+                var failContent = $"Your horse {horseName} did not meet the medical requirements for tournament {tournamentName}. Reason: {request.FailReason}.";
                 await _notificationService.SendNotificationToUserAsync(
                     ownerId, failTitle, failContent, "Medical", (int?)registration.RegistrationId, null, "/owner/registrations");
 
@@ -274,8 +274,8 @@ public class MedicalCheckService : IMedicalCheckService
             }
             else
             {
-                var passTitle = "Khám sức khỏe đạt (Pass)";
-                var passContent = $"Ngựa {horseName} của bạn đã đạt (pass) yêu cầu khám sức khỏe cho giải đấu {tournamentName}.";
+                var passTitle = "Medical check passed";
+                var passContent = $"Your horse {horseName} has passed the medical check for tournament {tournamentName}.";
                 await _notificationService.SendNotificationToUserAsync(
                     ownerId, passTitle, passContent, "Medical", (int?)registration.RegistrationId, null, "/owner/registrations");
 
@@ -752,8 +752,8 @@ public class MedicalCheckService : IMedicalCheckService
         var vetIds = await _repository.GetVeterinarianUserIdsAsync();
         if (vetIds.Any())
         {
-            var title = "Yêu cầu khám phục hồi sức khỏe";
-            var content = $"Chủ ngựa {horse.Owner?.FullName ?? horse.Owner?.Username ?? "Owner"} đã gửi yêu cầu khám phục hồi sức khỏe cho ngựa {horse.Name} (Trạng thái hiện tại: {horse.HealthStatus}).";
+            var title = "Recovery Inspection Request";
+            var content = $"Owner {horse.Owner?.FullName ?? horse.Owner?.Username ?? "Owner"} requested a health recovery check for horse {horse.Name} (Current status: {horse.HealthStatus}).";
             foreach (var vetId in vetIds)
             {
                 await _notificationService.SendNotificationToUserAsync(

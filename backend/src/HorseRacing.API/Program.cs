@@ -115,7 +115,6 @@ using (var scope = app.Services.CreateScope())
 
         var dataSeeder = services.GetRequiredService<HorseRacing.Infrastructure.Persistence.DataSeeder>();
         await dataSeeder.SeedAsync();
-
     }
     catch (Exception ex)
     {

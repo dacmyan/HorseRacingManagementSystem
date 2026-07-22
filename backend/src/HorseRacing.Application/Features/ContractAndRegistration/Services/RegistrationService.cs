@@ -131,12 +131,12 @@ public class RegistrationService : IRegistrationService
         {
             try
             {
-                var horseName = populated.Horse?.Name ?? "Ngựa";
-                var tournamentName = populated.Tournament?.Name ?? "Giải đấu";
+                var horseName = populated.Horse?.Name ?? "Horse";
+                var tournamentName = populated.Tournament?.Name ?? "Tournament";
                 await _notificationService.SendNotificationToRoleAsync(
                     "Veterinarian",
-                    "Yêu cầu khám sức khỏe mới",
-                    $"Ngựa '{horseName}' đã đăng ký tham gia giải đấu '{tournamentName}' và đang chờ khám sức khỏe.",
+                    "New Medical Check Request",
+                    $"Horse '{horseName}' has registered for tournament '{tournamentName}' and is awaiting medical inspection.",
                     "Medical",
                     referenceId: (int)populated.TournamentId,
                     actionUrl: "/vet/medical-check"

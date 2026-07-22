@@ -49,11 +49,11 @@ public class JockeyContractRepository : IJockeyContractRepository
             .ToListAsync();
     }
 
-    public async Task<JockeyContract?> GetActiveContractForHorseAsync(int horseId)
+    public async Task<JockeyContract?> GetActiveContractForHorseAsync(int horseId, long tournamentId)
     {
         return await _context.JockeyContracts
             .Include(jc => jc.Jockey)
-            .FirstOrDefaultAsync(jc => jc.HorseId == horseId && (jc.Status == "Accepted" || jc.Status == "Active"));
+            .FirstOrDefaultAsync(jc => jc.HorseId == horseId && jc.TournamentId == tournamentId && (jc.Status == "Accepted" || jc.Status == "Active"));
     }
 
     public async Task<JockeyContract?> GetByTournamentHorseAndJockeyAsync(long tournamentId, long horseId, int jockeyUserId)
