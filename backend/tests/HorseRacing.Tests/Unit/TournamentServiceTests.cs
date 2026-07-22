@@ -49,6 +49,8 @@ public class TournamentServiceTests
 
         _tournamentRepoMock.Setup(r => r.GetRacesByRoundIdAsync(It.IsAny<long>()))
             .ReturnsAsync(new List<Race>());
+        _tournamentRepoMock.Setup(r => r.CancelPendingRegistrationsAsync(It.IsAny<long>()))
+            .ReturnsAsync(new List<CancelledRegistrationInfo>());
 
         _service = new TournamentService(_tournamentRepoMock.Object, _notificationMock.Object, _bettingServiceMock.Object, _walletRepositoryMock.Object);
     }
@@ -401,12 +403,18 @@ public class TournamentServiceTests
             .ReturnsAsync(registrations);
         _tournamentRepoMock.Setup(r => r.GetMedicalCheckRecordsForTournamentAsync(tournament.TournamentId))
             .ReturnsAsync(BuildPassingMedicalChecks(12));
+        _tournamentRepoMock.Setup(r => r.CancelPendingRegistrationsAsync(tournament.TournamentId))
+            .ReturnsAsync(new List<CancelledRegistrationInfo>
+            {
+                new() { RegistrationId = 49, OwnerId = 20, HorseName = "Waitlisted Horse", TournamentId = tournament.TournamentId }
+            });
 
         var result = await _service.CloseRegistrationAsync(tournament.TournamentId);
 
         result.Status.Should().Be("PendingScheduling");
         result.QualifiedHorses.Should().Be(12);
         result.CanGenerateRaces.Should().BeTrue();
+        result.CancelledPendingRegistrations.Should().Be(1);
         tournament.Status.Should().Be("PendingScheduling");
     }
 

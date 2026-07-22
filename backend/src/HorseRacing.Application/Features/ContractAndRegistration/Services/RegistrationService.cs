@@ -187,8 +187,21 @@ public class RegistrationService : IRegistrationService
             throw new InvalidOperationException($"Registration is already '{registration.Status}'. Only 'Pending' registrations can be reviewed.");
         }
 
-        registration.Status = request.Status;
-        await _registrationRepository.SaveChangesAsync();
+        if (request.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!await _registrationRepository.HasAcceptedJockeyContractAsync(registration.TournamentId, registration.HorseId))
+                throw new InvalidOperationException("Cannot approve registration: An accepted or active jockey contract is required.");
+
+            if (!await _registrationRepository.ApproveWithinCapacityAsync(id, registration.TournamentId, 48))
+                throw new InvalidOperationException("Tournament capacity has been reached. A maximum of 48 horses can be approved; this registration remains pending as a waitlist entry.");
+
+            registration.Status = "Approved";
+        }
+        else
+        {
+            registration.Status = request.Status;
+            await _registrationRepository.SaveChangesAsync();
+        }
 
         // Load fully populated registration for owner notifications
         var populated = await _registrationRepository.GetByIdAsync(id);

@@ -43,5 +43,6 @@ public interface ITournamentRepository
     /// Returns info about cancelled registrations for notification purposes.
     /// </summary>
     Task<List<CancelledRegistrationInfo>> CancelRegistrationsWithoutJockeyAsync(long tournamentId);
+    Task<List<CancelledRegistrationInfo>> CancelPendingRegistrationsAsync(long tournamentId);
 }
 

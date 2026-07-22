@@ -691,76 +691,25 @@ public class AdminController : ControllerBase
     }
 
     [HttpPut("registrations/{id}/status")]
-    public async Task<IActionResult> ReviewRegistration(int id, [FromBody] ReviewRegistrationRequest request, [FromServices] AppDbContext context, [FromServices] INotificationService notificationService)
+    public async Task<IActionResult> ReviewRegistration(int id, [FromBody] ReviewRegistrationRequest request)
     {
         try
         {
-            var registration = await context.Registrations
-                .Include(r => r.Horse)
-                .Include(r => r.Tournament)
-                .FirstOrDefaultAsync(r => r.RegistrationId == id);
-            if (registration == null)
-                return NotFound(new { message = $"Registration #{id} not found." });
-
             var validStatuses = new[] { "Approved", "Rejected" };
             request.Status = request.Status?.Trim() ?? string.Empty;
             if (!validStatuses.Contains(request.Status, StringComparer.OrdinalIgnoreCase))
                 return BadRequest(new { message = "Status must be 'Approved' or 'Rejected'." });
             request.Status = validStatuses.First(s => s.Equals(request.Status, StringComparison.OrdinalIgnoreCase));
-
-            if (!string.Equals(registration.Status, "Pending", StringComparison.OrdinalIgnoreCase))
-                return BadRequest(new { message = "Only Pending registrations can be reviewed." });
-
-            if (request.Status == "Approved")
-            {
-                if (registration.Status != "Pending")
-                {
-                    return BadRequest(new { message = "Only Pending registrations can be approved." });
-                }
-
-                var contract = await context.JockeyContracts.FirstOrDefaultAsync(jc => jc.TournamentId == registration.TournamentId && jc.HorseId == registration.HorseId);
-                if (contract == null)
-                {
-                    return BadRequest(new { message = "Cannot approve registration: No jockey contract has been proposed for this horse in this tournament." });
-                }
-
-                if (!contract.Status.Equals("Accepted", StringComparison.OrdinalIgnoreCase))
-                {
-                    return BadRequest(new { message = $"Cannot approve registration: The jockey contract status is '{contract.Status}', but must be 'Accepted'." });
-                }
-            }
-
-            registration.Status = request.Status;
-            await context.SaveChangesAsync();
-
-            if (registration.Horse != null)
-            {
-                var approved = request.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase);
-                var title = approved ? "Registration approved" : "Registration rejected";
-                var content = approved
-                    ? $"Your horse '{registration.Horse.Name}' has been approved for tournament '{registration.Tournament?.Name}'."
-                    : $"Your horse '{registration.Horse.Name}' was not approved for tournament '{registration.Tournament?.Name}'.";
-                await notificationService.SendNotificationToUserAsync(
-                    registration.Horse.OwnerId, title, content, "Tournament", (int)registration.TournamentId,
-                    actionUrl: "/owner/registrations");
-
-                if (approved)
-                {
-                    var jockeyUserIds = await context.JockeyContracts
-                        .Where(c => c.TournamentId == registration.TournamentId && c.HorseId == registration.HorseId &&
-                                    (c.Status == "Accepted" || c.Status == "Active"))
-                        .Select(c => c.JockeyId)
-                        .Distinct()
-                        .ToListAsync();
-                    foreach (var userId in jockeyUserIds)
-                        await notificationService.SendNotificationToUserAsync(
-                            userId, title,
-                            $"Horse '{registration.Horse.Name}' that you ride has been approved for tournament '{registration.Tournament?.Name}'.",
-                            "Tournament", (int)registration.TournamentId, actionUrl: "/jockey/schedule");
-                }
-            }
-
-            return Ok(new { message = $"Registration #{id} has been {request.Status.ToLower()}.", result = new { registrationId = id, status = registration.Status } });
+            var response = await _registrationService.ReviewRegistrationAsync(id, request);
+            return Ok(new { message = $"Registration #{id} has been {request.Status.ToLower()}.", result = response });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
         }
         catch (Exception ex)
         {
