@@ -924,26 +924,6 @@ public class DemoDataSeeder
                 await _context.SaveChangesAsync();
             }
 
-            // 6.5 Seed Tournament 6: Expired Registration Tournament (Test Extend)
-            var t6Name = "Expired Registration Tournament (Test Extend)";
-            var t6 = await _context.Tournaments.FirstOrDefaultAsync(t => t.Name == t6Name);
-            if (t6 == null)
-            {
-                t6 = new Tournament
-                {
-                    Name = t6Name,
-                    Description = "Tournament seeded to test the extend registration feature when the deadline is past.",
-                    RegistrationStartDate = DateTime.UtcNow.AddDays(-5),
-                    RegistrationEndDate = DateTime.UtcNow.AddDays(-1),
-                    StartDate = DateTime.UtcNow.AddDays(5),
-                    EndDate = DateTime.UtcNow.AddDays(15),
-                    Status = "Registration Open",
-                    CancelCount = 0
-                };
-                _context.Tournaments.Add(t6);
-                await _context.SaveChangesAsync();
-            }
-
             // Recalculate stats for custom horses to ensure perfect data consistency
             foreach (var name in customHorseNames)
             {
