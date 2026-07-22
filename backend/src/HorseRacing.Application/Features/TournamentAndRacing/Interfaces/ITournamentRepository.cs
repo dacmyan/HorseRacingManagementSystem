@@ -38,7 +38,7 @@ public interface ITournamentRepository
     Task<List<int>> GetAdminUserIdsAsync();
 
     /// <summary>
-    /// Cancel registrations (Pending/PendingVet) that don't have an accepted/active jockey contract.
+    /// Cancel registrations (Pending/PendingVet/Approved) that don't have an accepted/active jockey contract.
     /// Also cancels any pending jockey contracts for those registrations.
     /// Returns info about cancelled registrations for notification purposes.
     /// </summary>

@@ -257,12 +257,74 @@ public class TournamentService : ITournamentService
         return MapToResponse(tournament);
     }
 
+    public async Task<CloseRegistrationResponse> CloseRegistrationAsync(long id, bool manualClose = false)
+    {
+        var tournament = await _tournamentRepository.GetByIdAsync(id)
+            ?? throw new KeyNotFoundException($"Tournament with ID {id} was not found.");
+
+        var closableStatuses = new[] { "PendingRegistration", "Registration Open" };
+        if (!closableStatuses.Contains(tournament.Status, StringComparer.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Registration cannot be closed while tournament status is '{tournament.Status}'.");
+
+        var now = VietnamNow;
+        if (!manualClose && (!tournament.RegistrationEndDate.HasValue || now < tournament.RegistrationEndDate.Value))
+            throw new InvalidOperationException("Registration period has not ended yet.");
+
+        if (manualClose)
+            tournament.RegistrationEndDate = now;
+
+        // Remove registrations without an accepted/active jockey before counting.
+        var cancelledRegistrations = await _tournamentRepository.CancelRegistrationsWithoutJockeyAsync(id);
+        var approvedRegistrations = await _tournamentRepository.GetApprovedRegistrationsAsync(id);
+        var medicalChecks = await _tournamentRepository.GetMedicalCheckRecordsForTournamentAsync(id);
+
+        var qualifiedCount = approvedRegistrations.Count(registration =>
+            medicalChecks.Any(check =>
+                check.RegistrationId == registration.RegistrationId &&
+                (string.Equals(check.MedicalResult, "Pass", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(check.MedicalResult, "Passed", StringComparison.OrdinalIgnoreCase)) &&
+                !string.Equals(check.DopingResult, "Positive", StringComparison.OrdinalIgnoreCase)));
+
+        var canGenerateRaces = qualifiedCount is >= 12 and <= 48;
+        tournament.Status = canGenerateRaces ? "PendingScheduling" : "Registration Suspended";
+        _tournamentRepository.Update(tournament);
+        await _tournamentRepository.SaveChangesAsync();
+
+        foreach (var group in cancelledRegistrations.GroupBy(registration => registration.OwnerId))
+        {
+            try
+            {
+                var horseNames = string.Join(", ", group.Select(registration => registration.HorseName));
+                await _notificationService.SendNotificationToUserAsync(
+                    group.Key,
+                    "Registration Automatically Cancelled",
+                    $"The registration for horse(s) [{horseNames}] in tournament '{tournament.Name}' was automatically cancelled because no accepted jockey contract was in place when registration closed.",
+                    "System",
+                    (int)tournament.TournamentId,
+                    actionUrl: "/owner/registrations");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[NOTIFICATION ERROR] Failed to notify owner {group.Key}: {ex.Message}");
+            }
+        }
+
+        return new CloseRegistrationResponse
+        {
+            TournamentId = tournament.TournamentId,
+            RegistrationEndDate = tournament.RegistrationEndDate,
+            Status = tournament.Status,
+            QualifiedHorses = qualifiedCount,
+            CancelledRegistrations = cancelledRegistrations.Count,
+            CanGenerateRaces = canGenerateRaces
+        };
+    }
+
     public async Task<List<TournamentResponse>> GetAllTournamentsAsync()
     {
         var tournaments = await _tournamentRepository.GetAllAsync();
         
         bool anyChanged = false;
-        var closedRegistrationTournamentIds = new List<long>();
         DateTime vietnamNow = VietnamNow;
         var readinessByTournament = await _tournamentRepository.GetReadinessByTournamentIdsAsync(
             tournaments.Select(t => t.TournamentId));
@@ -281,14 +343,6 @@ public class TournamentService : ITournamentService
                 anyChanged = true;
             }
 
-            if ((t.Status == "PendingRegistration" || t.Status == "Registration Open") && 
-                t.RegistrationEndDate.HasValue && 
-                vietnamNow >= t.RegistrationEndDate.Value)
-            {
-                t.Status = "PendingScheduling";
-                closedRegistrationTournamentIds.Add(t.TournamentId);
-                anyChanged = true;
-            }
             if (t.Status == "PendingRegistration" && 
                 t.RegistrationStartDate.HasValue && 
                 vietnamNow >= t.RegistrationStartDate.Value)
@@ -371,43 +425,6 @@ public class TournamentService : ITournamentService
             await _tournamentRepository.SaveChangesAsync();
         }
 
-        // Auto-cancel registrations without accepted jockey for tournaments that just closed registration
-        foreach (var tournamentId in closedRegistrationTournamentIds)
-        {
-            try
-            {
-                var cancelledRegs = await _tournamentRepository.CancelRegistrationsWithoutJockeyAsync(tournamentId);
-                if (cancelledRegs.Count > 0)
-                {
-                    var ownerGroups = cancelledRegs.GroupBy(c => c.OwnerId);
-                    foreach (var group in ownerGroups)
-                    {
-                        var horseNames = string.Join(", ", group.Select(c => c.HorseName));
-                        var tournamentName = group.First().TournamentName;
-                        try
-                        {
-                            await _notificationService.SendNotificationToUserAsync(
-                                group.Key,
-                                "Registration Automatically Cancelled",
-                                $"The registration for horse(s) [{horseNames}] in tournament '{tournamentName}' was automatically cancelled because no accepted jockey contract was in place when registration closed.",
-                                "System",
-                                (int)tournamentId,
-                                actionUrl: "/owner/registrations"
-                            );
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"[NOTIFICATION ERROR] Failed to send auto-cancel notification to owner {group.Key}: {ex.Message}");
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[ERROR] Failed to cancel registrations without jockey for tournament {tournamentId}: {ex.Message}");
-            }
-        }
-
         var responses = tournaments.Select(MapToResponse).ToList();
         foreach (var r in responses)
         {
@@ -428,7 +445,6 @@ public class TournamentService : ITournamentService
 
         DateTime vietnamNow = VietnamNow;
         bool changed = false;
-        bool registrationJustClosed = false;
         var hasCompleteLanes = await _tournamentRepository.HasCompleteLaneAssignmentsAsync(tournament.TournamentId);
         if (tournament.Status == "Active" && !hasCompleteLanes)
         {
@@ -440,14 +456,6 @@ public class TournamentService : ITournamentService
                  vietnamNow < tournament.StartDate.Value)
         {
             tournament.Status = "Upcoming";
-            changed = true;
-        }
-        if ((tournament.Status == "PendingRegistration" || tournament.Status == "Registration Open") && 
-            tournament.RegistrationEndDate.HasValue && 
-            vietnamNow >= tournament.RegistrationEndDate.Value)
-        {
-            tournament.Status = "PendingScheduling";
-            registrationJustClosed = true;
             changed = true;
         }
         if (tournament.Status == "PendingRegistration" && 
@@ -530,43 +538,6 @@ public class TournamentService : ITournamentService
         {
             _tournamentRepository.Update(tournament);
             await _tournamentRepository.SaveChangesAsync();
-        }
-
-        // Auto-cancel registrations without accepted jockey when registration just closed
-        if (registrationJustClosed)
-        {
-            try
-            {
-                var cancelledRegs = await _tournamentRepository.CancelRegistrationsWithoutJockeyAsync(id);
-                if (cancelledRegs.Count > 0)
-                {
-                    var ownerGroups = cancelledRegs.GroupBy(c => c.OwnerId);
-                    foreach (var group in ownerGroups)
-                    {
-                        var horseNames = string.Join(", ", group.Select(c => c.HorseName));
-                        var tournamentName = group.First().TournamentName;
-                        try
-                        {
-                            await _notificationService.SendNotificationToUserAsync(
-                                group.Key,
-                                "Registration Automatically Cancelled",
-                                $"The registration for horse(s) [{horseNames}] in tournament '{tournamentName}' was automatically cancelled because no accepted jockey contract was in place when registration closed.",
-                                "System",
-                                (int)id,
-                                actionUrl: "/owner/registrations"
-                            );
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"[NOTIFICATION ERROR] Failed to send auto-cancel notification to owner {group.Key}: {ex.Message}");
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[ERROR] Failed to cancel registrations without jockey for tournament {id}: {ex.Message}");
-            }
         }
 
         var response = MapToResponse(tournament);

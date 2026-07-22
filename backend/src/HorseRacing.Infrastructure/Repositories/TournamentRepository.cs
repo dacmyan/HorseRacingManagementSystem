@@ -421,12 +421,13 @@ public class TournamentRepository : ITournamentRepository
 
     public async Task<List<CancelledRegistrationInfo>> CancelRegistrationsWithoutJockeyAsync(long tournamentId)
     {
-        // Find registrations that are still Pending or PendingVet (not yet approved/rejected)
+        // Approved registrations must also be cancelled when their accepted jockey
+        // contract is no longer present at the registration deadline.
         var registrations = await _context.Registrations
             .Include(r => r.Horse)
             .Include(r => r.Tournament)
             .Where(r => r.TournamentId == tournamentId &&
-                       (r.Status == "Pending" || r.Status == "PendingVet"))
+                       (r.Status == "Pending" || r.Status == "PendingVet" || r.Status == "Approved"))
             .ToListAsync();
 
         var cancelledList = new List<CancelledRegistrationInfo>();

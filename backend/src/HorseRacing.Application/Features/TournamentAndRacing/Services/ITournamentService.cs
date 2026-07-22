@@ -10,6 +10,7 @@ public interface ITournamentService
     Task<TournamentResponse?> UpdateTournamentAsync(long id, UpdateTournamentRequest request);
     Task<List<TournamentResponse>> GetAllTournamentsAsync();
     Task<TournamentResponse?> GetTournamentByIdAsync(long id);
+    Task<CloseRegistrationResponse> CloseRegistrationAsync(long id, bool manualClose = false);
     Task<List<RaceScheduleResponse>> GenerateRacesForTournamentAsync(long tournamentId);
     Task<RaceScheduleResponse> GenerateFinalRaceAsync(long tournamentId);
     Task<QualifiedHorsesResponse> GetQualifiedHorsesAsync(long id);

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using HorseRacing.Infrastructure.Persistence;
 using HorseRacing.Application.Features.Notifications.Interfaces;
 using HorseRacing.Application.Features.TournamentAndRacing.Interfaces;
+using HorseRacing.Application.Features.TournamentAndRacing.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -71,15 +72,11 @@ namespace HorseRacing.API.Services
 
                         foreach (var tournament in expiredTournaments)
                         {
-                            var approvedRegistrations = await context.Registrations
-                                .Include(r => r.MedicalCheckRecords)
-                                .Where(r => r.TournamentId == tournament.TournamentId && r.Status == "Approved")
-                                .ToListAsync(stoppingToken);
-                            int registeredCount = approvedRegistrations.Count(r => r.MedicalCheckRecords.Any(check =>
-                                (check.MedicalResult == "Pass" || check.MedicalResult == "Passed") &&
-                                check.DopingResult != "Positive"));
+                            var tournamentService = scope.ServiceProvider.GetRequiredService<ITournamentService>();
+                            var closeResult = await tournamentService.CloseRegistrationAsync(tournament.TournamentId);
+                            int registeredCount = closeResult.QualifiedHorses;
 
-                            if (registeredCount >= 12)
+                            if (closeResult.CanGenerateRaces)
                             {
                                 // Đủ 12 ngựa -> Đóng đăng ký bình thường và chuyển sang trạng thái "PendingScheduling" (Chờ xếp lịch)
                                 tournament.Status = "PendingScheduling";
@@ -165,7 +162,9 @@ namespace HorseRacing.API.Services
                                             await notificationService.SendNotificationToUserAsync(
                                                 adminId,
                                                 "Registration Extension Required",
-                                                $"Tournament '{tournament.Name}' has only {registeredCount}/12 qualified horses. Extend registration once; the new deadline will be 48 hours before the tournament starts, or cancel the tournament.",
+                                                registeredCount > closeResult.MaximumAllowed
+                                                    ? $"Tournament '{tournament.Name}' has {registeredCount}/{closeResult.MaximumAllowed} qualified horses. Reduce the field before scheduling races."
+                                                    : $"Tournament '{tournament.Name}' has only {registeredCount}/{closeResult.MinimumRequired} qualified horses. Extend registration once; the new deadline will be 48 hours before the tournament starts, or cancel the tournament.",
                                                 "Tournament",
                                                 (int)tournament.TournamentId,
                                                 actionUrl: "/admin/tournaments");
@@ -194,7 +193,9 @@ namespace HorseRacing.API.Services
                                                 await notificationService.SendNotificationToUserAsync(
                                                     adminId,
                                                     "Tournament Cancellation Required",
-                                                    $"Tournament '{tournament.Name}' still has only {registeredCount}/12 qualified horses after its one allowed extension. Please cancel the tournament.",
+                                                    registeredCount > closeResult.MaximumAllowed
+                                                        ? $"Tournament '{tournament.Name}' still has {registeredCount}/{closeResult.MaximumAllowed} qualified horses. Reduce the field or cancel the tournament."
+                                                        : $"Tournament '{tournament.Name}' still has only {registeredCount}/{closeResult.MinimumRequired} qualified horses after its one allowed extension. Please cancel the tournament.",
                                                     "Tournament",
                                                     (int)tournament.TournamentId,
                                                     actionUrl: "/admin/tournaments"
