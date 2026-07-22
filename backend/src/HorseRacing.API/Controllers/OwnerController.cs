@@ -234,6 +234,27 @@ public class OwnerController : ControllerBase
         }
     }
 
+    [HttpGet("tournaments/{tournamentId:long}/busy-jockeys")]
+    public async Task<IActionResult> GetBusyJockeysForTournament(long tournamentId, [FromServices] AppDbContext context)
+    {
+        try
+        {
+            var busyJockeyIds = await context.JockeyContracts
+                .Where(jc => jc.TournamentId == tournamentId 
+                    && (jc.Status == "Active" || jc.Status == "Accepted" || jc.Status == "Pending"))
+                .Select(jc => jc.JockeyId)
+                .Distinct()
+                .ToListAsync();
+                    
+            return Ok(new { busyJockeyIds });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Error retrieving busy jockeys", detail = ex.Message });
+        }
+    }
+
+
     [HttpGet("horses/{horseId:int}/check-busy/{tournamentId:long}")]
     public async Task<IActionResult> CheckHorseBusy(int horseId, long tournamentId, [FromServices] AppDbContext context)
     {

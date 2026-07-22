@@ -287,11 +287,9 @@ public class TournamentService : ITournamentService
 
         var canGenerateRaces = qualifiedCount is >= 12 and <= 48;
         tournament.Status = canGenerateRaces ? "PendingScheduling" : "Registration Suspended";
-
         var cancelledPending = canGenerateRaces
             ? await _tournamentRepository.CancelPendingRegistrationsAsync(id)
             : new List<CancelledRegistrationInfo>();
-
         _tournamentRepository.Update(tournament);
         await _tournamentRepository.SaveChangesAsync();
 
@@ -332,7 +330,6 @@ public class TournamentService : ITournamentService
                 Console.WriteLine($"[NOTIFICATION ERROR] Failed to notify owner of cancelled registration {group.Key}: {ex.Message}");
             }
         }
-
         return new CloseRegistrationResponse
         {
             TournamentId = tournament.TournamentId,
