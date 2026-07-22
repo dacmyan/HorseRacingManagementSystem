@@ -1330,7 +1330,6 @@ public class DataSeeder
             {
                 Username = "su_owner",
                 Email = "su_owner@gmail.com",
-                NormalizedEmail = "SU_OWNER@GMAIL.COM",
                 FullName = "SU Test Horse Owner",
                 RoleId = 2,
                 IsEmailConfirmed = true,
@@ -1353,7 +1352,6 @@ public class DataSeeder
                 {
                     Username = username,
                     Email = $"{username}@gmail.com",
-                    NormalizedEmail = $"{username.ToUpper()}@GMAIL.COM",
                     FullName = $"SU Jockey #{i}",
                     RoleId = 3,
                     IsEmailConfirmed = true,
@@ -1396,15 +1394,10 @@ public class DataSeeder
                     {
                         Name = horseName,
                         OwnerId = suOwner.UserId,
-                        Age = 4,
+                        Age = DateTime.UtcNow.AddYears(-4),
                         Breed = "Thoroughbred",
                         Gender = i % 2 == 0 ? "Stallion" : "Mare",
-                        Weight = 480 + (i % 40),
-                        Color = "Bay",
-                        HealthStatus = "Healthy",
-                        RegistrationStatus = "Approved",
-                        AverageSpeed = 15.5m,
-                        UpdatedAt = DateTime.UtcNow
+                        HealthStatus = "Healthy"
                     };
                     _context.Horses.Add(horse);
                     await _context.SaveChangesAsync();
@@ -1485,4 +1478,5 @@ public class DataSeeder
         await SeedSingleSUTournament("SU_14_HORSE", 14);
         await SeedSingleSUTournament("SU_11_HORSE", 11);
     }
+
 }
