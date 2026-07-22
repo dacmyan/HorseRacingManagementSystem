@@ -87,7 +87,7 @@ public class TournamentService : ITournamentService
         var adminWallet = await _walletRepository.GetByUserIdAsync(adminUserId);
         var adminBalance = adminWallet?.Balance ?? 0m;
         if (adminBalance < totalPrizePool)
-            throw new ArgumentException($"Insufficient Admin wallet balance. Current balance: {adminBalance:N0} VND; required prize pool: {totalPrizePool:N0} VND. Please enter lower prize amounts or deposit more funds.");
+            throw new ArgumentException($"Insufficient Admin wallet balance. Current balance: ${adminBalance:N2} USD; required prize pool: ${totalPrizePool:N2} USD. Please enter lower prize amounts or deposit more funds.");
 
         await ValidateTournamentDatesAsync(
             request.RegistrationStartDate, 

@@ -94,7 +94,7 @@ public class PrizePayoutService : IPrizePayoutService
         if (adminWalletForValidation.Balance < totalConfiguredPrizePool)
         {
             throw new InvalidOperationException(
-                $"Insufficient system treasury balance. Required prize pool: {totalConfiguredPrizePool:N2} VND, Current Treasury Balance: {adminWalletForValidation.Balance:N2} VND."
+                $"Insufficient system treasury balance. Required prize pool: ${totalConfiguredPrizePool:N2} USD, Current Treasury Balance: ${adminWalletForValidation.Balance:N2} USD."
             );
         }
 
@@ -200,7 +200,7 @@ public class PrizePayoutService : IPrizePayoutService
                 throw new InvalidOperationException("No active Admin treasury account was found.");
             var treasuryWallet = await GetOrCreateWalletAsync(adminUserId);
             if (treasuryWallet.Balance < requiredTreasuryAmount)
-                throw new InvalidOperationException($"Insufficient treasury balance. Required: {requiredTreasuryAmount:N2} VND; current: {treasuryWallet.Balance:N2} VND.");
+                throw new InvalidOperationException($"Insufficient treasury balance. Required: ${requiredTreasuryAmount:N2} USD; current: ${treasuryWallet.Balance:N2} USD.");
 
             foreach (var entry in finalEntries)
             {
@@ -321,7 +321,7 @@ public class PrizePayoutService : IPrizePayoutService
                     await _notificationService.SendNotificationToUserAsync(
                         notice.UserId,
                         "Tournament Prize Payout",
-                        $"Congratulations! Your horse '{notice.HorseName}' achieved Top {notice.Rank} in tournament '{tournament.Name}'. You received {notice.Amount:N2} VND. Current wallet balance: {notice.Balance:N2} VND.",
+                        $"Congratulations! Your horse '{notice.HorseName}' achieved Top {notice.Rank} in tournament '{tournament.Name}'. You received ${notice.Amount:N2} USD. Current wallet balance: ${notice.Balance:N2} USD.",
                         "Wallet",
                         referenceId: (int)tournament.TournamentId,
                         actionUrl: "/owner/results");
@@ -339,7 +339,7 @@ public class PrizePayoutService : IPrizePayoutService
                     await _notificationService.SendNotificationToUserAsync(
                         notice.UserId,
                         "Outstanding Jockey Performance",
-                        $"Congratulations! Horse '{notice.HorseName}', which you rode, achieved Top {notice.Rank} in tournament '{tournament.Name}' with a total prize of {notice.Amount:N2} VND.",
+                        $"Congratulations! Horse '{notice.HorseName}', which you rode, achieved Top {notice.Rank} in tournament '{tournament.Name}' with a total prize of ${notice.Amount:N2} USD.",
                         "Tournament",
                         referenceId: (int)tournament.TournamentId,
                         actionUrl: "/jockey/schedule");
