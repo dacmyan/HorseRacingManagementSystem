@@ -65,55 +65,36 @@ public class DataSeederTests
         // Act
         await seeder.SeedAsync();
 
-        // Assert - Referees: referee-1 .. referee-4
-        for (int i = 1; i <= 4; i++)
+        // Assert - Existing pre-seeded accounts exist
+        var admin = await context.Users.FirstOrDefaultAsync(u => u.Username == "admin");
+        admin.Should().NotBeNull();
+
+        var vet = await context.Users.FirstOrDefaultAsync(u => u.Username == "vet");
+        vet.Should().NotBeNull();
+
+        var referee = await context.Users.FirstOrDefaultAsync(u => u.Username == "referee");
+        referee.Should().NotBeNull();
+
+        var owner3 = await context.Users.FirstOrDefaultAsync(u => u.Username == "owner3");
+        owner3.Should().NotBeNull();
+        owner3!.RoleId.Should().Be(2);
+
+        // Assert - Jockeys: jockeytest1 .. jockeytest25
+        for (int i = 1; i <= 25; i++)
         {
-            var user = await context.Users.FirstOrDefaultAsync(u => u.Username == $"referee-{i}");
+            var user = await context.Users.FirstOrDefaultAsync(u => u.Username == $"jockeytest{i}");
             user.Should().NotBeNull();
-            user!.Email.Should().Be($"referee-{i}@gmail.com");
-            user.FullName.Should().Be($"Referee {i}");
-            user.RoleId.Should().Be(4);
-            user.Status.Should().Be("Active");
-            user.IsEmailConfirmed.Should().BeTrue();
-
-            var verifyResult = hasher.VerifyHashedPassword(user, user.PasswordHash, "1-6");
-            verifyResult.Should().Be(PasswordVerificationResult.Success);
-
-            var profile = await context.RefereeProfiles.FirstOrDefaultAsync(p => p.UserId == user.UserId);
-            profile.Should().NotBeNull();
-        }
-
-        // Assert - Jockeys: jockey-2 .. jockey-49
-        for (int i = 2; i <= 49; i++)
-        {
-            var user = await context.Users.FirstOrDefaultAsync(u => u.Username == $"jockey-{i}");
-            user.Should().NotBeNull();
-            user!.Email.Should().Be($"jockey-{i}@gmail.com");
-            user.FullName.Should().Be($"Jockey {i}");
+            user!.Email.Should().Be($"jockeytest{i}@gmail.com");
+            user.FullName.Should().Be($"Jockey-Test{i}");
             user.RoleId.Should().Be(3);
             user.Status.Should().Be("Active");
             user.IsEmailConfirmed.Should().BeTrue();
 
-            var verifyResult = hasher.VerifyHashedPassword(user, user.PasswordHash, "1-6");
+            var verifyResult = hasher.VerifyHashedPassword(user, user.PasswordHash, "123456");
             verifyResult.Should().Be(PasswordVerificationResult.Success);
 
             var profile = await context.JockeyProfiles.FirstOrDefaultAsync(p => p.UserId == user.UserId);
             profile.Should().NotBeNull();
-        }
-
-        // Assert - Owners: owner-1 .. owner-4
-        for (int i = 1; i <= 4; i++)
-        {
-            var user = await context.Users.FirstOrDefaultAsync(u => u.Username == $"owner-{i}");
-            user.Should().NotBeNull();
-            user!.Email.Should().Be($"owner-{i}@gmail.com");
-            user.FullName.Should().Be($"Owner {i}");
-            user.RoleId.Should().Be(2);
-            user.Status.Should().Be("Active");
-            user.IsEmailConfirmed.Should().BeTrue();
-
-            var verifyResult = hasher.VerifyHashedPassword(user, user.PasswordHash, "1-6");
-            verifyResult.Should().Be(PasswordVerificationResult.Success);
         }
 
         // Assert - Existing protected accounts were not modified
