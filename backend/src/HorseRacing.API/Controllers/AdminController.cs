@@ -1511,7 +1511,22 @@ public class AdminController : ControllerBase
             return StatusCode(500, new { message = "An error occurred during tournament completion", detail = ex.Message });
         }
     }
+
+    [HttpPost("seed-su-tournaments")]
+    public async Task<IActionResult> SeedSUTournaments([FromServices] HorseRacing.Infrastructure.Persistence.DataSeeder seeder)
+    {
+        try
+        {
+            await seeder.SeedSUTournamentsAsync();
+            return Ok(new { message = "SU test tournaments seeded successfully (SU_48_HORSE: 50, SU_14_HORSE: 14, SU_11_HORSE: 11)." });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Error seeding SU tournaments", detail = ex.Message });
+        }
+    }
 }
+
 
 public class UpdateViolationStatusRequest
 {

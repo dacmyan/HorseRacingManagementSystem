@@ -113,8 +113,9 @@ using (var scope = app.Services.CreateScope())
         // await db.Database.MigrateAsync();
         logger.LogInformation("Database migration check skipped.");
 
-        // var dataSeeder = services.GetRequiredService<DataSeeder>();
-        // await dataSeeder.SeedAsync();
+        var dataSeeder = services.GetRequiredService<HorseRacing.Infrastructure.Persistence.DataSeeder>();
+        await dataSeeder.SeedAsync();
+
     }
     catch (Exception ex)
     {
