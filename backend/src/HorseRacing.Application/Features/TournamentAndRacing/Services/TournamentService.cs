@@ -287,6 +287,9 @@ public class TournamentService : ITournamentService
 
         var canGenerateRaces = qualifiedCount is >= 12 and <= 48;
         tournament.Status = canGenerateRaces ? "PendingScheduling" : "Registration Suspended";
+        var cancelledPending = canGenerateRaces
+            ? await _tournamentRepository.CancelPendingRegistrationsAsync(id)
+            : new List<CancelledRegistrationInfo>();
         _tournamentRepository.Update(tournament);
         await _tournamentRepository.SaveChangesAsync();
 
@@ -309,6 +312,24 @@ public class TournamentService : ITournamentService
             }
         }
 
+        foreach (var group in cancelledPending.GroupBy(registration => registration.OwnerId))
+        {
+            try
+            {
+                var horseNames = string.Join(", ", group.Select(registration => registration.HorseName));
+                await _notificationService.SendNotificationToUserAsync(
+                    group.Key,
+                    "Tournament registration closed",
+                    $"The registration for horse(s) [{horseNames}] in tournament '{tournament.Name}' was cancelled because registration closed after the tournament participant list was finalized.",
+                    "Tournament",
+                    (int)tournament.TournamentId,
+                    actionUrl: "/owner/registrations");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[NOTIFICATION ERROR] Failed to notify owner of cancelled registration {group.Key}: {ex.Message}");
+            }
+        }
         return new CloseRegistrationResponse
         {
             TournamentId = tournament.TournamentId,
@@ -316,6 +337,7 @@ public class TournamentService : ITournamentService
             Status = tournament.Status,
             QualifiedHorses = qualifiedCount,
             CancelledRegistrations = cancelledRegistrations.Count,
+            CancelledPendingRegistrations = cancelledPending.Count,
             CanGenerateRaces = canGenerateRaces
         };
     }

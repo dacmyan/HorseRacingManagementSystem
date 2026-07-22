@@ -477,4 +477,31 @@ public class TournamentRepository : ITournamentRepository
 
         return cancelledList;
     }
+
+    public async Task<List<CancelledRegistrationInfo>> CancelPendingRegistrationsAsync(long tournamentId)
+    {
+        var registrations = await _context.Registrations
+            .Include(registration => registration.Horse)
+            .Include(registration => registration.Tournament)
+            .Where(registration => registration.TournamentId == tournamentId &&
+                (registration.Status == "Pending" || registration.Status == "PendingVet"))
+            .ToListAsync();
+
+        var cancelled = registrations.Select(registration => new CancelledRegistrationInfo
+        {
+            RegistrationId = registration.RegistrationId,
+            OwnerId = registration.Horse?.OwnerId ?? 0,
+            HorseName = registration.Horse?.Name ?? "Unknown Horse",
+            TournamentName = registration.Tournament?.Name ?? "Unknown Tournament",
+            TournamentId = tournamentId
+        }).ToList();
+
+        foreach (var registration in registrations)
+            registration.Status = "Cancelled";
+
+        if (registrations.Count > 0)
+            await _context.SaveChangesAsync();
+
+        return cancelled;
+    }
 }
