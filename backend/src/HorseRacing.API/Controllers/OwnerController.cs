@@ -336,6 +336,30 @@ public class OwnerController : ControllerBase
         }
     }
 
+    [HttpDelete("registrations/{id:long}")]
+    public async Task<IActionResult> CancelRegistration(long id)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            await _registrationService.CancelRegistrationByOwnerAsync(userId, id);
+            return Ok(new { message = "Registration cancelled successfully" });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "An error occurred cancelling registration", detail = ex.Message });
+        }
+    }
+
+
     [HttpGet("owner/results")]
     public async Task<IActionResult> GetOwnerResults([FromServices] AppDbContext context)
     {

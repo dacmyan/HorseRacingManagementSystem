@@ -272,4 +272,45 @@ public class RegistrationService : IRegistrationService
 
         return MapToResponse(notifyReg);
     }
+
+    public async Task CancelRegistrationByOwnerAsync(int ownerUserId, long registrationId)
+    {
+        var registration = await _registrationRepository.GetByIdAsync(registrationId);
+        if (registration == null)
+        {
+            throw new KeyNotFoundException($"Registration with ID {registrationId} not found.");
+        }
+        if (registration.Horse == null || registration.Horse.OwnerId != ownerUserId)
+        {
+            throw new InvalidOperationException("Access denied. You do not own this horse registration.");
+        }
+        if (registration.Status.Equals("Cancelled", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Registration is already cancelled.");
+        }
+
+        registration.Status = "Cancelled";
+        await _registrationRepository.SaveChangesAsync();
+
+        var horseName = registration.Horse?.Name ?? "Horse";
+        var tournamentName = registration.Tournament?.Name ?? "Tournament";
+        var ownerName = registration.Horse?.Owner?.FullName ?? registration.Horse?.Owner?.Email ?? "Horse Owner";
+
+        try
+        {
+            await _notificationService.SendNotificationToRoleAsync(
+                "Admin",
+                "Tournament Registration Cancelled",
+                $"Owner '{ownerName}' has cancelled the registration for horse '{horseName}' in tournament '{tournamentName}'.",
+                "Registration",
+                referenceId: (int)registration.TournamentId,
+                actionUrl: "/admin/registrations"
+            );
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[NOTIFICATION ERROR] Failed to send cancellation notification to Admin: {ex.Message}");
+        }
+    }
 }
+
