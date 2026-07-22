@@ -93,7 +93,7 @@ public class JockeyContractServiceTests
         _contractRepoMock.Setup(r => r.HasActiveContractForJockeyInTournamentAsync(jockeyId, tournamentId))
             .ReturnsAsync(false);
 
-        _contractRepoMock.Setup(r => r.GetActiveContractForHorseAsync(It.IsAny<int>()))
+        _contractRepoMock.Setup(r => r.GetActiveContractForHorseAsync(It.IsAny<int>(), It.IsAny<long>()))
             .ReturnsAsync((JockeyContract?)null);
 
         _contractRepoMock.Setup(r => r.GetOtherPendingContractsForJockeyInTournamentAsync(jockeyId, tournamentId, contractId))

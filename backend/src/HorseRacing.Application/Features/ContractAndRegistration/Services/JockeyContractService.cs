@@ -333,7 +333,7 @@ public class JockeyContractService : IJockeyContractService
         // If accepting, cancel/expire other active contracts for the same horse and cancel other pending contracts for the same jockey in this tournament
         if (contract.Status.Equals("Accepted", StringComparison.OrdinalIgnoreCase) || contract.Status.Equals("Active", StringComparison.OrdinalIgnoreCase))
         {
-            var existingContract = await _contractRepository.GetActiveContractForHorseAsync((int)contract.HorseId);
+            var existingContract = await _contractRepository.GetActiveContractForHorseAsync((int)contract.HorseId, contract.TournamentId);
             if (existingContract != null)
             {
                 existingContract.Status = "Expired";
